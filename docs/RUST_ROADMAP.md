@@ -19,3 +19,8 @@ The immediate audio path is a temporary FFmpeg-backed `tau-mp3` sidecar tool
 for Tau ν. It does not change TNV3's TAC format or the library's pure-Rust
 constraints. Replace the sidecar path once TAC is finalized and integrated;
 subtitle support follows its own format implementation and validation.
+
+TVC groundwork: the Rust range encoder and decoder share a C-reference
+bitstream fixture, and picture slice headers are parsed with bounded table
+lengths. Macroblock syntax, prediction, transforms, reconstruction, complete
+decoding and the encoder remain to be implemented and cross-checked.

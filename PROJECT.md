@@ -38,3 +38,8 @@ remaining requirements are pending. See `docs/RUST_ROADMAP.md`.
 Temporary Tau ν audio support is provided by the optional `tau-mp3` CLI using
 FFmpeg: a generated 48 kHz host audio round trip passed on macOS. TAC and
 subtitles are future work; this does not add MP3 to the TNV3 format.
+
+The Rust crate now has TVC draft 5 range coding and picture/slice-header
+parsing. Host tests match a C-generated range-coder fixture and parse local
+reference-vector picture headers. Full picture encode/decode is still pending;
+no new Pocket or cross-platform codec claim is made.

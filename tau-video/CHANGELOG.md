@@ -6,3 +6,4 @@
 - Add bounded header validation and synthetic malformed-input tests.
 - A full checker, decoder, encoder, player and subtitle support remain pending.
 - Add an optional FFmpeg-backed MP3 sidecar encode/decode CLI (temporary).
+- Add draft 5 TVC slice header parsing and range coding; cross-check the range encoder against a C reference fixture.
