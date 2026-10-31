@@ -9,7 +9,7 @@ checker, decoder or encoder. Do not use it to certify files.
 
 ```sh
 cargo test
-cargo run --features cli -- info input.tnv3
+cargo run --bin tau-video --features cli -- info input.tnv3
 ```
 
 Default features have no dependencies. Rust 1.85 is the minimum, matching the
@@ -42,7 +42,8 @@ TNV3, generate matching video, or establish audio/video synchronization. MP3
 is a temporary sidecar path; TAC and subtitle support remain future work.
 
 The library can decode I/P/B TVC picture payloads and output cropped planar
-YUV420 in display order via `tvc::frame::PictureDecoder`. Full TVC/TNV3 stream
-parsing, seeking, encoder and a complete container checker remain unimplemented.
+YUV420 in display order via `tvc::frame::PictureDecoder`. A bounded TVC elementary-stream decoder can also write Y4M via
+`tau-video decode-tvc input.tvc output.y4m`. TNV3 stream decoding, full level
+validation, seeking, the encoder and a complete container checker remain unimplemented.
 The picture decoder has not yet passed exhaustive malformed-input or performance
 gates; do not use it as a validator.

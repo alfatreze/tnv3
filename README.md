@@ -3,8 +3,8 @@
 TNV3 is a host-side toolkit for the Tau TVC video, TAC audio and TNV3 container
 formats. This initial source release contains the validated serial C encoder,
 reference decoders, audio encoder, fixed-point audio decoder model and container tools. The pure-Rust `tau-video` crate is under development; it currently inspects
-TNV3 headers and index entries and decodes TVC picture payloads. The complete
-stream decoder, checker and encoder are pending.
+TNV3 headers and index entries and decodes TVC picture payloads. The TVC elementary-stream decoder can write Y4M; TNV3 decoding, complete
+validation and the encoder are pending.
 
 On a POSIX system with a C compiler, make and Python 3:
 
@@ -83,3 +83,6 @@ A future cross-platform GUI can use this UI-independent library.
 For temporary Tau ν MP3 sidecars, `make rust` also builds `tau-mp3`, an
 FFmpeg-backed encoder/decoder. See [the crate README](tau-video/README.md)
 for usage and limitations. The custom TAC codec and subtitles remain future work.
+
+Decode a TVC elementary stream with `tau-video decode-tvc input.tvc output.y4m`
+after `make rust`. This decoder is not yet a complete conformance checker.

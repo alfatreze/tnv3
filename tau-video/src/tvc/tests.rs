@@ -543,3 +543,20 @@ fn synthetic_i_p_b_sequence_matches_c_decoder() {
     assert_eq!(out, expected);
     assert!(decoder.finish().is_none());
 }
+
+#[test]
+fn elementary_stream_decodes_synthetic_sequence() {
+    use super::stream::decode_y4m;
+    let mut out = Vec::new();
+    decode_y4m(&include_bytes!("sequence-reference.tvc")[..], &mut out).unwrap();
+    let mut at = out.windows(6).position(|x| x == b"FRAME\n").unwrap();
+    let mut pixels = Vec::new();
+    for _ in 0..8 {
+        assert_eq!(&out[at..at + 6], b"FRAME\n");
+        at += 6;
+        pixels.extend_from_slice(&out[at..at + 1536]);
+        at += 1536;
+    }
+    assert_eq!(pixels, include_bytes!("sequence-pixels.bin"));
+    assert!(decode_y4m(&b"bad"[..], Vec::new()).is_err());
+}

@@ -9,6 +9,7 @@ pub mod picture;
 pub mod predict;
 pub mod range;
 pub mod signed;
+pub mod stream;
 pub mod transform;
 
 #[cfg(test)]

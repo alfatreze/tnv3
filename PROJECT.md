@@ -79,3 +79,8 @@ All 199 frames in the 21 local vectors matched the C decoder on the host; a
 synthetic I/P/B sequence is checked in public tests. Full stream/container
 validation, seeking, encoding, fuzzing and cross-platform performance remain
 open. No new Pocket claim is made.
+
+A Rust TVC elementary-stream reader and `decode-tvc` CLI now output Y4M in
+display order; the synthetic eight-frame output matches the C decoder on the
+host. Full conformance and level validation, TNV3 decoding, seeking, encoder
+and malformed-input fuzzing remain open. No new hardware claim is made.

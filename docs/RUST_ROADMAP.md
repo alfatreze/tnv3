@@ -56,3 +56,7 @@ P/B macroblock parsing, reference-picture reconstruction and display ordering
 are now implemented. Host comparison matched 199 local reference frames. The
 full file/container API, robust malformed-input validation, seeking and encoder
 remain open.
+
+A bounded TVC elementary-stream-to-Y4M function and CLI are available. This is
+not a complete conformance checker: full level/stream validation, TNV3 decoding,
+seeking and encoder implementation remain pending.

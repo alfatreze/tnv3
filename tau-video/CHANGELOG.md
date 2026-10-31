@@ -15,3 +15,4 @@
 - Decode intra-picture macroblock syntax within a slice; checked against a synthetic C-reference fixture.
 - Reconstruct standalone sliced or unsliced TVC intra pictures into YUV420; compared against the C decoder on local vectors.
 - Decode P/B macroblocks and pictures, retain anchor references and return frames in display order.
+- Add TVC elementary-stream decoding to Y4M as a library function and CLI command.
