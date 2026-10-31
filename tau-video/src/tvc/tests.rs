@@ -85,3 +85,69 @@ fn local_tvc_picture_headers_if_available() {
     }
     assert!(count > 0);
 }
+
+#[test]
+fn inverse_transforms_match_c_reference() {
+    use super::transform::{inverse_4x4, inverse_8x8};
+    let reference = include_bytes!("transform-reference.bin");
+    let mut pos = 0;
+    let mut x = 891203u32;
+    for n in 0..104 {
+        let mut levels = [0i16; 64];
+        for v in &mut levels {
+            x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+            *v = ((x >> 16) % 601) as i16 - 300;
+        }
+        let large = inverse_8x8(&levels, (n % 52) as u8).unwrap();
+        let small = inverse_4x4(levels[..16].try_into().unwrap(), (n % 52) as u8).unwrap();
+        for v in large.iter().flatten().chain(small.iter().flatten()) {
+            let expected = i32::from_le_bytes(reference[pos..pos + 4].try_into().unwrap());
+            pos += 4;
+            assert_eq!(*v, expected, "case {n}");
+        }
+    }
+    assert_eq!(pos, reference.len());
+    assert!(inverse_8x8(&[0; 64], 52).is_err());
+}
+
+#[test]
+fn intra_prediction_matches_c_reference() {
+    use super::predict::{IntraMode, intra_8x8};
+    let expected = include_bytes!("pred-reference.bin");
+    let mut offset = 0;
+    let mut state = 78123u32;
+    for _ in 0..64 {
+        let mut plane = [0u8; 256];
+        for p in &mut plane {
+            state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+            *p = (state >> 24) as u8;
+        }
+        for pos in 0..4 {
+            let bx = (pos & 1) * 8;
+            let by = (pos >> 1) * 8;
+            let mut top = [0; 8];
+            let mut left = [0; 8];
+            if by > 0 {
+                top.copy_from_slice(&plane[(by - 1) * 16 + bx..(by - 1) * 16 + bx + 8]);
+            }
+            if bx > 0 {
+                for i in 0..8 {
+                    left[i] = plane[(by + i) * 16 + bx - 1];
+                }
+            }
+            for mode in [
+                IntraMode::Dc,
+                IntraMode::Vertical,
+                IntraMode::Horizontal,
+                IntraMode::Planar,
+            ] {
+                let got = intra_8x8(mode, (by > 0).then_some(&top), (bx > 0).then_some(&left));
+                for v in got.into_iter().flatten() {
+                    assert_eq!(v, expected[offset]);
+                    offset += 1;
+                }
+            }
+        }
+    }
+    assert_eq!(offset, expected.len());
+}

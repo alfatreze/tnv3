@@ -2,7 +2,8 @@
 
 A portable Rust library for the TNV3/TVC/TAC/TST family. The current
 preliminary implementation reads and validates TNV3 headers and declared
-index layout, and reads individual index entries through `Read + Seek`. It also provides TVC range coding and picture-header parsing. It does
+index layout, and reads individual index entries through `Read + Seek`. It also provides TVC range coding, picture-header parsing, inverse transforms
+and intra prediction. It does
 not validate chunks, subtitles or index consistency, and is not yet a TNV3
 checker, decoder or encoder. Do not use it to certify files.
 

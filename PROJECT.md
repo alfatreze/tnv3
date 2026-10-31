@@ -43,3 +43,7 @@ The Rust crate now has TVC draft 5 range coding and picture/slice-header
 parsing. Host tests match a C-generated range-coder fixture and parse local
 reference-vector picture headers. Full picture encode/decode is still pending;
 no new Pocket or cross-platform codec claim is made.
+
+TVC integer inverse transforms and intra prediction now match synthetic C
+reference fixtures across all quantizers and edge availability cases. This is
+host-only component evidence; full frame encoding and decoding remain pending.

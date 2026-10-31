@@ -24,3 +24,7 @@ TVC groundwork: the Rust range encoder and decoder share a C-reference
 bitstream fixture, and picture slice headers are parsed with bounded table
 lengths. Macroblock syntax, prediction, transforms, reconstruction, complete
 decoding and the encoder remain to be implemented and cross-checked.
+
+The draft 5 inverse 4x4/8x8 transforms and intra prediction are implemented
+and tested against generated C-reference results. Macroblock parsing, motion
+prediction, deblocking, full decode and encoding still need implementation.
