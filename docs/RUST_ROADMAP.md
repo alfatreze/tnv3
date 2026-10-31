@@ -68,3 +68,11 @@ resume and the other encoder requirements remain open.
 The intra-only baseline also writes bounded TVC1 streams from Y4M with level
 selection and QP retries. It does not provide P/B encoding, optimized quality,
 TNV3 muxing, progress, cancellation or deterministic resume.
+
+A bounded video-only TVC1-to-TNV3 muxer is now available and checked with the
+C container checker. Audio muxing, full container checking and TNV3 playback
+remain open. The temporary MP3 path remains separate from the TNV3 format.
+
+TNV3 video-track decoding is available and matched all nine local vectors
+against the C demuxer and decoder. Audio, subtitle rendering, full validation
+and seeking remain to be implemented.

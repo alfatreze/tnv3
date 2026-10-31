@@ -94,3 +94,12 @@ The Rust baseline now encodes Y4M as intra-only TVC1 with level selection and
 size/rate-window retries. Generated streams passed the C decoder and matched
 the Rust decoder on the host. P/B encoding, quality/performance gates, TNV3
 muxing and resumable operation remain open; no new hardware claim is made.
+
+Rust now muxes TVC1 into video-only TNV3 with CRCs and display timestamps.
+The C container checker accepted a synthetic I/P/B stream and three local
+level 1–3 vectors on the host. MP3 remains a sidecar; TAC, full container
+checking and production encode/decode gates remain open.
+
+Rust also decodes the video track of TNV3 files to Y4M, ignoring audio and
+subtitles. Output matched the C demuxer and decoder on all nine local TNV3
+vectors on the host. Full checking, audio, seeking and fuzzing remain open.

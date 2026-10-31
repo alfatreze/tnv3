@@ -43,7 +43,7 @@ is a temporary sidecar path; TAC and subtitle support remain future work.
 
 The library can decode I/P/B TVC picture payloads and output cropped planar
 YUV420 in display order via `tvc::frame::PictureDecoder`. A bounded TVC elementary-stream decoder can also write Y4M via
-`tau-video decode-tvc input.tvc output.y4m`. TNV3 stream decoding, full level
+`tau-video decode-tvc input.tvc output.y4m`. Full TVC/TNV3 level
 validation, seeking, the encoder and a complete container checker remain unimplemented.
 The picture decoder has not yet passed exhaustive malformed-input or performance
 gates; do not use it as a validator.
@@ -58,3 +58,10 @@ The baseline CLI supports `tau-video encode-tvc input.y4m output.tvc` at QP 30.
 It emits intra-only pictures, selects a TVC level, and retries pictures at a
 higher QP when level picture/rate limits require it. It is not yet optimized for
 quality or speed and does not create TNV3 or synchronize an MP3 sidecar.
+
+`tau-video mux-tvc input.tvc output.tnv3` wraps TVC1 in a video-only TNV3
+container with CRCs and display timestamps. This does not include an MP3
+sidecar or TAC audio, and the muxer does not fully validate video syntax.
+
+`tau-video decode-tnv3 input.tnv3 output.y4m` decodes the video track. Audio
+and subtitles are ignored; this is not a full container conformance checker.

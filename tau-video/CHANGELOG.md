@@ -18,3 +18,5 @@
 - Add TVC elementary-stream decoding to Y4M as a library function and CLI command.
 - Add a deterministic baseline single-picture intra encoder, cross-checked with the C decoder.
 - Add baseline intra-only Y4M-to-TVC stream encoding with level selection and size retries.
+- Mux TVC1 streams into video-only TNV3 containers with display order and chunk CRCs.
+- Decode the video track of TNV3 files to Y4M; audio and subtitles are ignored.

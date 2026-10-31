@@ -289,3 +289,6 @@ impl<R: Read + Seek> Tnv3Reader<R> {
 
 /// TVC video codec building blocks.
 pub mod tvc;
+
+/// TNV3 container tools.
+pub mod container;

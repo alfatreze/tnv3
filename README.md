@@ -90,3 +90,9 @@ after `make rust`. This decoder is not yet a complete conformance checker.
 A preliminary intra-only encoder is available as `tau-video encode-tvc
 input.y4m output.tvc`. It is a functional baseline, not yet comparable to the
 optimized C encoder for compression efficiency or speed.
+
+`tau-video mux-tvc input.tvc output.tnv3` creates a video-only TNV3 file;
+the temporary MP3 audio remains a separate sidecar.
+
+`tau-video decode-tnv3 input.tnv3 output.y4m` decodes the video track; it
+does not play or extract audio or subtitles.

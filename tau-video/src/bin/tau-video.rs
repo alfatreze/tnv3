@@ -6,11 +6,12 @@ use std::{
 };
 use tau_video::{
     Tnv3Reader,
+    container::{decode_video_y4m, mux_tvc},
     tvc::{encoder::encode_y4m, stream::decode_y4m},
 };
 fn usage() -> ExitCode {
     eprintln!(
-        "Usage: tau-video info FILE | tau-video decode-tvc INPUT.tvc OUTPUT.y4m | tau-video encode-tvc INPUT.y4m OUTPUT.tvc"
+        "Usage: tau-video info FILE | tau-video decode-tvc INPUT.tvc OUTPUT.y4m | tau-video encode-tvc INPUT.y4m OUTPUT.tvc | tau-video mux-tvc INPUT.tvc OUTPUT.tnv3 | tau-video decode-tnv3 INPUT.tnv3 OUTPUT.y4m"
     );
     ExitCode::from(2)
 }
@@ -54,7 +55,7 @@ fn main() -> ExitCode {
             }
         };
     }
-    if mode != "decode-tvc" && mode != "encode-tvc" {
+    if mode != "decode-tvc" && mode != "encode-tvc" && mode != "mux-tvc" && mode != "decode-tnv3" {
         return usage();
     }
     let Some(output) = args.next() else {
@@ -83,6 +84,10 @@ fn main() -> ExitCode {
     };
     let result = if mode == "decode-tvc" {
         decode_y4m(file, out).map_err(|e| e.to_string())
+    } else if mode == "decode-tnv3" {
+        decode_video_y4m(file, out).map_err(|e| e.to_string())
+    } else if mode == "mux-tvc" {
+        mux_tvc(file, out).map(|_| ()).map_err(|e| e.to_string())
     } else {
         encode_y4m(std::io::BufReader::new(file), out, 30)
             .map(|_| ())
