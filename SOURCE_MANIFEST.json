@@ -5,7 +5,7 @@
       "status": "new_release_file"
     },
     ".gitignore": {
-      "sha256": "7071cd89141493f3ea838dc12aea65ceb7ec6b068631500228d13f933a7d824c",
+      "sha256": "337c15a463638d0f1dfe2453d028be4e5c9d1aa7eaa81edadf9de10cf9c2fc44",
       "status": "modified_for_release",
       "upstream_path": ".gitignore",
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
@@ -39,7 +39,7 @@
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
     },
     "README.md": {
-      "sha256": "b8cf1abcb0108edf2a52977388c93615739659bf266cbcdd7e0f0faa49d3ae70",
+      "sha256": "64957febe9b64e17e8acd8007bec8279d07b5d2bbae598ee131066d6033e911b",
       "status": "modified_for_release",
       "upstream_path": "README.md",
       "upstream_sha256": "5c43fc240f8973828cb354f8452106096a74d94281e7df6b3e28216e2cba1ab6"

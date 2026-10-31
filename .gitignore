@@ -7,3 +7,6 @@
 /target/
 __pycache__/
 *.pyc
+
+# Local media and research samples are never published.
+/local-media/
