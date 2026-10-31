@@ -30,3 +30,8 @@ rust:
 	cargo build --release --manifest-path tau-video/Cargo.toml --features cli,mp3-cli
 rust-test:
 	cargo test --manifest-path tau-video/Cargo.toml --all-features
+
+# Opt-in block-motion experiment; the normal rust target stays unchanged.
+.PHONY: rust-experimental
+rust-experimental:
+	cargo build --release --manifest-path tau-video/Cargo.toml --features cli,mp3-cli,block-motion

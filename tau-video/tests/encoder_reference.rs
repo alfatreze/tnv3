@@ -398,3 +398,100 @@ fn translated_changed_frame_uses_motion_and_residual() {
         let _ = fs::remove_file(y4m);
     }
 }
+
+#[cfg(feature = "block-motion")]
+#[test]
+fn block_motion_candidate_matches_c_decoder() {
+    use std::io::Cursor;
+    use tau_video::tvc::{
+        encoder::{encode_intra_picture, encode_y4m},
+        frame::{Frame420, decode_intra_picture},
+        intra::IntraSliceDecoder,
+        picture::{PictureHeader, PictureType},
+        stream::decode_y4m,
+    };
+    fn shifted_blocks(src: &[u8], w: usize, h: usize, block: usize, amount: i32) -> Vec<u8> {
+        let mut out = vec![0; src.len()];
+        for y in 0..h {
+            for x in 0..w {
+                let dx = if (x / block + y / block) % 2 == 0 {
+                    amount
+                } else {
+                    -amount
+                };
+                let sx = (x as i32 + dx).clamp(0, w as i32 - 1) as usize;
+                out[y * w + x] = src[y * w + sx].saturating_add(6);
+            }
+        }
+        out
+    }
+    let first = Frame420 {
+        width: 32,
+        height: 32,
+        y: (0..1024)
+            .map(|i| ((i * 13 + i / 32 * 17 + (i % 32) * (i / 32) * 3) % 180 + 30) as u8)
+            .collect(),
+        cb: (0..256).map(|i| ((i * 11) % 160 + 40) as u8).collect(),
+        cr: (0..256).map(|i| ((i * 7 + 80) % 160 + 40) as u8).collect(),
+    };
+    let reference =
+        decode_intra_picture(&encode_intra_picture(&first, 20).unwrap(), 32, 32).unwrap();
+    let changed = Frame420 {
+        width: 32,
+        height: 32,
+        y: shifted_blocks(&reference.y, 32, 32, 16, 2),
+        cb: shifted_blocks(&reference.cb, 16, 16, 8, 1),
+        cr: shifted_blocks(&reference.cr, 16, 16, 8, 1),
+    };
+    let mut input = b"YUV4MPEG2 W32 H32 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+    for f in [&first, &changed] {
+        input.extend_from_slice(b"FRAME\n");
+        input.extend_from_slice(&f.y);
+        input.extend_from_slice(&f.cb);
+        input.extend_from_slice(&f.cr);
+    }
+    let mut output = Cursor::new(Vec::new());
+    let summary = encode_y4m(Cursor::new(input), &mut output, 20).unwrap();
+    assert_eq!(summary.predicted, 1);
+    let bytes = output.into_inner();
+    let n = u32::from_le_bytes(bytes[20..24].try_into().unwrap()) as usize;
+    let at = 24 + n;
+    let size = u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
+    let picture = &bytes[at + 4..at + 4 + size];
+    assert_eq!(picture[0], 1);
+    let header = PictureHeader::parse(picture, 2).unwrap();
+    let mut reader = IntraSliceDecoder::for_picture(
+        &picture[header.slices[0].clone()],
+        2,
+        1,
+        header.qp,
+        header.adaptive_quantization,
+        header.transform_4x4,
+        PictureType::Predictive,
+    )
+    .unwrap();
+    let a = reader.next_macroblock().unwrap().unwrap();
+    let b = reader.next_macroblock().unwrap().unwrap();
+    assert_eq!(a.motion[0], [4, 0]);
+    assert_eq!(b.motion[0], [-4, 0]);
+    assert_ne!(a.coded | b.coded, 0);
+    let mut rust = Vec::new();
+    decode_y4m(&bytes[..], &mut rust).unwrap();
+    if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-block-{}", std::process::id()));
+        let tvc = base.with_extension("tvc");
+        let y4m = base.with_extension("y4m");
+        fs::write(&tvc, bytes).unwrap();
+        assert!(
+            Command::new(tool)
+                .arg(&tvc)
+                .arg(&y4m)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&y4m).unwrap());
+        let _ = fs::remove_file(tvc);
+        let _ = fs::remove_file(y4m);
+    }
+}

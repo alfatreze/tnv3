@@ -125,3 +125,8 @@ Rust now evaluates whole-frame motion with residual P pictures against intra
 size and YUV error. A generated translated-and-changed frame matched the C
 decoder on the host. The search remains coarse and picture-wide; block motion,
 B encoding, comprehensive quality and performance gates remain open.
+
+An opt-in Rust block-motion experiment is available; on one generated
+12-frame host case it reduced size while improving measured YUV PSNR. The
+short sample does not establish general quality or speed; default remains off.
+See `docs/RUST_ENCODER_EXPERIMENTS.md` for the data and next gates.

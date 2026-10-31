@@ -351,11 +351,36 @@ fn find_translation(current: &Frame420, reference: &Frame420) -> Option<(i32, i3
     Some((best.1, best.2, shifted))
 }
 // Encode a P picture with a whole-frame integer vector and 8x8 residuals.
+// Search 16 luma samples per macroblock over a small even-pixel window.
+fn block_motion(frame: &Frame420, reference: &Frame420, mx: usize, my: usize) -> (i32, i32) {
+    let (w, h) = (usize::from(frame.width), usize::from(frame.height));
+    let mut best = (u64::MAX, 0, 0);
+    for dy in (-4i32..=4).step_by(2) {
+        for dx in (-4i32..=4).step_by(2) {
+            let mut score = 0u64;
+            for y in (0..16).step_by(4) {
+                for x in (0..16).step_by(4) {
+                    let px = mx * 16 + x;
+                    let py = my * 16 + y;
+                    let sx = (px as i32 + dx).clamp(0, w as i32 - 1) as usize;
+                    let sy = (py as i32 + dy).clamp(0, h as i32 - 1) as usize;
+                    let d = i32::from(frame.y[py * w + px]) - i32::from(reference.y[sy * w + sx]);
+                    score += (d * d) as u64;
+                }
+            }
+            if score < best.0 {
+                best = (score, dx, dy);
+            }
+        }
+    }
+    (best.1, best.2)
+}
 fn encode_residual_picture(
     frame: &Frame420,
     reference: &Frame420,
     qp: u8,
     motion: (i32, i32),
+    per_block: bool,
 ) -> Result<Vec<u8>, EncodeError> {
     let (w, h) = (usize::from(frame.width), usize::from(frame.height));
     if w % 16 != 0
@@ -375,10 +400,16 @@ fn encode_residual_picture(
         let mut zero = [[p; 3]; 2];
         let mut magnitude = [[p; 6]; 2];
         let mut previous_diff = [0i32; 2];
+        let mut previous_motion = (0i32, 0i32);
         let mut cbp = [[p; 3]; 3];
         let mut coeff = CoefficientContexts::default();
         let mut left_coded = 0u8;
         for mx in 0..mw {
+            let current_motion = if per_block {
+                block_motion(frame, reference, mx, my)
+            } else {
+                motion
+            };
             let mut levels = [[0i16; 64]; 6];
             let mut coded = 0u8;
             for (b, block) in levels.iter_mut().enumerate() {
@@ -398,7 +429,19 @@ fn encode_residual_picture(
                 for (y, row) in residual.iter_mut().enumerate() {
                     for (x, value) in row.iter_mut().enumerate() {
                         let i = (origin.1 + y) * stride + origin.0 + x;
-                        *value = i64::from(src[i]) - i64::from(pred[i]);
+                        let (dx, dy) = if per_block {
+                            if b < 4 {
+                                current_motion
+                            } else {
+                                (current_motion.0 / 2, current_motion.1 / 2)
+                            }
+                        } else {
+                            (0, 0)
+                        };
+                        let plane_h = if b < 4 { h } else { h / 2 };
+                        let px = ((origin.0 + x) as i32 + dx).clamp(0, stride as i32 - 1) as usize;
+                        let py = ((origin.1 + y) as i32 + dy).clamp(0, plane_h as i32 - 1) as usize;
+                        *value = i64::from(src[i]) - i64::from(pred[py * stride + px]);
                     }
                 }
                 *block = quantize_8(&residual, qp);
@@ -409,15 +452,17 @@ fn encode_residual_picture(
             coder.bit(&mut skip, false);
             coder.bit(&mut intra, false);
             for component in 0..2 {
-                let diff = if mx == 0 {
-                    if component == 0 {
-                        motion.0 * 2
-                    } else {
-                        motion.1 * 2
-                    }
+                let current = if component == 0 {
+                    current_motion.0
                 } else {
-                    0
+                    current_motion.1
                 };
+                let previous = if component == 0 {
+                    previous_motion.0
+                } else {
+                    previous_motion.1
+                };
+                let diff = (current - previous) * 2;
                 let magnitude_before = previous_diff[component].unsigned_abs();
                 let class = if magnitude_before < 2 {
                     0
@@ -435,6 +480,7 @@ fn encode_residual_picture(
                 .map_err(|_| EncodeError)?;
                 previous_diff[component] = diff;
             }
+            previous_motion = current_motion;
             for b in 0..6 {
                 let (l, t, class) = if b < 4 {
                     (
@@ -759,12 +805,16 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                 if let Some(previous) = reference.as_ref() {
                     let anchor = super::frame::CodedPicture::from_aligned_frame(previous)
                         .map_err(|_| StreamEncodeError::Invalid("Invalid prediction reference."))?;
-                    let mut candidates = vec![(previous, (0, 0))];
+                    let mut candidates = vec![(previous, (0, 0), false)];
                     if let Some((dx, dy, shifted)) = translation.as_ref() {
-                        candidates.push((shifted, (*dx, *dy)));
+                        candidates.push((shifted, (*dx, *dy), false));
                     }
-                    for (predictor, motion) in candidates {
-                        if let Ok(candidate) = encode_residual_picture(&frame, predictor, q, motion)
+                    if cfg!(feature = "block-motion") {
+                        candidates.push((previous, (0, 0), true));
+                    }
+                    for (predictor, motion, per_block) in candidates {
+                        if let Ok(candidate) =
+                            encode_residual_picture(&frame, predictor, q, motion, per_block)
                         {
                             if candidate.len() >= chosen.len()
                                 || candidate.len() > limits.4

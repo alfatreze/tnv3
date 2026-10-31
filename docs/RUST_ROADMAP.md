@@ -92,3 +92,7 @@ block-level search, B encoding and production quality evaluation remain open.
 Whole-frame motion and residual P candidates are now combined and checked
 against intra reconstruction and size. Block-level search, B pictures and
 production quality/performance validation remain open.
+
+An opt-in `block-motion` experiment searches a small per-macroblock window.
+It is not production-qualified; wider corpus quality and performance tests and
+B-picture encoding remain open. See RUST_ENCODER_EXPERIMENTS.md.

@@ -10,6 +10,7 @@ description = "Portable tools for the Tau TNV3 media format"
 default = []
 cli = []
 mp3-cli = []
+block-motion = []
 
 [[bin]]
 name = "tau-video"

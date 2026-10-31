@@ -80,3 +80,9 @@ one per sample. This is an initial heuristic, not a production quality gate.
 The encoder also evaluates residual P pictures using the selected whole-frame
 translation. It compares their size and decoded error with an intra candidate;
 this adds encoding work and remains a preliminary heuristic.
+
+An experimental block-motion candidate is available with `make
+rust-experimental` (Cargo feature `block-motion`). It searches a small even-
+pixel window per macroblock and competes with the existing candidates under the
+same size/error guard. It is off by default; see
+[the experiment record](../docs/RUST_ENCODER_EXPERIMENTS.md).
