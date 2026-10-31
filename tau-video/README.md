@@ -21,3 +21,21 @@ to the local `tools/tnv3_ref/vectors` folder under `local-media` before running
 level limits are checked before use; index access allocates a fixed 16-byte
 buffer. The present frame-count limit is 432,000 (four hours at 30 fps).
 See `../docs/RUST_ROADMAP.md` and the consumer requirements for remaining work.
+
+## Temporary MP3 sidecars
+
+`make rust` also builds `tau-mp3`, a separate optional command-line adapter
+for Tau ν sidecars. It requires FFmpeg with `libmp3lame` on PATH (or set
+`TAU_FFMPEG` to its executable). The Rust library itself does not run external
+processes.
+
+```sh
+tau-mp3 encode input.wav audio.mp3
+tau-mp3 decode audio.mp3 output.wav
+```
+
+Encoding produces 48 kHz stereo MP3 at 128 kbit/s; decoding produces 48 kHz
+16-bit PCM WAV. Existing output files are not overwritten. MP3 is lossy, so
+decoded samples need not equal the input. This adapter does not mux MP3 into
+TNV3, generate matching video, or establish audio/video synchronization. MP3
+is a temporary sidecar path; TAC and subtitle support remain future work.

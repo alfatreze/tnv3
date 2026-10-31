@@ -27,6 +27,6 @@ clean:
 # The Rust library and CLI are built separately from the C reference tools.
 .PHONY: rust rust-test
 rust:
-	cargo build --release --manifest-path tau-video/Cargo.toml --features cli
+	cargo build --release --manifest-path tau-video/Cargo.toml --features cli,mp3-cli
 rust-test:
 	cargo test --manifest-path tau-video/Cargo.toml --all-features

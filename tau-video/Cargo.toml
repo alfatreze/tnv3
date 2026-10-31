@@ -9,8 +9,14 @@ description = "Portable tools for the Tau TNV3 media format"
 [features]
 default = []
 cli = []
+mp3-cli = []
 
 [[bin]]
 name = "tau-video"
 path = "src/bin/tau-video.rs"
 required-features = ["cli"]
+
+[[bin]]
+name = "tau-mp3"
+path = "src/bin/tau-mp3.rs"
+required-features = ["mp3-cli"]

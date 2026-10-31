@@ -14,3 +14,8 @@ the normative Tau V format specs govern implementation.
 
 Each stage requires its own tested release. The C tools remain an independent
 cross-check; a full checker, decoder, encoder and native cross-platform validation remain pending.
+
+The immediate audio path is a temporary FFmpeg-backed `tau-mp3` sidecar tool
+for Tau ν. It does not change TNV3's TAC format or the library's pure-Rust
+constraints. Replace the sidecar path once TAC is finalized and integrated;
+subtitle support follows its own format implementation and validation.

@@ -78,3 +78,7 @@ not a stable library API or a completed Rust crate.
 `make rust-test` runs its tests. The current reader validates header and
 declared layout only, so it cannot certify files. See [tau-video/README.md](tau-video/README.md).
 A future cross-platform GUI can use this UI-independent library.
+
+For temporary Tau ν MP3 sidecars, `make rust` also builds `tau-mp3`, an
+FFmpeg-backed encoder/decoder. See [the crate README](tau-video/README.md)
+for usage and limitations. The custom TAC codec and subtitles remain future work.

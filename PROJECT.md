@@ -34,3 +34,7 @@ Rust work has started: `tau-video/` reads TNV3 headers and individual index
 entries and provides a preliminary info CLI. This is host-tested on macOS; it
 is not a full checker, decoder or encoder. The cross-platform CI gate and the
 remaining requirements are pending. See `docs/RUST_ROADMAP.md`.
+
+Temporary Tau ν audio support is provided by the optional `tau-mp3` CLI using
+FFmpeg: a generated 48 kHz host audio round trip passed on macOS. TAC and
+subtitles are future work; this does not add MP3 to the TNV3 format.
