@@ -609,3 +609,159 @@ fn bidirectional_group_matches_c_decoder_and_container_checker() {
         let _ = fs::remove_file(y4m);
     }
 }
+
+#[cfg(feature = "b-pictures")]
+#[test]
+fn b_stream_uses_groups_and_falls_back_in_display_order() {
+    use std::io::Cursor;
+    use tau_video::{
+        container::mux_tvc,
+        tvc::{encoder::encode_y4m_b, stream::decode_y4m},
+    };
+    let mut input = b"YUV4MPEG2 W32 H32 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+    for value in [80u8, 128, 176, 15, 240, 16, 130] {
+        input.extend_from_slice(b"FRAME\n");
+        input.extend(vec![value; 1024]);
+        input.extend(vec![128u8; 512]);
+    }
+    let mut stream = Cursor::new(Vec::new());
+    let summary = encode_y4m_b(Cursor::new(input), &mut stream, 20).unwrap();
+    assert_eq!(summary.frames, 7);
+    assert_eq!(summary.b_pictures, 1);
+    let bytes = stream.into_inner();
+    let mut pos = 20;
+    let mut types = Vec::new();
+    for _ in 0..7 {
+        let n = u32::from_le_bytes(bytes[pos..pos + 4].try_into().unwrap()) as usize;
+        pos += 4;
+        types.push(bytes[pos]);
+        pos += n;
+    }
+    assert_eq!(types, [0, 0, 2, 0, 0, 0, 0]);
+    let mut rust = Vec::new();
+    decode_y4m(&bytes[..], &mut rust).unwrap();
+    let mut at = rust.windows(6).position(|x| x == b"FRAME\n").unwrap();
+    let mut means = Vec::new();
+    for _ in 0..7 {
+        assert_eq!(&rust[at..at + 6], b"FRAME\n");
+        at += 6;
+        means.push(
+            rust[at..at + 1024]
+                .iter()
+                .map(|&v| u32::from(v))
+                .sum::<u32>()
+                / 1024,
+        );
+        at += 1536;
+    }
+    assert!(means[0] < means[1] && means[1] < means[2]);
+    assert!(means[3] < means[4] && means[4] > means[5]);
+    let mut container = Cursor::new(Vec::new());
+    mux_tvc(&bytes[..], &mut container).unwrap();
+    if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-bstream-{}", std::process::id()));
+        let tvc = base.with_extension("tvc");
+        let y4m = base.with_extension("y4m");
+        fs::write(&tvc, &bytes).unwrap();
+        assert!(
+            Command::new(tool)
+                .arg(&tvc)
+                .arg(&y4m)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&y4m).unwrap());
+        if let Some(checker) = std::env::var_os("TAU_TNV3_TOOL") {
+            let tnv = base.with_extension("tnv3");
+            fs::write(&tnv, container.into_inner()).unwrap();
+            assert!(
+                Command::new(checker)
+                    .arg("check")
+                    .arg(&tnv)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+            let _ = fs::remove_file(tnv);
+        }
+        let _ = fs::remove_file(tvc);
+        let _ = fs::remove_file(y4m);
+    }
+}
+
+#[cfg(feature = "b-pictures")]
+#[test]
+fn bidirectional_group_can_encode_residuals() {
+    use tau_video::tvc::{
+        encoder::{encode_intra_picture, try_encode_b_group},
+        frame::{Frame420, decode_intra_picture},
+        intra::IntraSliceDecoder,
+        picture::{PictureHeader, PictureType},
+    };
+    let first = Frame420 {
+        width: 32,
+        height: 32,
+        y: (0..1024)
+            .map(|i| ((i * 13 + i / 32 * 17 + (i % 32) * (i / 32) * 3) % 180 + 30) as u8)
+            .collect(),
+        cb: (0..256).map(|i| ((i * 11) % 160 + 40) as u8).collect(),
+        cr: (0..256).map(|i| ((i * 7 + 80) % 160 + 40) as u8).collect(),
+    };
+    let reference =
+        decode_intra_picture(&encode_intra_picture(&first, 20).unwrap(), 32, 32).unwrap();
+    let middle = Frame420 {
+        width: 32,
+        height: 32,
+        y: reference.y.iter().map(|&x| x.saturating_add(12)).collect(),
+        cb: reference.cb.iter().map(|&x| x.saturating_add(12)).collect(),
+        cr: reference.cr.iter().map(|&x| x.saturating_add(12)).collect(),
+    };
+    let g = try_encode_b_group(&first, &middle, &first, 20)
+        .unwrap()
+        .expect("residual B should beat intra");
+    let h = PictureHeader::parse(&g.middle_picture, 2).unwrap();
+    let mut d = IntraSliceDecoder::for_picture(
+        &g.middle_picture[h.slices[0].clone()],
+        2,
+        1,
+        h.qp,
+        h.adaptive_quantization,
+        h.transform_4x4,
+        PictureType::Bidirectional,
+    )
+    .unwrap();
+    let mb = d.next_macroblock().unwrap().unwrap();
+    assert_eq!(mb.uses, 3);
+    assert_ne!(mb.coded, 0);
+    let mut tvc = b"TVC1".to_vec();
+    tvc.extend_from_slice(&32u16.to_le_bytes());
+    tvc.extend_from_slice(&32u16.to_le_bytes());
+    tvc.extend_from_slice(&24u16.to_le_bytes());
+    tvc.extend_from_slice(&1u16.to_le_bytes());
+    tvc.extend_from_slice(&3u32.to_le_bytes());
+    tvc.extend_from_slice(&[1, 0, 0, 0]);
+    for p in [&g.first_anchor, &g.future_anchor, &g.middle_picture] {
+        tvc.extend_from_slice(&(p.len() as u32).to_le_bytes());
+        tvc.extend_from_slice(p);
+    }
+    let mut rust = Vec::new();
+    tau_video::tvc::stream::decode_y4m(&tvc[..], &mut rust).unwrap();
+    if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-bresidual-{}", std::process::id()));
+        let src = base.with_extension("tvc");
+        let out = base.with_extension("y4m");
+        fs::write(&src, tvc).unwrap();
+        assert!(
+            Command::new(tool)
+                .arg(&src)
+                .arg(&out)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&out).unwrap());
+        let _ = fs::remove_file(src);
+        let _ = fs::remove_file(out);
+    }
+}

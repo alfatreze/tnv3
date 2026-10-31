@@ -408,6 +408,7 @@ fn encode_residual_picture(
     qp: u8,
     motion: (i32, i32),
     per_block: bool,
+    bidirectional: bool,
 ) -> Result<Vec<u8>, EncodeError> {
     let (w, h) = (usize::from(frame.width), usize::from(frame.height));
     if w % 16 != 0
@@ -424,6 +425,7 @@ fn encode_residual_picture(
         let p = Probability::default();
         let mut skip = p;
         let mut intra = p;
+        let mut bdir = p;
         let mut zero = [[p; 3]; 2];
         let mut magnitude = [[p; 6]; 2];
         let mut previous_diff = [0i32; 2];
@@ -478,6 +480,9 @@ fn encode_residual_picture(
             }
             coder.bit(&mut skip, false);
             coder.bit(&mut intra, false);
+            if bidirectional {
+                coder.bit(&mut bdir, false);
+            }
             for component in 0..2 {
                 let current = if component == 0 {
                     current_motion.0
@@ -506,6 +511,11 @@ fn encode_residual_picture(
                 )
                 .map_err(|_| EncodeError)?;
                 previous_diff[component] = diff;
+            }
+            if bidirectional {
+                for context in &mut zero {
+                    coder.bit(&mut context[0], false);
+                }
             }
             previous_motion = current_motion;
             for b in 0..6 {
@@ -547,7 +557,11 @@ fn encode_residual_picture(
         }
         slices.push(coder.finish());
     }
-    let mut out = vec![1, qp, if mh > 1 { 8 } else { 0 }];
+    let mut out = vec![
+        if bidirectional { 2 } else { 1 },
+        qp,
+        if mh > 1 { 8 } else { 0 },
+    ];
     if mh > 1 {
         out.push(1);
         for slice in slices.iter().take(mh - 1) {
@@ -606,8 +620,9 @@ pub struct BPictureGroup {
 }
 /// Try encoding three display-order frames using a bidirectional skip picture.
 ///
-/// Returns `Ok(None)` if the middle picture differs from the rounded average
-/// of reconstructed anchors by more than a YUV mean squared error of 4. The
+/// Uses a skip picture when the middle picture is close to the reconstructed
+/// anchors' average; otherwise tries an 8×8 residual with size/error checks.
+/// Returns `Ok(None)` when neither candidate passes. The
 /// caller must enforce stream level/rate limits and write the returned pictures
 /// in decoding order. This experimental group is not used by `encode_y4m`.
 #[cfg(feature = "b-pictures")]
@@ -646,11 +661,38 @@ pub fn try_encode_b_group(
         cb: average(&ar.cb, &br.cb),
         cr: average(&ar.cr, &br.cr),
     };
-    if !close_to_reference(middle, &predicted) {
-        return Ok(None);
-    }
-    let mut picture = encode_skip_picture(usize::from(first.width), usize::from(first.height), qp);
-    picture[0] = 2;
+    let picture = if close_to_reference(middle, &predicted) {
+        let mut picture =
+            encode_skip_picture(usize::from(first.width), usize::from(first.height), qp);
+        picture[0] = 2;
+        picture
+    } else {
+        if usize::from(first.width) % 16 != 0 || usize::from(first.height) % 16 != 0 {
+            return Ok(None);
+        }
+        let candidate = encode_residual_picture(middle, &predicted, qp, (0, 0), false, true)?;
+        let intra = encode_intra_picture(middle, qp)?;
+        if candidate.len() >= intra.len() {
+            return Ok(None);
+        }
+        let left = super::frame::CodedPicture::from_aligned_frame(&ar).map_err(|_| EncodeError)?;
+        let right = super::frame::CodedPicture::from_aligned_frame(&br).map_err(|_| EncodeError)?;
+        let recon = super::frame::decode_picture(
+            &candidate,
+            first.width,
+            first.height,
+            [Some(&left), Some(&right)],
+        )
+        .map_err(|_| EncodeError)?
+        .display_frame();
+        let intra_recon = super::frame::decode_intra_picture(&intra, first.width, first.height)
+            .map_err(|_| EncodeError)?;
+        let count = (middle.y.len() + middle.cb.len() + middle.cr.len()) as u64;
+        if squared_error(middle, &recon) > squared_error(middle, &intra_recon) + count {
+            return Ok(None);
+        }
+        candidate
+    };
     Ok(Some(BPictureGroup {
         first_anchor: a,
         future_anchor: b,
@@ -905,7 +947,7 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                     }
                     for (predictor, motion, per_block) in candidates {
                         if let Ok(candidate) =
-                            encode_residual_picture(&frame, predictor, q, motion, per_block)
+                            encode_residual_picture(&frame, predictor, q, motion, per_block, false)
                         {
                             if candidate.len() >= chosen.len()
                                 || candidate.len() > limits.4
@@ -967,4 +1009,276 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         reencoded,
         predicted,
     })
+}
+
+/// Statistics from experimental three-frame B-picture encoding.
+#[cfg(feature = "b-pictures")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BStreamSummary {
+    /// Frames encoded.
+    pub frames: u32,
+    /// Chosen TVC level.
+    pub level: u8,
+    /// B pictures written.
+    pub b_pictures: u32,
+    /// Intra pictures retried at a higher quantizer.
+    pub reencoded: u32,
+}
+#[cfg(feature = "b-pictures")]
+struct BRateWindow {
+    window: usize,
+    sizes: std::collections::VecDeque<usize>,
+    sum: usize,
+    max_picture: usize,
+    max_rate: usize,
+}
+#[cfg(feature = "b-pictures")]
+impl BRateWindow {
+    fn accepts(&self, pictures: &[&[u8]]) -> bool {
+        let mut sizes = self.sizes.clone();
+        let mut sum = self.sum;
+        for p in pictures {
+            if p.len() > self.max_picture {
+                return false;
+            }
+            if sizes.len() == self.window {
+                if let Some(v) = sizes.pop_front() {
+                    sum -= v;
+                }
+            }
+            sum += p.len();
+            if sum > self.max_rate {
+                return false;
+            }
+            sizes.push_back(p.len());
+        }
+        true
+    }
+    fn write<W: std::io::Write>(&mut self, out: &mut W, p: &[u8]) -> Result<(), StreamEncodeError> {
+        if !self.accepts(&[p]) {
+            return Err(StreamEncodeError::Invalid(
+                "Picture exceeds TVC rate limits.",
+            ));
+        }
+        if self.sizes.len() == self.window {
+            self.sum -= self
+                .sizes
+                .pop_front()
+                .ok_or(StreamEncodeError::Invalid("Invalid rate window."))?;
+        }
+        self.sum += p.len();
+        self.sizes.push_back(p.len());
+        out.write_all(&(p.len() as u32).to_le_bytes())?;
+        out.write_all(p)?;
+        Ok(())
+    }
+}
+/// Encode Y4M as an experimental TVC1 stream with bounded three-frame groups.
+///
+/// Two intra anchors and a zero-motion B picture are used only if they meet the
+/// B quality bound, improve group size against three intra pictures at the same
+/// QP, and fit the level's picture/rate windows. Otherwise each picture falls
+/// back to intra encoding with QP retries. Uses at most three input frames.
+/// Output is incremental; discard it on error. This is separate from the normal
+/// P-picture encoder and is not production qualified.
+#[cfg(feature = "b-pictures")]
+pub fn encode_y4m_b<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
+    mut input: R,
+    mut output: W,
+    qp: u8,
+) -> Result<BStreamSummary, StreamEncodeError> {
+    use std::io::SeekFrom;
+    if qp > 51 {
+        return Err(StreamEncodeError::Invalid("Invalid QP."));
+    }
+    let header = line(&mut input)?.ok_or(StreamEncodeError::Invalid("Missing Y4M header."))?;
+    let text = std::str::from_utf8(&header)
+        .map_err(|_| StreamEncodeError::Invalid("Invalid Y4M header."))?;
+    let mut fields = text.split_ascii_whitespace();
+    if fields.next() != Some("YUV4MPEG2") {
+        return Err(StreamEncodeError::Invalid("Invalid Y4M magic."));
+    }
+    let (mut width, mut height, mut num, mut den) = (None, None, None, None);
+    for field in fields {
+        if let Some(v) = field.strip_prefix('W') {
+            width = v.parse::<u16>().ok();
+        } else if let Some(v) = field.strip_prefix('H') {
+            height = v.parse::<u16>().ok();
+        } else if let Some(v) = field.strip_prefix('F') {
+            if let Some((a, b)) = v.split_once(':') {
+                num = a.parse::<u16>().ok();
+                den = b.parse::<u16>().ok();
+            }
+        } else if let Some(v) = field.strip_prefix('C') {
+            if !matches!(v, "420" | "420jpeg" | "420mpeg2" | "420paldv") {
+                return Err(StreamEncodeError::Invalid(
+                    "Only 8-bit YUV420 input is supported.",
+                ));
+            }
+        } else if let Some(v) = field.strip_prefix('I') {
+            if v != "p" && v != "?" {
+                return Err(StreamEncodeError::Invalid(
+                    "Interlaced input is unsupported.",
+                ));
+            }
+        }
+    }
+    let (w, h, n, d) = (
+        width.ok_or(StreamEncodeError::Invalid("Missing width."))?,
+        height.ok_or(StreamEncodeError::Invalid("Missing height."))?,
+        num.ok_or(StreamEncodeError::Invalid("Missing frame rate."))?,
+        den.ok_or(StreamEncodeError::Invalid("Missing frame rate."))?,
+    );
+    if w == 0
+        || h == 0
+        || w > 800
+        || h > 720
+        || n == 0
+        || d == 0
+        || u32::from(n) > 30 * u32::from(d)
+    {
+        return Err(StreamEncodeError::Invalid(
+            "Unsupported dimensions or frame rate.",
+        ));
+    }
+    let (cw, ch) = ((u32::from(w) + 15) & !15, (u32::from(h) + 15) & !15);
+    let mb = cw / 16 * (ch / 16);
+    let levels = [
+        (400, 240, 375, 11250, 96000usize, 200000usize),
+        (800, 464, 1450, 43500, 256000, 400000),
+        (800, 720, 2250, 67500, 384000, 600000),
+    ];
+    let (index, limits) = levels
+        .iter()
+        .enumerate()
+        .find(|(_, l)| {
+            cw <= l.0
+                && ch <= l.1
+                && mb <= l.2
+                && u64::from(mb) * u64::from(n) <= u64::from(l.3 as u32) * u64::from(d)
+        })
+        .ok_or(StreamEncodeError::Invalid("No TVC level fits input."))?;
+    let level = (index + 1) as u8;
+    let start = output.stream_position()?;
+    output.write_all(b"TVC1")?;
+    output.write_all(&w.to_le_bytes())?;
+    output.write_all(&h.to_le_bytes())?;
+    output.write_all(&n.to_le_bytes())?;
+    output.write_all(&d.to_le_bytes())?;
+    output.write_all(&0u32.to_le_bytes())?;
+    output.write_all(&[level, 0, 0, 0])?;
+    let (wz, hz) = (usize::from(w), usize::from(h));
+    let (chroma_w, chroma_h) = (wz.div_ceil(2), hz.div_ceil(2));
+    let mut window = BRateWindow {
+        window: usize::from(n).div_ceil(usize::from(d)),
+        sizes: std::collections::VecDeque::new(),
+        sum: 0,
+        max_picture: limits.4,
+        max_rate: limits.5,
+    };
+    let (mut frames, mut b_pictures, mut reencoded) = (0u32, 0u32, 0u32);
+    loop {
+        let mut group = Vec::with_capacity(3);
+        for _ in 0..3 {
+            let Some(tag) = line(&mut input)? else { break };
+            if tag != b"FRAME\n" && !tag.starts_with(b"FRAME ") {
+                return Err(StreamEncodeError::Invalid("Invalid Y4M frame marker."));
+            }
+            if frames + group.len() as u32 >= crate::MAX_FRAMES {
+                return Err(StreamEncodeError::Invalid("Too many frames."));
+            }
+            let mut f = Frame420 {
+                width: w,
+                height: h,
+                y: vec![0; wz * hz],
+                cb: vec![0; chroma_w * chroma_h],
+                cr: vec![0; chroma_w * chroma_h],
+            };
+            input.read_exact(&mut f.y)?;
+            input.read_exact(&mut f.cb)?;
+            input.read_exact(&mut f.cr)?;
+            group.push(f);
+        }
+        if group.is_empty() {
+            break;
+        }
+        let mut encoded_group = None;
+        if group.len() == 3 {
+            if let (Ok(Some(b)), Ok(mid)) = (
+                try_encode_b_group(&group[0], &group[1], &group[2], qp),
+                encode_intra_picture(&group[1], qp),
+            ) {
+                let b_size = b.first_anchor.len() + b.future_anchor.len() + b.middle_picture.len();
+                let i_size = b.first_anchor.len() + b.future_anchor.len() + mid.len();
+                if b_size < i_size
+                    && window.accepts(&[&b.first_anchor, &b.future_anchor, &b.middle_picture])
+                {
+                    encoded_group = Some(b);
+                }
+            }
+        }
+        if let Some(b) = encoded_group {
+            window.write(&mut output, &b.first_anchor)?;
+            window.write(&mut output, &b.future_anchor)?;
+            window.write(&mut output, &b.middle_picture)?;
+            b_pictures += 1;
+        } else {
+            for f in &group {
+                let mut q = qp;
+                let picture = loop {
+                    match encode_intra_picture(f, q) {
+                        Ok(p) if window.accepts(&[&p]) => break p,
+                        _ if q < 51 => q += 1,
+                        _ => {
+                            return Err(StreamEncodeError::Invalid(
+                                "Picture cannot fit TVC rate limits.",
+                            ));
+                        }
+                    }
+                };
+                if q != qp {
+                    reencoded += 1;
+                }
+                window.write(&mut output, &picture)?;
+            }
+        }
+        frames += group.len() as u32;
+    }
+    if frames == 0 {
+        return Err(StreamEncodeError::Invalid("Y4M stream has no frames."));
+    }
+    let end = output.stream_position()?;
+    output.seek(SeekFrom::Start(start + 12))?;
+    output.write_all(&frames.to_le_bytes())?;
+    output.seek(SeekFrom::Start(end))?;
+    Ok(BStreamSummary {
+        frames,
+        level,
+        b_pictures,
+        reencoded,
+    })
+}
+
+#[cfg(all(test, feature = "b-pictures"))]
+mod b_rate_tests {
+    use super::BRateWindow;
+    #[test]
+    fn group_rate_probe_does_not_mutate_window() {
+        let mut w = BRateWindow {
+            window: 2,
+            sizes: std::collections::VecDeque::new(),
+            sum: 0,
+            max_picture: 10,
+            max_rate: 12,
+        };
+        let mut out = Vec::new();
+        w.write(&mut out, &[0; 6]).unwrap();
+        w.write(&mut out, &[0; 6]).unwrap();
+        assert!(!w.accepts(&[&[0; 7]]));
+        assert!(w.accepts(&[&[0; 5], &[0; 7]]));
+        assert_eq!(w.sum, 12);
+        w.write(&mut out, &[0; 5]).unwrap();
+        assert_eq!(w.sum, 11);
+        assert!(!w.accepts(&[&[0; 11]]));
+    }
 }

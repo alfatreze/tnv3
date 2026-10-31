@@ -27,3 +27,4 @@
 - Add opt-in experimental block-motion P-picture search.
 - Add a sampled precheck to the opt-in block-motion experiment; default remains unchanged.
 - Add opt-in three-frame B-picture group encoding for bounded zero-motion experiments.
+- Add an opt-in three-frame B stream mode with residual coding and rate-aware intra fallback.

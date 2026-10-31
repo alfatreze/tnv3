@@ -87,8 +87,11 @@ pixel window per macroblock and competes with the existing candidates under the
 same size/error guard. It is off by default; see
 [the experiment record](../docs/RUST_ENCODER_EXPERIMENTS.md).
 
-The optional `b-pictures` feature exposes `try_encode_b_group` for a narrow
-three-frame experiment: two intra anchors and a zero-motion bidirectional
-skip picture, accepted only when its YUV mean squared error is at most 4. It
-returns pictures in decoding order. The stream encoder and CLI do not yet use
-this API or emit B pictures; callers must enforce level and rate limits.
+The optional `b-pictures` feature provides an experimental three-frame stream
+mode. Build with `make rust-experimental`, then run `tau-video encode-tvc-b
+input.y4m output.tvc`. It uses two intra anchors and one zero-motion B picture
+with either skip or residual coding when quality, size and rate checks pass;
+otherwise it falls back to intra pictures. This mode buffers at most three
+frames and is separate from the normal P-picture encoder. Short real-clip tests
+showed it can produce substantially larger files than the default; see
+[the experiment record](../docs/RUST_ENCODER_EXPERIMENTS.md).

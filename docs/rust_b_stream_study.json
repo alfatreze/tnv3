@@ -1,0 +1,153 @@
+{
+  "date": "2026-10-31",
+  "classification": "host",
+  "note": "Four 400-pixel local reference clips, 6\u201310 frames, same nominal QP 30, single non-interleaved timing runs. Y-plane PSNR. Timing is too short/noisy for conclusions.",
+  "skip_only": [
+    {
+      "case": "dialog",
+      "mode": "encode-tvc",
+      "bytes": 42394,
+      "psnr_y": 36.557,
+      "seconds": 0.3146,
+      "b_pictures": 0,
+      "frames": 10
+    },
+    {
+      "case": "dialog",
+      "mode": "encode-tvc-b",
+      "bytes": 87485,
+      "psnr_y": 36.289,
+      "seconds": 0.0241,
+      "b_pictures": 0,
+      "frames": 10
+    },
+    {
+      "case": "anime",
+      "mode": "encode-tvc",
+      "bytes": 27439,
+      "psnr_y": 40.903,
+      "seconds": 0.0287,
+      "b_pictures": 0,
+      "frames": 8
+    },
+    {
+      "case": "anime",
+      "mode": "encode-tvc-b",
+      "bytes": 41112,
+      "psnr_y": 40.723,
+      "seconds": 0.0199,
+      "b_pictures": 0,
+      "frames": 8
+    },
+    {
+      "case": "bw",
+      "mode": "encode-tvc",
+      "bytes": 27933,
+      "psnr_y": 39.257,
+      "seconds": 0.0277,
+      "b_pictures": 0,
+      "frames": 6
+    },
+    {
+      "case": "bw",
+      "mode": "encode-tvc-b",
+      "bytes": 47044,
+      "psnr_y": 39.091,
+      "seconds": 0.0221,
+      "b_pictures": 0,
+      "frames": 6
+    },
+    {
+      "case": "action",
+      "mode": "encode-tvc",
+      "bytes": 46292,
+      "psnr_y": 36.585,
+      "seconds": 0.0341,
+      "b_pictures": 0,
+      "frames": 6
+    },
+    {
+      "case": "action",
+      "mode": "encode-tvc-b",
+      "bytes": 47842,
+      "psnr_y": 36.677,
+      "seconds": 0.0183,
+      "b_pictures": 0,
+      "frames": 6
+    }
+  ],
+  "residual": [
+    {
+      "case": "dialog",
+      "mode": "encode-tvc",
+      "bytes": 42394,
+      "psnr_y": 36.557,
+      "seconds": 0.3068,
+      "b_pictures": 0,
+      "frames": 10
+    },
+    {
+      "case": "dialog",
+      "mode": "encode-tvc-b",
+      "bytes": 68191,
+      "psnr_y": 36.571,
+      "seconds": 0.025,
+      "b_pictures": 3,
+      "frames": 10
+    },
+    {
+      "case": "anime",
+      "mode": "encode-tvc",
+      "bytes": 27439,
+      "psnr_y": 40.903,
+      "seconds": 0.0294,
+      "b_pictures": 0,
+      "frames": 8
+    },
+    {
+      "case": "anime",
+      "mode": "encode-tvc-b",
+      "bytes": 38099,
+      "psnr_y": 40.75,
+      "seconds": 0.0207,
+      "b_pictures": 2,
+      "frames": 8
+    },
+    {
+      "case": "bw",
+      "mode": "encode-tvc",
+      "bytes": 27933,
+      "psnr_y": 39.257,
+      "seconds": 0.0292,
+      "b_pictures": 0,
+      "frames": 6
+    },
+    {
+      "case": "bw",
+      "mode": "encode-tvc-b",
+      "bytes": 36410,
+      "psnr_y": 39.341,
+      "seconds": 0.022,
+      "b_pictures": 2,
+      "frames": 6
+    },
+    {
+      "case": "action",
+      "mode": "encode-tvc",
+      "bytes": 46292,
+      "psnr_y": 36.585,
+      "seconds": 0.0212,
+      "b_pictures": 0,
+      "frames": 6
+    },
+    {
+      "case": "action",
+      "mode": "encode-tvc-b",
+      "bytes": 45123,
+      "psnr_y": 36.721,
+      "seconds": 0.0168,
+      "b_pictures": 2,
+      "frames": 6
+    }
+  ]
+}

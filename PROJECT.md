@@ -140,3 +140,8 @@ Rust has an opt-in library experiment for a three-frame group with two intra
 anchors and a zero-motion B picture. A synthetic case passed the C decoder and
 TNV3 checker on the host. The stream encoder does not emit B pictures; wider
 quality, rate, speed and end-to-end integration remain open.
+
+An opt-in Rust three-frame B stream mode now includes zero-motion residuals
+and rate-aware intra fallback. C decode and container checks passed on the
+host. In four short clip comparisons it was larger than the normal P encoder
+on three clips, so it remains experimental. See RUST_ENCODER_EXPERIMENTS.md.

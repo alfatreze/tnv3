@@ -60,3 +60,25 @@ equality, display ordering and the C TNV3 checker. The B payload was smaller
 than a separately encoded intra picture on that case. No performance, corpus,
 Pocket or Quartus claim. The stream encoder does not use this function. Next:
 rate-window-aware integration, fallback, broader quality tests and benchmarks.
+
+## B stream integration and residuals — 2026-10-31
+
+The earlier skip-only group is now an opt-in `encode-tvc-b` stream prototype.
+It buffers up to three input frames, evaluates skip or zero-motion residual B
+pictures, checks decoded error and group size against intra alternatives, and
+enforces the video level window. Rejected groups fall back to intra pictures
+with QP retries. This changes the experimental encoder hot path only; the
+normal P encoder remains the default. **Host:** synthetic groups passed
+Rust/C pixel equality, display order, fallback and C TNV3 checker tests.
+
+Four 400-pixel local decoded clips at nominal QP 30, each 6–10 frames, gave
+the following B-stream results versus the normal P encoder: dialog +60.85%
+bytes / +0.014 dB Y-PSNR; anime +38.85% / -0.153 dB; black-and-white +30.35%
+/ +0.084 dB; action -2.53% / +0.136 dB. These are same-QP, short host tests,
+not equal-quality rate comparisons. C container checks passed for all four.
+The skip-only prototype used no B pictures in these clips; residual coding
+used 2–3 per clip but intra anchors outweighed savings on three. Single short
+timing runs were too noisy to compare speed. See `rust_b_stream_study.json`.
+Decision: retain as opt-in only; no new Pocket or Quartus claim. Next gate:
+share anchors with the normal P path, then repeat longer paired quality/rate
+and speed studies before considering a default change.

@@ -99,3 +99,7 @@ B-picture encoding remain open. See RUST_ENCODER_EXPERIMENTS.md.
 
 An optional three-frame zero-motion B-group primitive is available for
 experiments. It is not integrated with stream encoding or rate control.
+
+The opt-in `encode-tvc-b` stream prototype now emits zero-motion B groups with
+residuals and rate-aware intra fallback. It is not competitive on most short
+real clips tested and is not production-qualified; see the experiment record.
