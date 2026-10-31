@@ -10,3 +10,6 @@ __pycache__/
 
 # Local media and research samples are never published.
 /local-media/
+
+# Rust crate build outputs
+/tau-video/target/

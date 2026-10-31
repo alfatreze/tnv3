@@ -23,3 +23,10 @@ test: all experimental
 	python3 tests/smoke.py
 clean:
 	rm -f tools/tvc_ref/tvc_enc tools/tvc_ref/tvc_dec tools/tvc_ref/tvc_enc_slice_experimental tools/tac_ref/tac tools/tac_ref/tac_fx tools/tnv3_ref/tnv3
+
+# The Rust library and CLI are built separately from the C reference tools.
+.PHONY: rust rust-test
+rust:
+	cargo build --release --manifest-path tau-video/Cargo.toml --features cli
+rust-test:
+	cargo test --manifest-path tau-video/Cargo.toml --all-features

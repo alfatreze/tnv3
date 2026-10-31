@@ -4,8 +4,11 @@
       "sha256": "a0be0dae152cb0eeb333098400a1c0e1cc1345231f91735eace848465fd610a6",
       "status": "new_release_file"
     },
+    ".github/workflows/rust.yml": {
+      "sha256": "db5c9a63c3e009200c81d992f26b4158edde843c96c7e23d866c6cb69ba7adc9"
+    },
     ".gitignore": {
-      "sha256": "337c15a463638d0f1dfe2453d028be4e5c9d1aa7eaa81edadf9de10cf9c2fc44",
+      "sha256": "ec1b5272a16453df9535e233e705482e9390c11538481a88ba3209800d9f5863",
       "status": "modified_for_release",
       "upstream_path": ".gitignore",
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
@@ -21,7 +24,7 @@
       "upstream_sha256": "97f2fc7dcf1d762944a4535509d4c1535b9c17dce15258ca4acafd410c19c70d"
     },
     "Makefile": {
-      "sha256": "7dcca293a476252479200d9d5489ee9cbd75243318d2a3ccfb788c71090b8363",
+      "sha256": "d7e5e951a6e6d85c9f1d090293faf4f572c35d910d71ec7122f164029d69d731",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
@@ -33,13 +36,13 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "bc239ffac76646b522f1cbb835be810ee369be588205560153de920c53a246fb",
+      "sha256": "afa055d0c6909d24129027cb378773b0c7f1897a497e79dc1b54da1616685d7c",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
     },
     "README.md": {
-      "sha256": "3863cfc5fb840390ff8d449c04ff11807af8c22d443a55b20faa0c4349ed4002",
+      "sha256": "75e86595a0ffb76bd58ad0d81997073f6a05169d8206983ea6275968e4391dc1",
       "status": "modified_for_release",
       "upstream_path": "README.md",
       "upstream_sha256": "5c43fc240f8973828cb354f8452106096a74d94281e7df6b3e28216e2cba1ab6"
@@ -134,7 +137,7 @@
       "sha256": "8a60c50fd3fc6f95ab4d44990153482128498bee817f866b4755ddeb66c4842c"
     },
     "docs/RUST_ROADMAP.md": {
-      "sha256": "1fef705d8c974cc0a961ef987fe13b7b34ef3b5ae3e586cee266f46b4250186f",
+      "sha256": "c32c5f29bd0284bd6b91391576d0ce277920d2d2bf8c7c3f9da87d34976c6f16",
       "status": "new_release_file"
     },
     "docs/SDRAM_CONTROLLER_REQUIREMENTS.md": {
@@ -924,6 +927,27 @@
     },
     "docs/research/DECODE_QUALITY_RESEARCH.md": {
       "sha256": "3da9ca782ff5e1090ffd50c056bb38a5a144209e6cb96e225c2fb331d2979ed8"
+    },
+    "tau-video/CHANGELOG.md": {
+      "sha256": "c6e1bcaff33e0954d5f695b3bede19be0d7de41c1b5b07a1568ffafdf2cb635f"
+    },
+    "tau-video/Cargo.lock": {
+      "sha256": "a70d751d12315aac2d7a9d894ef799386493662f2d8111ace4022ae1a2165180"
+    },
+    "tau-video/Cargo.toml": {
+      "sha256": "479b18feb6307f580464dd13c0b03ddcac85c000a2ec7c8471da425d3dd98e77"
+    },
+    "tau-video/README.md": {
+      "sha256": "8d9a71e4975273ea86f584ac8762f5b4e9837157cd06dbac89cfa8aeff40564c"
+    },
+    "tau-video/src/bin/tau-video.rs": {
+      "sha256": "6c6adfc71318cd639b3b94de652cff07129f1d0f71bcf991396edd20cd4deb0f"
+    },
+    "tau-video/src/lib.rs": {
+      "sha256": "4d064f569eaff064f6e20b03a1017b0c3ae709edeff5c3b330fe377348499152"
+    },
+    "tau-video/tests/reader.rs": {
+      "sha256": "fad504818284d7e2382d348743b814f6a96002d2837b0aa52ff367df4d3c7a9a"
     },
     "tests/check_manifest.py": {
       "sha256": "59ec527d0479aeb03589d5d7b67c10359e630d04abb2baa65a81f4a5d5482a2c",

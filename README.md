@@ -2,8 +2,8 @@
 
 TNV3 is a host-side toolkit for the Tau TVC video, TAC audio and TNV3 container
 formats. This initial source release contains the validated serial C encoder,
-reference decoders, audio encoder, fixed-point audio decoder model and container tools. The planned pure-Rust
-`tau-video` crate is not included yet.
+reference decoders, audio encoder, fixed-point audio decoder model and container tools. The pure-Rust `tau-video` crate is under development; it currently inspects
+TNV3 headers and index entries. Its checker, decoder and encoder are pending.
 
 On a POSIX system with a C compiler, make and Python 3:
 
@@ -71,3 +71,10 @@ been exercised only through a model, not a native Windows build or runtime.
 The reference encoder holds its complete input in memory. See `VALIDATION.md`
 and the encoder reports for measured results and remaining gates. This alpha is
 not a stable library API or a completed Rust crate.
+
+## Rust library and CLI (in development)
+
+`make rust` builds the library and the `tau-video info FILE` command;
+`make rust-test` runs its tests. The current reader validates header and
+declared layout only, so it cannot certify files. See [tau-video/README.md](tau-video/README.md).
+A future cross-platform GUI can use this UI-independent library.

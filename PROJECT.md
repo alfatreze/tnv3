@@ -28,3 +28,9 @@ format family and comparative research; this is a documentation change only.
 
 The README summarizes measured encoder and comparative codec research, with
 links to the underlying methods and evidence limits.
+
+
+Rust work has started: `tau-video/` reads TNV3 headers and individual index
+entries and provides a preliminary info CLI. This is host-tested on macOS; it
+is not a full checker, decoder or encoder. The cross-platform CI gate and the
+remaining requirements are pending. See `docs/RUST_ROADMAP.md`.
