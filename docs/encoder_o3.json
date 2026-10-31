@@ -1,0 +1,177 @@
+{
+ "nframes": 96,
+ "qps": [
+  24,
+  30,
+  36
+ ],
+ "corpus": [
+  "dialog",
+  "action",
+  "anime_dialog",
+  "bw_room"
+ ],
+ "encoder_args": [],
+ "encoder_cflags": [
+  "-O3"
+ ],
+ "no_recon_checked": false,
+ "results": [
+  {
+   "clip": "dialog",
+   "qp": 24,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 222197,
+   "psnr_y": 41.818,
+   "bins": 2106669,
+   "bins_per_byte": 9.4811,
+   "bins_per_mb": 79.8,
+   "enc_s": 5.1
+  },
+  {
+   "clip": "dialog",
+   "qp": 30,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 104203,
+   "psnr_y": 38.022,
+   "bins": 1050535,
+   "bins_per_byte": 10.0816,
+   "bins_per_mb": 39.79,
+   "enc_s": 2.8
+  },
+  {
+   "clip": "dialog",
+   "qp": 36,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 45046,
+   "psnr_y": 33.922,
+   "bins": 460492,
+   "bins_per_byte": 10.2227,
+   "bins_per_mb": 17.44,
+   "enc_s": 1.7
+  },
+  {
+   "clip": "action",
+   "qp": 24,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 354233,
+   "psnr_y": 41.07,
+   "bins": 3189793,
+   "bins_per_byte": 9.0048,
+   "bins_per_mb": 120.83,
+   "enc_s": 4.3
+  },
+  {
+   "clip": "action",
+   "qp": 30,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 175502,
+   "psnr_y": 37.027,
+   "bins": 1636588,
+   "bins_per_byte": 9.3252,
+   "bins_per_mb": 61.99,
+   "enc_s": 2.4
+  },
+  {
+   "clip": "action",
+   "qp": 36,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 83142,
+   "psnr_y": 33.262,
+   "bins": 832523,
+   "bins_per_byte": 10.0133,
+   "bins_per_mb": 31.53,
+   "enc_s": 1.5
+  },
+  {
+   "clip": "anime_dialog",
+   "qp": 24,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 376240,
+   "psnr_y": 43.344,
+   "bins": 3477999,
+   "bins_per_byte": 9.2441,
+   "bins_per_mb": 96.61,
+   "enc_s": 5.5
+  },
+  {
+   "clip": "anime_dialog",
+   "qp": 30,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 184878,
+   "psnr_y": 39.426,
+   "bins": 1741253,
+   "bins_per_byte": 9.4184,
+   "bins_per_mb": 48.37,
+   "enc_s": 3.1
+  },
+  {
+   "clip": "anime_dialog",
+   "qp": 36,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 84929,
+   "psnr_y": 35.557,
+   "bins": 826354,
+   "bins_per_byte": 9.7299,
+   "bins_per_mb": 22.95,
+   "enc_s": 1.9
+  },
+  {
+   "clip": "bw_room",
+   "qp": 24,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 301218,
+   "psnr_y": 42.458,
+   "bins": 2843242,
+   "bins_per_byte": 9.4392,
+   "bins_per_mb": 62.35,
+   "enc_s": 7.1
+  },
+  {
+   "clip": "bw_room",
+   "qp": 30,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 132908,
+   "psnr_y": 38.388,
+   "bins": 1329728,
+   "bins_per_byte": 10.0049,
+   "bins_per_mb": 29.16,
+   "enc_s": 4.0
+  },
+  {
+   "clip": "bw_room",
+   "qp": 36,
+   "ok": true,
+   "why": "",
+   "frames": 96,
+   "bytes": 52115,
+   "psnr_y": 34.28,
+   "bins": 528961,
+   "bins_per_byte": 10.1499,
+   "bins_per_mb": 11.6,
+   "enc_s": 2.4
+  }
+ ]
+}

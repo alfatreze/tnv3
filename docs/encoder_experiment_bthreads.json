@@ -1,0 +1,17 @@
+{
+  "variant": "bthreads",
+  "base_source_sha256": "67dcf003b92fab59f4c44e632c6a340bf0517c4d1353d4b469d83e07777e2257",
+  "generated_source_sha256": "6a9ae72f5ff91a5ed588d4922480052cd80f9cc51910a1553397036a1fa0e196",
+  "binary_sha256": "8030d1ec5ba857bc1bde14dab67935259b19c0b33e5d14e0d6e15627c607bbb9",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bthreads.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bthreads"
+  ]
+}

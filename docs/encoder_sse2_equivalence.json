@@ -1,0 +1,102 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "frames": 96,
+  "repeats": 1,
+  "suffix": "400",
+  "binaries": {
+    "before": {
+      "path": "<encoder-worktree>/work/encoder_lab/encoder-x86-portable",
+      "sha256": "6a1d6098113ddd742e42550f3173ef7ece0449b91685dbc26dfbf125d90e7d1c"
+    },
+    "after": {
+      "path": "<encoder-worktree>/work/encoder_lab/encoder-x86-simd",
+      "sha256": "4580eae8fced6b07947441a180218a6909fc2f8bc357247828e04933473a9f7e"
+    }
+  },
+  "samples": [
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 4.791224790737033,
+      "stream_sha256": "794677fb1d11cf8aad115cb8c08e9b9d384c4a0ed9cd3a16adb3b182e506908a"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 4.709055709186941,
+      "stream_sha256": "794677fb1d11cf8aad115cb8c08e9b9d384c4a0ed9cd3a16adb3b182e506908a"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 8.739767583087087,
+      "stream_sha256": "e5e7f1faa7cad293ea4755ecb75df00071011f7add766d3d13986c2a48ea12cc"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 8.725259957835078,
+      "stream_sha256": "e5e7f1faa7cad293ea4755ecb75df00071011f7add766d3d13986c2a48ea12cc"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 3.7236213330179453,
+      "stream_sha256": "02459698b087c292a883c80411719999513b800477e12f617d75a6537e3156ca"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 3.7526809172704816,
+      "stream_sha256": "02459698b087c292a883c80411719999513b800477e12f617d75a6537e3156ca"
+    }
+  ],
+  "summary": [
+    {
+      "case": "action:30",
+      "median_seconds": {
+        "before": 4.791224790737033,
+        "after": 4.709055709186941
+      },
+      "fps": {
+        "before": 20.036630338363302,
+        "after": 20.38625277095633
+      },
+      "speedup": 1.0174491631920572,
+      "identical_streams": true
+    },
+    {
+      "case": "anime_dialog:24",
+      "median_seconds": {
+        "before": 8.739767583087087,
+        "after": 8.725259957835078
+      },
+      "fps": {
+        "before": 10.984273790732841,
+        "after": 11.002537513371651
+      },
+      "speedup": 1.0016627155319286,
+      "identical_streams": true
+    },
+    {
+      "case": "bw_room:36",
+      "median_seconds": {
+        "before": 3.7236213330179453,
+        "after": 3.7526809172704816
+      },
+      "fps": {
+        "before": 25.781354067545124,
+        "after": 25.58171134619827
+      },
+      "speedup": 0.9922563135813655,
+      "identical_streams": true
+    }
+  ]
+}

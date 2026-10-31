@@ -1,0 +1,11 @@
+{
+  "trials" : 50,
+  "gpu" : "Apple M4 Pro",
+  "unified_memory" : true,
+  "tiny_dispatch_wall_median_us" : 130.99983334541321,
+  "pipeline_initialization_ms" : 130.97400031983852,
+  "tiny_dispatch_wall_p95_us" : 154.00024130940437,
+  "tiny_dispatch_gpu_median_us" : 6.9998204708099365,
+  "scope" : "one uint increment; submit+wait wall time; not a TVC or throughput benchmark",
+  "warmups" : 5
+}

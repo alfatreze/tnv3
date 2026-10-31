@@ -1,0 +1,45 @@
+[
+  {
+    "case": "baseline",
+    "env": {},
+    "stream_sha256": "e066fbf8671a8f42967ac468142f0ae4d79ab2db3f7dfe27ece0fbb7a5262a59",
+    "recon_sha256": "ed32611e846bb4769b836355f9b859910dd9c5a21db1f799f6adf1b5a66511d6",
+    "diagnostics": "24 frames, 59694 bytes, 2487.2 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+  },
+  {
+    "case": "prep1",
+    "env": {
+      "TVC_BPOOL_TEST_PREP_FAIL_AT": "1"
+    },
+    "stream_sha256": "e066fbf8671a8f42967ac468142f0ae4d79ab2db3f7dfe27ece0fbb7a5262a59",
+    "recon_sha256": "ed32611e846bb4769b836355f9b859910dd9c5a21db1f799f6adf1b5a66511d6",
+    "diagnostics": "24 frames, 59694 bytes, 2487.2 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+  },
+  {
+    "case": "prep2",
+    "env": {
+      "TVC_BPOOL_TEST_PREP_FAIL_AT": "2"
+    },
+    "stream_sha256": "e066fbf8671a8f42967ac468142f0ae4d79ab2db3f7dfe27ece0fbb7a5262a59",
+    "recon_sha256": "ed32611e846bb4769b836355f9b859910dd9c5a21db1f799f6adf1b5a66511d6",
+    "diagnostics": "24 frames, 59694 bytes, 2487.2 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+  },
+  {
+    "case": "worker_mb",
+    "env": {
+      "TVC_BPOOL_TEST_MB_FAIL": "1"
+    },
+    "stream_sha256": "e066fbf8671a8f42967ac468142f0ae4d79ab2db3f7dfe27ece0fbb7a5262a59",
+    "recon_sha256": "ed32611e846bb4769b836355f9b859910dd9c5a21db1f799f6adf1b5a66511d6",
+    "diagnostics": "24 frames, 59694 bytes, 2487.2 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+  },
+  {
+    "case": "startup",
+    "env": {
+      "TVC_BPOOL_TEST_INIT_FAIL": "1"
+    },
+    "stream_sha256": "e066fbf8671a8f42967ac468142f0ae4d79ab2db3f7dfe27ece0fbb7a5262a59",
+    "recon_sha256": "ed32611e846bb4769b836355f9b859910dd9c5a21db1f799f6adf1b5a66511d6",
+    "diagnostics": "24 frames, 59694 bytes, 2487.2 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+  }
+]

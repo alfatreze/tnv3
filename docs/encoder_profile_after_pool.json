@@ -1,0 +1,65 @@
+[
+  {
+    "source_sha256": "67dcf003b92fab59f4c44e632c6a340bf0517c4d1353d4b469d83e07777e2257",
+    "instrumentation": "inclusive clock timings; timing-call overhead included; fdct8 excludes 4x4 transforms",
+    "case": "action_400",
+    "qp": 30,
+    "frames": 96,
+    "instrumented_total_s": 1.94867,
+    "fractional_search_sad_s": 0.136720001,
+    "rdoq_s": 0.959274903,
+    "fdct8_s": 0.091587054,
+    "fractional_search_calls": 686400,
+    "rdoq_calls": 2087385,
+    "fdct8_calls": 1131504,
+    "dependency_sha256": {
+      "tools/tvc_ref/tvc.h": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
+      "tools/tvc_ref/enc/pixel_ops.h": "1d47d23de992676256a62610d9cf60211bffe7e04d180a9b69c618b82be9567d",
+      "tools/tvc_ref/enc/bit_ops.h": "9d744c1931b511c049e91e6a55543e1ffc85c607e2647f0a21cc1806a4753cba",
+      "tools/tvc_ref/enc/qpel.h": "87ebcc9603cc138263cbe2c070ffa0975096c530cd43d375cc4a840ab6498a8d",
+      "tools/tvc_ref/enc/rdoq.h": "54fa9e5086d6d611bfa9d3101b8599545f1b41cbb56bb77ad097590a1364c5c2"
+    }
+  },
+  {
+    "source_sha256": "67dcf003b92fab59f4c44e632c6a340bf0517c4d1353d4b469d83e07777e2257",
+    "instrumentation": "inclusive clock timings; timing-call overhead included; fdct8 excludes 4x4 transforms",
+    "case": "anime_dialog_400",
+    "qp": 30,
+    "frames": 96,
+    "instrumented_total_s": 2.526911,
+    "fractional_search_sad_s": 0.182368006,
+    "rdoq_s": 1.356223977,
+    "fdct8_s": 0.11335902,
+    "fractional_search_calls": 936000,
+    "rdoq_calls": 2670602,
+    "fdct8_calls": 1412466,
+    "dependency_sha256": {
+      "tools/tvc_ref/tvc.h": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
+      "tools/tvc_ref/enc/pixel_ops.h": "1d47d23de992676256a62610d9cf60211bffe7e04d180a9b69c618b82be9567d",
+      "tools/tvc_ref/enc/bit_ops.h": "9d744c1931b511c049e91e6a55543e1ffc85c607e2647f0a21cc1806a4753cba",
+      "tools/tvc_ref/enc/qpel.h": "87ebcc9603cc138263cbe2c070ffa0975096c530cd43d375cc4a840ab6498a8d",
+      "tools/tvc_ref/enc/rdoq.h": "54fa9e5086d6d611bfa9d3101b8599545f1b41cbb56bb77ad097590a1364c5c2"
+    }
+  },
+  {
+    "source_sha256": "67dcf003b92fab59f4c44e632c6a340bf0517c4d1353d4b469d83e07777e2257",
+    "instrumentation": "inclusive clock timings; timing-call overhead included; fdct8 excludes 4x4 transforms",
+    "case": "action_800",
+    "qp": 30,
+    "frames": 96,
+    "instrumented_total_s": 5.098895,
+    "fractional_search_sad_s": 0.385361955,
+    "rdoq_s": 1.88495199,
+    "fdct8_s": 0.344990025,
+    "fractional_search_calls": 2620800,
+    "rdoq_calls": 6664629,
+    "fdct8_calls": 4288170,
+    "dependency_sha256": {
+      "tools/tvc_ref/tvc.h": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
+      "tools/tvc_ref/enc/pixel_ops.h": "1d47d23de992676256a62610d9cf60211bffe7e04d180a9b69c618b82be9567d",
+      "tools/tvc_ref/enc/bit_ops.h": "9d744c1931b511c049e91e6a55543e1ffc85c607e2647f0a21cc1806a4753cba",
+      "tools/tvc_ref/enc/qpel.h": "87ebcc9603cc138263cbe2c070ffa0975096c530cd43d375cc4a840ab6498a8d",
+      "tools/tvc_ref/enc/rdoq.h": "54fa9e5086d6d611bfa9d3101b8599545f1b41cbb56bb77ad097590a1364c5c2"
+    }
+  }
+]

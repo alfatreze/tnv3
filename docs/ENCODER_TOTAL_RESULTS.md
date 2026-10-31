@@ -1,8 +1,5 @@
 # Encoder optimization results and remaining gates
 
-> Historical report copied from the Tau V worktree. Named experiment artifacts
-> and scripts are not all included in this initial standalone release.
-
 Host measurements, 2026-10-31; encoder-lab worktree. The initial comparison
 encoder is the frozen `tvc-dec-draft5` encoder built with `-O2`; current
 production is built `-O3`. The comparison includes compiler and algorithm

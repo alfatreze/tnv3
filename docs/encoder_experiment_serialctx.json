@@ -1,0 +1,16 @@
+{
+  "variant": "bserialctx",
+  "base_source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+  "generated_source_sha256": "8b347bb50f6056d86f237f0d223402ae6cb531d662a5e274d26684c4d45334aa",
+  "binary_sha256": "79fc48fa6fe89a37a18ae0f949b64ff7455cd956a90ca162a89edd30c7b8691b",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bserialctx.c",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bserialctx"
+  ]
+}

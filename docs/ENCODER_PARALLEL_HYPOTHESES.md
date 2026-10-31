@@ -1,8 +1,5 @@
 # Parallelism hypotheses: measured results (2026-10-31)
 
-> Historical report copied from the Tau V worktree. Named experiment artifacts
-> and scripts are not all included in this initial standalone release.
-
 Host: Apple M4 Pro, macOS ARM64, O3, frozen TVC decoder. The encoder worker,
 slice, look-ahead and motion variants are **generated research binaries**;
 production remains serial. All FPS figures below use whole-encoder wall time,

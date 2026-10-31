@@ -1,0 +1,64 @@
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study2.py:48: RuntimeWarning: divide by zero encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study2.py:48: RuntimeWarning: invalid value encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study.py:202: RuntimeWarning: divide by zero encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study.py:202: RuntimeWarning: invalid value encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+lapped filter angles (fitted on TRAIN): [-0.325 -0.2    0.025 -0.05  -0.1   -0.038]
+deblock params (fitted on TRAIN, PSNR gain sum 6.49 dB): alpha=2.5*step beta=1.0*step tc=0.25*step
+
+HELD-OUT luma estimate, kB per frame at PSNR-Y dB 36 (12 images; ratio = geo-mean vs dct8 over images where all configs have a value)
+  dct8     gm   14.32 kB  x1.000   (n=7)
+  dct8db   gm   12.68 kB  x0.885   (n=7)
+  dct16    gm   12.53 kB  x0.875   (n=7)
+  dct8pot  gm   11.81 kB  x0.825   (n=7)
+  wav4     gm   12.08 kB  x0.844   (n=7)
+  wav5     gm   11.34 kB  x0.792   (n=7)
+  per group (ratio to dct8): live: db 0.887 lapped 0.859 wav5 0.826 dct16 0.952 | anime: db 0.890 lapped 0.837 wav5 0.745 dct16 0.903 | bw: db 0.882 lapped 0.811 wav5 0.808 dct16 0.843
+
+HELD-OUT luma estimate, kB per frame at PSNR-Y dB 38 (12 images; ratio = geo-mean vs dct8 over images where all configs have a value)
+  dct8     gm   13.10 kB  x1.000   (n=12)
+  dct8db   gm   11.74 kB  x0.896   (n=12)
+  dct16    gm   11.93 kB  x0.911   (n=12)
+  dct8pot  gm   10.98 kB  x0.838   (n=12)
+  wav4     gm   11.12 kB  x0.849   (n=12)
+  wav5     gm   10.34 kB  x0.789   (n=12)
+  per group (ratio to dct8): live: db 0.887 lapped 0.845 wav5 0.758 dct16 0.932 | anime: db 0.902 lapped 0.866 wav5 0.772 dct16 0.952 | bw: db 0.899 lapped 0.803 wav5 0.839 dct16 0.851
+
+HELD-OUT luma estimate, kB per frame at PSNR-Y dB 40 (12 images; ratio = geo-mean vs dct8 over images where all configs have a value)
+  dct8     gm   17.10 kB  x1.000   (n=12)
+  dct8db   gm   15.60 kB  x0.912   (n=12)
+  dct16    gm   15.94 kB  x0.932   (n=12)
+  dct8pot  gm   14.38 kB  x0.841   (n=12)
+  wav4     gm   14.84 kB  x0.868   (n=12)
+  wav5     gm   13.93 kB  x0.815   (n=12)
+  per group (ratio to dct8): live: db 0.905 lapped 0.851 wav5 0.787 dct16 0.959 | anime: db 0.914 lapped 0.872 wav5 0.785 dct16 0.979 | bw: db 0.918 lapped 0.802 wav5 0.876 dct16 0.863
+
+HELD-OUT luma estimate, kB per frame at SSIM 0.95 (12 images; ratio = geo-mean vs dct8 over images where all configs have a value)
+  dct8     gm   13.28 kB  x1.000   (n=8)
+  dct8db   gm   11.14 kB  x0.839   (n=8)
+  dct16    gm   12.18 kB  x0.917   (n=8)
+  dct8pot  gm   11.01 kB  x0.829   (n=8)
+  wav4     gm   10.59 kB  x0.797   (n=8)
+  wav5     gm    9.92 kB  x0.747   (n=8)
+  per group (ratio to dct8): live: db 0.819 lapped 0.847 wav5 0.715 dct16 0.949 | anime: db 0.852 lapped 0.833 wav5 0.720 dct16 0.944 | bw: db 0.850 lapped 0.807 wav5 0.799 dct16 0.868
+
+HELD-OUT luma estimate, kB per frame at SSIM 0.97 (12 images; ratio = geo-mean vs dct8 over images where all configs have a value)
+  dct8     gm   16.90 kB  x1.000   (n=12)
+  dct8db   gm   14.46 kB  x0.856   (n=12)
+  dct16    gm   15.91 kB  x0.941   (n=12)
+  dct8pot  gm   14.20 kB  x0.840   (n=12)
+  wav4     gm   13.55 kB  x0.802   (n=12)
+  wav5     gm   12.68 kB  x0.750   (n=12)
+  per group (ratio to dct8): live: db 0.846 lapped 0.846 wav5 0.728 dct16 0.971 | anime: db 0.851 lapped 0.872 wav5 0.714 dct16 0.996 | bw: db 0.869 lapped 0.804 wav5 0.813 dct16 0.862
+
+HELD-OUT luma estimate, kB per frame at SSIM 0.98 (12 images; ratio = geo-mean vs dct8 over images where all configs have a value)
+  dct8     gm   22.29 kB  x1.000   (n=12)
+  dct8db   gm   19.49 kB  x0.874   (n=12)
+  dct16    gm   21.40 kB  x0.960   (n=12)
+  dct8pot  gm   18.78 kB  x0.843   (n=12)
+  wav4     gm   18.48 kB  x0.829   (n=12)
+  wav5     gm   17.51 kB  x0.786   (n=12)
+  per group (ratio to dct8): live: db 0.864 lapped 0.848 wav5 0.770 dct16 0.990 | anime: db 0.872 lapped 0.878 wav5 0.742 dct16 1.023 | bw: db 0.887 lapped 0.803 wav5 0.849 dct16 0.874

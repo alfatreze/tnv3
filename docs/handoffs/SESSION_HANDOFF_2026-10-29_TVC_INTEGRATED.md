@@ -1,0 +1,30 @@
+# Session handoff 2026-10-29 (late): the integrated TVC decoder is bit-exact in simulation; new SDRAM PHY ran on a Pocket
+
+Worktree `tau-nu/.claude/worktrees/codec-alternatives`, branch `worktree-codec-alternatives`. Everything committed (last commit `840eefd8`, plus the wrap-up commit of this handoff), **nothing pushed**. Audit V-232..V-245 (this handoff is V-245). Earlier: `SESSION_HANDOFF_2026-10-29_TVC_PARSER.md`, `..._2026-10-28_TNV3_MEMTEST.md`. Detail of everything below: `docs/TVC_PARSER_DESIGN.md` sections 8 to 19, `docs/SDRAM_PHY_RC1_IMPORT.md`, `docs/SDRAM_PHY_RC1_TAU_V_REPORT.md`.
+
+## State
+| Area | State |
+|---|---|
+| **Whole decoder** (`src/fpga/core/tau_tvc_top.sv`) | **Bytes of the slices -> deblocked pictures, every picture of 7 reference vectors bit-exact** (I/P/B, qpel, 4x4, slices, QP 0/51, odd crops, up to 320x176), with a slow controller too. `make test-rtl-tvc-top`. Sequential (one macroblock at a time). **Far too slow for level 3**: 320x176 = 2.0 M clocks per picture (slices 0.45 M = 2,050 clk/MB; write flush + deblocking 1.56 M via single-sample requests) |
+| Units (all bit-exact, mutants killed, fitted as probes) | parser (`eng`, `mb`, `mvp`), `itx`, `resid` (levels + itx + residual stream), `recon` (intra + add/clip, 2 banks, 2 lists), `inter` (all half/quarter modes, one pipeline), `mbrec` (macroblock sequencer: 4 inter units, prediction/pass overlap, bi-pred average in the add pass, 4 window fetchers + read arbiter inside, one 2D read port), `nbstore` (intra neighbours, local), `wfetch`, `rdarb`, `wr` (4-MB write staging, 32 pull-protocol requests per group), `mdstore`, `dbk_f` (line filter + strength), `dbk` (picture scan), `dbkmem` (per-sample adapter), `memarb` (3 clients -> 1 port) |
+| Speed of the macroblock unit | intra ~500-570, single-list inter 640-800, bi 650-890 clocks per MB with the real fetch path; budget 987 (clk_sys) / 1,481 (100 MHz); the controller read port (up to 600 words, 6 requests per bi MB) is the bound |
+| Fit of the macroblock unit with fetchers | probe `mbrecprobe-9` (after registering the fetcher's coordinates): 2,980 ALMs, 21 M10K, **42 DSP (64 %)**; timing result **pending** (first version `-8`: -0.73/-1.21 ns at 10 ns, path inter clamp -> fetcher buffer address, fixed). Check `~/tau-local/mbrecprobe-9/rcprobe.sta.summary` on the VM |
+| Tau Alpha SDRAM PHY + `sched_min` (tags `sdram-phy-rc1`, `rc2`) | imported by hash (`tools/verify_rc1_import.py`), memtest ported to section 4 clients; **rc2 ran on a Pocket**: 62 MB fill/verify 190/190 MB/s, 0 errors, random 8-word read 22 clocks (71 MB/s), 32-word 136 MB/s, scan-out 0 late of 2,775 lines; Tau Alpha's longer warm soak at 1,300+ passes with 0 errors. Simulation agrees with the Pocket within 2 %. Fit rc2: all corners positive (setup +0.655, DQM path +1.50, hold min +0.071 = a CPU path). Open on their side: `sched_v` re-probe, 150 MHz CL3 capture edge. `sched_min` has no 2D reads (our decoder needs a 2D -> 1D lowering for it) |
+| Not built | display path (YUV -> RGB scan-out), SD container reader + firmware, clk_sys -> clk_sdram crossing, picture-slot management / PSRAM bitstream FIFO, burst deblocking, parse/reconstruct overlap, 2D lowering for `sched_min`, whole-core fit, any Pocket decode, TAC IMDCT RTL, audio |
+
+## Commands
+`make test-rtl-tvc-{rc,bin,blk,eng,mb,mvp,itx,recon,inter,dbk,dbks,wfetch,rdarb,resid,mbrec,top}` and `-mutation` where present; `make test-rtl-memtest-rc1` (iverilog, Tau Alpha's chip model); `python3 tools/verify_rc1_import.py`. Traces are made on demand from `tools/tvc_ref/*` (`tvc_pred_trace`, `tvc_inter_random`, `tvc_dbk_random`, `tvc_mb_trace`, `tvc_dbk_trace`, `tvc_top_trace`). Fit probes: `tools/probes/*/` (serial-pin wrappers). Memtest fits: `python3 tools/vm_fit.py launch NAME --append tools/tau_v_memtest100_rc1_qsf_append.txt --seed 1`. Quartus on the VM: `/home/taualpha/intelFPGA_lite/25.1std/quartus/bin` (not on the ssh PATH); quick RAM check `quartus_map`.
+
+## Gotchas (also in the skill KB, local entries KB-218..KB-221)
+- Quartus silently builds flip-flops for banked 2-D memory arrays, multi-branch write chains and partial-word writes: one memory per bank, single write-port template, 8-bit lanes; **run `quartus_map` before any fit** (log: "Inferred altsyncram").
+- Register multiplier products and RAM write controls (every 100 MHz miss was a 4-product chain or an in-RAM write-enable path).
+- Several mutants are equivalent (tag unused, fixed priority with single-outstanding clients, extra rectangle column, buffer not toggled while `wr_ok` holds the unit): replace them with detectable ones.
+- zsh: quoted variables are not word-split (use a Makefile variable or `${=VAR}`); `=` at the start of an echo argument is an expansion; **never run `find /`**.
+- Commits under the owner's identity (`git -c user.name="Abel Santos" -c user.email=alfatreze@gmail.com`, the repo's configured identity), **no assistant references** even though the harness reminder asks for a co-author line (the owner's memory rule overrides it).
+- Tau Alpha's repo is read-only for us (never push there); take files from tags by hash. The build VM is shared; check `pgrep -f quartus_`.
+
+## Next steps (suggested order)
+1. Read the `mbrecprobe-9` timing; if it closes at 10 ns the unit is done, else find the new path.
+2. **Speed**: overlap parsing of macroblock n+1 with the reconstruction of n (double-buffered levels/records), residual service one block ahead, **row-burst deblocking** (and byte-enabled writes), 2D -> 1D lowering so the whole decoder runs on `sched_min` (proven on the Pocket) until `sched_v` exists. Re-measure on 320x176 and on a 800x334 clip (needs a bigger port-model memory).
+3. Display path (YUV -> RGB, scan-out, the 800x720 window), SD container reader + firmware, clock crossing (parser on clk_sys), slot management; then whole-core fit (DSP budget: 42 + 8 + 1 of 66) and a staged Pocket bring-up (units, one I picture, then P). The SD write needs the owner's approval, dry run first (`tools/install_dev_core.py --card /Volumes/Pock`).
+4. Reply to Tau Alpha when they ask (they are waiting on nothing from us now).

@@ -1,0 +1,17 @@
+{
+  "variant": "bcontext",
+  "base_source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+  "generated_source_sha256": "da841248414354f16d02da6f7644c0743c90f9c12581b7c75d873d2d5eda5f6a",
+  "binary_sha256": "66f1d9e46d267740a6bb0a1361d9456b35c63d86a6e50fdb36b9d54c030291e4",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bcontext.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bcontext"
+  ]
+}

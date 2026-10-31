@@ -18,3 +18,7 @@ Next: establish a pinned conformance-vector set with reviewed redistribution
 rights, implement the Rust container reader/checker first, then the decoder and
 segmented encoder, and validate cross-platform worker integration. See
 `docs/REPOSITORY_BOUNDARIES.md` and `docs/RUST_ROADMAP.md`.
+
+Historical codec research, format studies and measurement data accompany the
+four specification snapshots; see `docs/RESEARCH_INDEX.md` for their scope and
+reproduction constraints. These additions make no new hardware-validation claim.

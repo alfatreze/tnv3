@@ -1,0 +1,29 @@
+{
+  "scope" : "creation and attributes only; no frames submitted; no accelerator placement or speed measured",
+  "os" : "Version 26.6.2 (Build 25G83)",
+  "motion_sessions" : [
+    {
+      "create_status" : -17691,
+      "attributes_status" : -1,
+      "width" : 400,
+      "height" : 176,
+      "attributes" : ""
+    },
+    {
+      "create_status" : -17691,
+      "attributes_status" : -1,
+      "width" : 800,
+      "height" : 336,
+      "attributes" : ""
+    },
+    {
+      "create_status" : -17691,
+      "attributes_status" : -1,
+      "width" : 1920,
+      "height" : 1080,
+      "attributes" : ""
+    }
+  ],
+  "h264_hardware_decode_supported" : 1,
+  "hevc_hardware_decode_supported" : 1
+}

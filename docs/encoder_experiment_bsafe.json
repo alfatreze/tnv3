@@ -1,0 +1,17 @@
+{
+  "variant": "bsafe",
+  "base_source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+  "generated_source_sha256": "04446da694d2f66fae674a990dbc04c147a21bea1ebf221fe56b980cd3bd63eb",
+  "binary_sha256": "1afeb2eceb8aea0937b6db288f671146ecdc418bf87cc3f06d38f6c7ab4a75f8",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bsafe.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bsafe"
+  ]
+}

@@ -1,0 +1,94 @@
+[
+  {
+    "case": "action_400",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.010291,
+    "lookahead_s": 0.02594,
+    "encode_s": 1.534055,
+    "total_s": 1.570636,
+    "lookahead_fraction": 0.016515602596655115,
+    "infinite_lookahead_speedup": 1.0167929482564855,
+    "macroblocks": 26400,
+    "encode_us_per_mb": 58.10814393939394,
+    "production_stream_checked": true,
+    "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f",
+    "source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+    "dependency_sha256": {
+      "tools/tvc_ref/tvc.h": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
+      "tools/tvc_ref/enc/pixel_ops.h": "1d47d23de992676256a62610d9cf60211bffe7e04d180a9b69c618b82be9567d",
+      "tools/tvc_ref/enc/bit_ops.h": "9d744c1931b511c049e91e6a55543e1ffc85c607e2647f0a21cc1806a4753cba",
+      "tools/tvc_ref/enc/qpel.h": "87ebcc9603cc138263cbe2c070ffa0975096c530cd43d375cc4a840ab6498a8d",
+      "tools/tvc_ref/enc/rdoq.h": "b7c3a265844a855f147f2273d154cc8ed7464389f96d2e896749f9f6914c1a86"
+    }
+  },
+  {
+    "case": "anime_dialog_400",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.014816,
+    "lookahead_s": 0.025845,
+    "encode_s": 1.953168,
+    "total_s": 1.994123,
+    "lookahead_fraction": 0.012960584678076528,
+    "infinite_lookahead_speedup": 1.0131307670969243,
+    "macroblocks": 36000,
+    "encode_us_per_mb": 54.254666666666665,
+    "production_stream_checked": true,
+    "stream_sha256": "14a287582133e6a72089a758b196e574415f05a516e4d3a4435e8187835616ed",
+    "source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+    "dependency_sha256": {
+      "tools/tvc_ref/tvc.h": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
+      "tools/tvc_ref/enc/pixel_ops.h": "1d47d23de992676256a62610d9cf60211bffe7e04d180a9b69c618b82be9567d",
+      "tools/tvc_ref/enc/bit_ops.h": "9d744c1931b511c049e91e6a55543e1ffc85c607e2647f0a21cc1806a4753cba",
+      "tools/tvc_ref/enc/qpel.h": "87ebcc9603cc138263cbe2c070ffa0975096c530cd43d375cc4a840ab6498a8d",
+      "tools/tvc_ref/enc/rdoq.h": "b7c3a265844a855f147f2273d154cc8ed7464389f96d2e896749f9f6914c1a86"
+    }
+  },
+  {
+    "case": "bw_room_400",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.011725,
+    "lookahead_s": 0.032451,
+    "encode_s": 2.40733,
+    "total_s": 2.451888,
+    "lookahead_fraction": 0.013235106986942309,
+    "infinite_lookahead_speedup": 1.0134126245072717,
+    "macroblocks": 45600,
+    "encode_us_per_mb": 52.79232456140351,
+    "production_stream_checked": true,
+    "stream_sha256": "aeba6fcf36a074d78f3e77e6370b75d3746865ef2c47b015d2e70c53b623b102",
+    "source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+    "dependency_sha256": {
+      "tools/tvc_ref/tvc.h": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
+      "tools/tvc_ref/enc/pixel_ops.h": "1d47d23de992676256a62610d9cf60211bffe7e04d180a9b69c618b82be9567d",
+      "tools/tvc_ref/enc/bit_ops.h": "9d744c1931b511c049e91e6a55543e1ffc85c607e2647f0a21cc1806a4753cba",
+      "tools/tvc_ref/enc/qpel.h": "87ebcc9603cc138263cbe2c070ffa0975096c530cd43d375cc4a840ab6498a8d",
+      "tools/tvc_ref/enc/rdoq.h": "b7c3a265844a855f147f2273d154cc8ed7464389f96d2e896749f9f6914c1a86"
+    }
+  },
+  {
+    "case": "action_800",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.017863,
+    "lookahead_s": 0.093767,
+    "encode_s": 4.182543,
+    "total_s": 4.295315,
+    "lookahead_fraction": 0.021830063685666822,
+    "infinite_lookahead_speedup": 1.0223172506895077,
+    "macroblocks": 100800,
+    "encode_us_per_mb": 41.49348214285714,
+    "production_stream_checked": true,
+    "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf",
+    "source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+    "dependency_sha256": {
+      "tools/tvc_ref/tvc.h": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
+      "tools/tvc_ref/enc/pixel_ops.h": "1d47d23de992676256a62610d9cf60211bffe7e04d180a9b69c618b82be9567d",
+      "tools/tvc_ref/enc/bit_ops.h": "9d744c1931b511c049e91e6a55543e1ffc85c607e2647f0a21cc1806a4753cba",
+      "tools/tvc_ref/enc/qpel.h": "87ebcc9603cc138263cbe2c070ffa0975096c530cd43d375cc4a840ab6498a8d",
+      "tools/tvc_ref/enc/rdoq.h": "b7c3a265844a855f147f2273d154cc8ed7464389f96d2e896749f9f6914c1a86"
+    }
+  }
+]

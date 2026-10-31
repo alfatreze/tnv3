@@ -1,0 +1,186 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "frames": 96,
+  "repeats": 3,
+  "suffix": "400",
+  "binaries": {
+    "before": {
+      "path": "<encoder-worktree>/work/encoder_lab/encoder-bitops-o2",
+      "sha256": "2838296c2380be89cc12006a1d76118f7e23addf01ecfc3b6fc9d1a6c5dec605"
+    },
+    "after": {
+      "path": "<encoder-worktree>/work/encoder_lab/encoder-o3",
+      "sha256": "bd8d548342e45d163438320066a9b803929c876e7fa0722243a4348ed31e7d0a"
+    }
+  },
+  "samples": [
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 2.822757124900818,
+      "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 2.568561624735594,
+      "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 5.746813583187759,
+      "stream_sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 5.544033915735781,
+      "stream_sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 2.593204833101481,
+      "stream_sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 2.3877208749763668,
+      "stream_sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 1,
+      "seconds": 2.407156208064407,
+      "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+    },
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 1,
+      "seconds": 2.564433416351676,
+      "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "after",
+      "repetition": 1,
+      "seconds": 5.561947125010192,
+      "stream_sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "before",
+      "repetition": 1,
+      "seconds": 5.7985395840369165,
+      "stream_sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "after",
+      "repetition": 1,
+      "seconds": 2.403378250077367,
+      "stream_sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "before",
+      "repetition": 1,
+      "seconds": 2.6119538750499487,
+      "stream_sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+    },
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 2,
+      "seconds": 2.5551220001652837,
+      "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 2,
+      "seconds": 2.4420660422183573,
+      "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "before",
+      "repetition": 2,
+      "seconds": 5.814795958343893,
+      "stream_sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "after",
+      "repetition": 2,
+      "seconds": 5.581233125180006,
+      "stream_sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "before",
+      "repetition": 2,
+      "seconds": 2.648520290851593,
+      "stream_sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+    },
+    {
+      "case": "bw_room:36",
+      "version": "after",
+      "repetition": 2,
+      "seconds": 2.408131374977529,
+      "stream_sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+    }
+  ],
+  "summary": [
+    {
+      "case": "action:30",
+      "median_seconds": {
+        "before": 2.564433416351676,
+        "after": 2.4420660422183573
+      },
+      "fps": {
+        "before": 37.43516965107077,
+        "after": 39.31097617359857
+      },
+      "speedup": 1.0501081346768824,
+      "identical_streams": true
+    },
+    {
+      "case": "anime_dialog:24",
+      "median_seconds": {
+        "before": 5.7985395840369165,
+        "after": 5.561947125010192
+      },
+      "fps": {
+        "before": 16.555892843136416,
+        "after": 17.2601425080653
+      },
+      "speedup": 1.0425377037409882,
+      "identical_streams": true
+    },
+    {
+      "case": "bw_room:36",
+      "median_seconds": {
+        "before": 2.6119538750499487,
+        "after": 2.403378250077367
+      },
+      "fps": {
+        "before": 36.754094671049344,
+        "after": 39.94377497462569
+      },
+      "speedup": 1.0867843523864242,
+      "identical_streams": true
+    }
+  ]
+}

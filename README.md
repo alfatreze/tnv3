@@ -1,4 +1,4 @@
-# TNV3 codec tools — 0.1.0-alpha.1 candidate
+# TNV3 codec tools — 0.1.0-alpha.2 candidate
 
 TNV3 is a host-side toolkit for the Tau TVC video, TAC audio and TNV3 container
 formats. This initial source release contains the validated serial C encoder,
@@ -30,9 +30,9 @@ path has bounded race and failure testing but is not production-qualified.
 
 The four format files in `docs/` are snapshots. Tau V retains normative format
 authority until that is intentionally transferred. `LICENSE`, `NOTICE.md` and
-`SOURCE_MANIFEST.json` preserve upstream provenance. The standalone smoke test
-uses generated content; existing vectors containing third-party film/audio are
-not redistributed pending provenance review.
+`SOURCE_MANIFEST.json` preserve upstream provenance. The standalone smoke test uses generated content; media-derived clips and
+vectors are not included. See `docs/RESEARCH_INDEX.md` for the format research
+and historical measurements.
 
 The standalone synthetic smoke test passes on macOS ARM64 and GitHub-hosted
 Ubuntu and macOS runners. Full native Linux corpus and performance testing has

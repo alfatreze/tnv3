@@ -1,0 +1,62 @@
+[
+  {
+    "case": "action_400",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.008057,
+    "lookahead_s": 0.028576,
+    "encode_s": 2.326449,
+    "total_s": 2.36346,
+    "lookahead_fraction": 0.012090748309681569,
+    "infinite_lookahead_speedup": 1.012238723636806,
+    "macroblocks": 26400,
+    "encode_us_per_mb": 88.12306818181818,
+    "production_stream_checked": true,
+    "stream_sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+  },
+  {
+    "case": "anime_dialog_400",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.011435,
+    "lookahead_s": 0.025289,
+    "encode_s": 3.129542,
+    "total_s": 3.166612,
+    "lookahead_fraction": 0.007986137865958948,
+    "infinite_lookahead_speedup": 1.008050429707483,
+    "macroblocks": 36000,
+    "encode_us_per_mb": 86.93172222222222,
+    "production_stream_checked": true,
+    "stream_sha256": "14a287582133e6a72089a758b196e574415f05a516e4d3a4435e8187835616ed"
+  },
+  {
+    "case": "bw_room_400",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.011393,
+    "lookahead_s": 0.031279,
+    "encode_s": 3.931311,
+    "total_s": 3.974395,
+    "lookahead_fraction": 0.007870128661091814,
+    "infinite_lookahead_speedup": 1.0079325589204071,
+    "macroblocks": 45600,
+    "encode_us_per_mb": 86.21296052631578,
+    "production_stream_checked": true,
+    "stream_sha256": "aeba6fcf36a074d78f3e77e6370b75d3746865ef2c47b015d2e70c53b623b102"
+  },
+  {
+    "case": "action_800",
+    "qp": 30,
+    "frames": 96,
+    "read_setup_s": 0.018311,
+    "lookahead_s": 0.089599,
+    "encode_s": 6.458481,
+    "total_s": 6.567622,
+    "lookahead_fraction": 0.013642533020323033,
+    "infinite_lookahead_speedup": 1.0138312259774316,
+    "macroblocks": 100800,
+    "encode_us_per_mb": 64.07223214285715,
+    "production_stream_checked": true,
+    "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf"
+  }
+]

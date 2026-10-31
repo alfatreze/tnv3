@@ -1,0 +1,108 @@
+[
+  {
+    "clip": "action_400",
+    "args": [
+      "-q",
+      "8",
+      "-n",
+      "48",
+      "-l",
+      "1"
+    ],
+    "stream_sha256": "f041969a2a500af46f164b09d409fdbc931b0951fa151f8dfb4af076f3c792ac",
+    "recon_sha256": "6df74e5cc6ceb412b83a456cd9ef3a33114c2c26d92f9e64771c5b4e4ab3cc51",
+    "diagnostics": [
+      "48 frames, 397945 bytes, 8290.5 bytes/frame, 1 scene-cut I pictures, 42 pictures re-encoded for the level\n",
+      "48 frames, 397945 bytes, 8290.5 bytes/frame, 1 scene-cut I pictures, 42 pictures re-encoded for the level\n"
+    ],
+    "match": true
+  },
+  {
+    "clip": "anime_dialog_400",
+    "args": [
+      "-q",
+      "12",
+      "-n",
+      "36",
+      "-l",
+      "1",
+      "-b",
+      "3",
+      "-a",
+      "1"
+    ],
+    "stream_sha256": "613e62009e240a2ac1473fb65f12a2fa6a8e411b51c81f556d1de8c118fa2b0b",
+    "recon_sha256": "8c82aee1b0bb0f79fce3b7ef136c334845a417ede6258122822fa565c894d86a",
+    "diagnostics": [
+      "36 frames, 347771 bytes, 9660.3 bytes/frame, 0 scene-cut I pictures, 28 pictures re-encoded for the level\n",
+      "36 frames, 347771 bytes, 9660.3 bytes/frame, 0 scene-cut I pictures, 28 pictures re-encoded for the level\n"
+    ],
+    "match": true
+  },
+  {
+    "clip": "bw_room_800",
+    "args": [
+      "-q",
+      "24",
+      "-n",
+      "24",
+      "-l",
+      "3"
+    ],
+    "stream_sha256": "c4af5c65f2bc5482a6fbc5dad2e139628ebd77e44fab35c3ab98ade28110b089",
+    "recon_sha256": "68853e3969026acdf54cd1aa30386d2184391b074307e1b3555fb1710a341b42",
+    "diagnostics": [
+      "24 frames, 212122 bytes, 8838.4 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n",
+      "24 frames, 212122 bytes, 8838.4 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    ],
+    "match": true
+  },
+  {
+    "clip": "action_400",
+    "args": [
+      "-q",
+      "30",
+      "-n",
+      "24",
+      "-l",
+      "1",
+      "-b",
+      "1"
+    ],
+    "stream_sha256": "025dc3a3ef5bd822953e11f40cf2e3db6b903f89a7861fb1d99432e9836e2f54",
+    "recon_sha256": "c3322617426a830af945ebe9098a36094d11a92d9f7b30e12458e2ad6698b5a3",
+    "diagnostics": [
+      "24 frames, 72006 bytes, 3000.2 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n",
+      "24 frames, 72006 bytes, 3000.2 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    ],
+    "match": true
+  },
+  {
+    "clip": "action_400",
+    "args": [
+      "-q",
+      "20",
+      "-n",
+      "36",
+      "-l",
+      "1",
+      "-b",
+      "3",
+      "-a",
+      "1",
+      "-p",
+      "0",
+      "-x",
+      "0",
+      "-S",
+      "3"
+    ],
+    "stream_sha256": "96d1ade7d7d4095b46f5615544468c9a4584264f443eb4bbee366a396a060669",
+    "recon_sha256": "d669ed44cd17611751b6119ec8289b038c374f2af549f8af71fed394e24ce9e0",
+    "diagnostics": [
+      "36 frames, 272018 bytes, 7556.1 bytes/frame, 1 scene-cut I pictures, 3 pictures re-encoded for the level\n",
+      "36 frames, 272018 bytes, 7556.1 bytes/frame, 1 scene-cut I pictures, 3 pictures re-encoded for the level\n"
+    ],
+    "match": true
+  }
+]

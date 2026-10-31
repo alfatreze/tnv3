@@ -1,0 +1,144 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "frames": 48,
+  "encoder_args": [],
+  "repeats": 3,
+  "suffix": "400",
+  "binaries": {
+    "before": {
+      "path": "<encoder-worktree>/work/encoder_lab/encoder-bserialctx",
+      "sha256": "79fc48fa6fe89a37a18ae0f949b64ff7455cd956a90ca162a89edd30c7b8691b"
+    },
+    "after": {
+      "path": "<encoder-worktree>/work/encoder_lab/encoder-bmotion",
+      "sha256": "54aa9b9913759faccec2468064104ef32841e36c1d8766fcea527bc80438e00f"
+    }
+  },
+  "samples": [
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 1.1504804589785635,
+      "stream_sha256": "6b5bda3fcae5fbb1c533ec8e876515c8ba9cb7d21c14db8038966790b6d97164",
+      "diagnostics": "48 frames, 113843 bytes, 2371.7 bytes/frame, 1 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 1.174562499858439,
+      "stream_sha256": "6b5bda3fcae5fbb1c533ec8e876515c8ba9cb7d21c14db8038966790b6d97164",
+      "diagnostics": "48 frames, 113843 bytes, 2371.7 bytes/frame, 1 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 1.8293740418739617,
+      "stream_sha256": "3827e9697c0b17217a7762bf15087942aad866fe317595c430c541e037965c97",
+      "diagnostics": "48 frames, 249519 bytes, 5198.3 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 1.8830114998854697,
+      "stream_sha256": "3827e9697c0b17217a7762bf15087942aad866fe317595c430c541e037965c97",
+      "diagnostics": "48 frames, 249519 bytes, 5198.3 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 1,
+      "seconds": 0.926483083050698,
+      "stream_sha256": "6b5bda3fcae5fbb1c533ec8e876515c8ba9cb7d21c14db8038966790b6d97164",
+      "diagnostics": "48 frames, 113843 bytes, 2371.7 bytes/frame, 1 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 1,
+      "seconds": 0.8806517920456827,
+      "stream_sha256": "6b5bda3fcae5fbb1c533ec8e876515c8ba9cb7d21c14db8038966790b6d97164",
+      "diagnostics": "48 frames, 113843 bytes, 2371.7 bytes/frame, 1 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "after",
+      "repetition": 1,
+      "seconds": 1.8961593750864267,
+      "stream_sha256": "3827e9697c0b17217a7762bf15087942aad866fe317595c430c541e037965c97",
+      "diagnostics": "48 frames, 249519 bytes, 5198.3 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "before",
+      "repetition": 1,
+      "seconds": 1.8239015000872314,
+      "stream_sha256": "3827e9697c0b17217a7762bf15087942aad866fe317595c430c541e037965c97",
+      "diagnostics": "48 frames, 249519 bytes, 5198.3 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 2,
+      "seconds": 0.8770088749006391,
+      "stream_sha256": "6b5bda3fcae5fbb1c533ec8e876515c8ba9cb7d21c14db8038966790b6d97164",
+      "diagnostics": "48 frames, 113843 bytes, 2371.7 bytes/frame, 1 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 2,
+      "seconds": 0.9436254589818418,
+      "stream_sha256": "6b5bda3fcae5fbb1c533ec8e876515c8ba9cb7d21c14db8038966790b6d97164",
+      "diagnostics": "48 frames, 113843 bytes, 2371.7 bytes/frame, 1 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "before",
+      "repetition": 2,
+      "seconds": 1.8304013749584556,
+      "stream_sha256": "3827e9697c0b17217a7762bf15087942aad866fe317595c430c541e037965c97",
+      "diagnostics": "48 frames, 249519 bytes, 5198.3 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "anime_dialog:24",
+      "version": "after",
+      "repetition": 2,
+      "seconds": 1.8866764577105641,
+      "stream_sha256": "3827e9697c0b17217a7762bf15087942aad866fe317595c430c541e037965c97",
+      "diagnostics": "48 frames, 249519 bytes, 5198.3 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    }
+  ],
+  "summary": [
+    {
+      "case": "action:30",
+      "median_seconds": {
+        "before": 0.8806517920456827,
+        "after": 0.9436254589818418
+      },
+      "fps": {
+        "before": 54.50508411332463,
+        "after": 50.86763984917417
+      },
+      "speedup": 0.9332641289647835,
+      "identical_streams": true
+    },
+    {
+      "case": "anime_dialog:24",
+      "median_seconds": {
+        "before": 1.8293740418739617,
+        "after": 1.8866764577105641
+      },
+      "fps": {
+        "before": 26.238483164891793,
+        "after": 25.44156408155261
+      },
+      "speedup": 0.9696278524055272,
+      "identical_streams": true
+    }
+  ]
+}

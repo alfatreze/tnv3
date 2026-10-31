@@ -1,0 +1,107 @@
+{
+  "cases": [
+    {
+      "clip": "action_400",
+      "args": [
+        "-q",
+        "8",
+        "-n",
+        "24",
+        "-l",
+        "1",
+        "-b",
+        "4"
+      ],
+      "results": [
+        {
+          "name": "serial",
+          "stream": "71c9d3d109e4c083bd1c87cd00f5e7b3056c7556c8c3c69b932836827713d882",
+          "recon": "03d24beb05a125cbbeeaa408a16237a709d4eef53615fb23d1e47aeb97fb00d8",
+          "diagnostics": "24 frames, 199437 bytes, 8309.9 bytes/frame, 0 scene-cut I pictures, 21 pictures re-encoded for the level\n"
+        },
+        {
+          "name": "wide",
+          "stream": "71c9d3d109e4c083bd1c87cd00f5e7b3056c7556c8c3c69b932836827713d882",
+          "recon": "03d24beb05a125cbbeeaa408a16237a709d4eef53615fb23d1e47aeb97fb00d8",
+          "diagnostics": "24 frames, 199437 bytes, 8309.9 bytes/frame, 0 scene-cut I pictures, 21 pictures re-encoded for the level\n"
+        }
+      ]
+    },
+    {
+      "clip": "action_400",
+      "args": [
+        "-q",
+        "8",
+        "-n",
+        "24",
+        "-l",
+        "1",
+        "-b",
+        "6"
+      ],
+      "results": [
+        {
+          "name": "serial",
+          "stream": "91ed80cba3a307d1f9293f9de8e73be40fa66f164944d0e73fa6f608fbbabad4",
+          "recon": "372b741d4b57e3a352a5efe3bfe0495009b84f5316146a3fc7f3fc853a91c527",
+          "diagnostics": "24 frames, 199961 bytes, 8331.7 bytes/frame, 0 scene-cut I pictures, 21 pictures re-encoded for the level\n"
+        },
+        {
+          "name": "wide",
+          "stream": "91ed80cba3a307d1f9293f9de8e73be40fa66f164944d0e73fa6f608fbbabad4",
+          "recon": "372b741d4b57e3a352a5efe3bfe0495009b84f5316146a3fc7f3fc853a91c527",
+          "diagnostics": "24 frames, 199961 bytes, 8331.7 bytes/frame, 0 scene-cut I pictures, 21 pictures re-encoded for the level\n"
+        }
+      ]
+    },
+    {
+      "clip": "bw_room_800",
+      "args": [
+        "-q",
+        "24",
+        "-n",
+        "24",
+        "-l",
+        "3",
+        "-b",
+        "6"
+      ],
+      "results": [
+        {
+          "name": "serial",
+          "stream": "780fd1a3135c4928398790a270377998bea77638d9beb8e8c59a1e9b612f963b",
+          "recon": "2a526e6df07847d113180db0ea107254c46f88139124a6953a26cb0a073dd073",
+          "diagnostics": "24 frames, 193936 bytes, 8080.7 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+        },
+        {
+          "name": "wide",
+          "stream": "780fd1a3135c4928398790a270377998bea77638d9beb8e8c59a1e9b612f963b",
+          "recon": "2a526e6df07847d113180db0ea107254c46f88139124a6953a26cb0a073dd073",
+          "diagnostics": "24 frames, 193936 bytes, 8080.7 bytes/frame, 0 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+        }
+      ]
+    }
+  ],
+  "preparation_failures": [
+    {
+      "pos": 1,
+      "stream": "cb0929cc4e343b8854e1d08ef3efb53ff9205fa62043f2e1a3c74abf4b3e10bc",
+      "recon": "99d6df3fa4bd68c49b3de0867c5730154c5608a975eb5b7ed3309280e50a529a"
+    },
+    {
+      "pos": 2,
+      "stream": "cb0929cc4e343b8854e1d08ef3efb53ff9205fa62043f2e1a3c74abf4b3e10bc",
+      "recon": "99d6df3fa4bd68c49b3de0867c5730154c5608a975eb5b7ed3309280e50a529a"
+    },
+    {
+      "pos": 3,
+      "stream": "cb0929cc4e343b8854e1d08ef3efb53ff9205fa62043f2e1a3c74abf4b3e10bc",
+      "recon": "99d6df3fa4bd68c49b3de0867c5730154c5608a975eb5b7ed3309280e50a529a"
+    },
+    {
+      "pos": 4,
+      "stream": "cb0929cc4e343b8854e1d08ef3efb53ff9205fa62043f2e1a3c74abf4b3e10bc",
+      "recon": "99d6df3fa4bd68c49b3de0867c5730154c5608a975eb5b7ed3309280e50a529a"
+    }
+  ]
+}

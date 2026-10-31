@@ -1,0 +1,18 @@
+{
+  "variant": "bmotion",
+  "base_source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+  "generated_source_sha256": "33d402f27a4c042db9447555d995ad0c7dc6e30ed8d8c79d6fe53456c6765cd4",
+  "binary_sha256": "54aa9b9913759faccec2468064104ef32841e36c1d8766fcea527bc80438e00f",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bmotion.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bmotion"
+  ],
+  "bpool_header_sha256": "23dca33525a650e5b637aeb2c53144148d7970b108d0206859d7a9d24fc49fa1"
+}

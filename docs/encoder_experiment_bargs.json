@@ -1,0 +1,17 @@
+{
+  "variant": "bargs",
+  "base_source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+  "generated_source_sha256": "6b692fda96f96872871a3de7359acbf7a8752ed7e2aeabd88bea0cb22acb17f1",
+  "binary_sha256": "9e8cb8c080da5e7b549e9339d4d8fe89041ec4f0efa95b795d7c22ede3f89a0e",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bargs.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bargs"
+  ]
+}

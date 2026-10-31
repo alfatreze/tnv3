@@ -1,0 +1,18 @@
+{
+  "variant": "bwide",
+  "base_source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+  "generated_source_sha256": "fd9de6f9eecff3bd045263c403e69f98a7a405e0017288f82b74753d39ac006d",
+  "binary_sha256": "ad79ce0c0e05042a0ecb72980ee39d3e6e943f5f30328f466519ee9ac5553960",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bwide.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bwide"
+  ],
+  "bpool_header_sha256": "3e65fb51b667174dbed7ecb467e6bded9340f1ce06bf06e59b77c9a3f3e47e76"
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.2 — research and specifications
+
+- Include format and codec research, encoder experiment records and measurement data.
+- Include archival research scripts and identify their reproduction constraints.
+- Keep media-derived clips and vectors out of the public packages.
+- No codec runtime changes or new hardware validation claims.
+
 ## 0.1.0-alpha.1 — release candidate
 
 - Extract TVC encoder/decoder, TAC reference and fixed-point decoder model, and TNV3 container/film tooling.

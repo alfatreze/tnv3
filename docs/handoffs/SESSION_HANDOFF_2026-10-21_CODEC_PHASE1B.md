@@ -1,0 +1,28 @@
+# Handoff: codec phase 1b (2026-10-21): 8-tap motion compensation RTL, block-level syntax model verified on nine streams
+
+Continues `SESSION_HANDOFF_2026-10-21_CODEC_PHASE1.md` (read that for the study results, the worktree layout and the gotchas; they still hold). Worktree `tau-nu/.claude/worktrees/codec-phase0`, branch `codec-phase0`, nothing pushed. Audit entries V-070, V-071; next id **V-072**.
+
+## Done this session
+* Committed the coefficient parser work (70e3347, V-069).
+* **`tau_av1_mc` / `tau_av1_mc2`** (7bb578b, V-070): 8-tap sub-pel motion compensation, one lane per reference plus the compound average; libaom's `av1_convolve_2d_facade` as the oracle (90 committed blocks, 300 in `-full`, also with random stalls), 13 mutants killed, probe **581 ALMs, 6 M10K, 16 DSP, 117.9 MHz** for two lanes. Not built: the reference fetch (edge replication, SDRAM row bursts, vertical reach), which is where the real cost is.
+* **Block-level syntax model** (V-071, `docs/CODEC_AV1_BLOCK_SYNTAX.md`): `sim/av1_blk_model.py` against a patched libaom decoder trace (`sim/av1/patches/blocktrace.patch`, `work/ref/aom-trace`, `build/av1trace`). All nine lean2 streams pass: 1.38 M blocks, ~15.1 M symbols, 1.12 M transform blocks, every CDF request and derived value equal. The committed regression is a 10-frame trace (`make test-av1-blk-model`); `make test-av1-blk-model-full` re-traces everything (needs the patched build; traces are 20-80 MB each, in `work/codec_phase0/av1/*.blk`, git-ignored).
+
+## Not done (in order)
+1. **RTL for the block-level syntax** (the model is the golden reference; design notes and work counts in the doc above). Probably a micro-sequenced controller in front of `tau_av1_symdec` plus small context datapaths; the MV-stack search is the largest piece (9.5 M candidate evaluations over 90 s of video, 56% of searches need the extra search). Then wire the coefficient parser's `skip_ctx / dc_ctx / ttype` handshake to it.
+2. Reference fetch for the MC lanes; directional intra predictor; deblocking filter; frame level (headers, tile and frame CDF contexts, reference management); integration (decode-ahead queue, clocking, memory map, display path) and a fit.
+3. Decisions pending: standard AV1 syntax vs a transcoded simpler syntax (the syntax shares are now measured: block-level is ~170 k symbols/s of which reference frames 26%, skip/is_inter 18%, MV modes 18%, MV components 16%, partition 11%), which `lean` set to freeze (the model covers lean2 only: rectangular partitions, CDEF, restoration, global motion, temporal MVs, masked compound, warped, OBMC, dual filter, segmentation, palettes in use, intrabc and delta LF are NOT modelled), audio (Opus vs MP3 listening pack never listened to), vertical-range limit.
+
+## Gotchas learnt
+* A shell `cd` into `work/ref/...` changes the working directory for later calls (the tool then reports "no longer a git worktree"): start commands with `cd <worktree> &&` or use absolute paths.
+* `small` is a reserved word in SystemVerilog (charge strength): Icarus reports a bare "syntax error" at the function declaration.
+* `libaom` M records print stale fields for intra frames (`skip_mode`) and for intra blocks in inter frames (`interp`, `ref_mv_idx`); the model only compares fields that are meaningful. libaom stores `ref_mv_idx` of the near modes one lower than the specification's RefMvIdx.
+* The patched decoder rebuilds in about a second (`cd work/ref/aom-build-trace && ninja aom`), then relink `build/av1trace` with `cc -O2 -Iwork/ref/aom-build-trace -Iwork/ref/aom-trace -o build/av1trace tools/codec_study/av1stats.c work/ref/aom-build-trace/libaom.a -lm`.
+
+## Addendum (V-072): block-syntax RTL
+`src/fpga/core/tau_av1_blk.sv` (+ generator, vectors converter, testbench, Makefile targets) is done and replays libaom's trace exactly on all nine lean2 streams (commit 2150faf). It is a golden, unoptimised implementation: probe `av1blk3` = 8,680 ALMs, 94 M10K, 50.6 MHz (fails 100 MHz by 9.8 ns); see `docs/CODEC_AREA_PROBES.md` section 0 for the optimisation plan. Next, in order: (1) optimise `tau_av1_blk` against the same tests (the trace replay is the safety net: `make test-rtl-av1-blk`, `-full` ~45 min for all streams), (2) attach the real `tau_av1_symdec`, CDF memory (needs the edge-partition derived CDF) and `tau_av1_coef`, (3) reference fetch for the MC lanes, intra predictor, deblocking, frame level. Replay of the full streams uses `build/rtl/tb_av1_blk_big.vvp` (MEMWORDS=20M).
+
+## Addendum 2 (V-073): real bytes decode
+`tau_av1_syn` (symdec + CDF RAM + edge partition symbol) and `make test-rtl-av1-int` decode real tile bytes through blk + syn + coef and match libaom on 10 frames. Next: (1) the same for the other eight streams (blk_vectors.py now writes `.td`/`.cx`; `tb_tau_av1_int` takes MEMWORDS/NTILE parameters; 4 minutes per 10 frames), (2) frame-level CDF handling (tile CDFs now come from libaom's trace: initial default CDFs by base_q, averaging/saving, `disable_cdf_update`), tile/OBU headers, (3) shrink `tau_av1_blk` (7.7 k ALMs), (4) reference fetch, intra, deblock, integration. The key frame costs 5.3 M clocks with the serial decoder: needs a decode-ahead queue or a faster symbol path.
+
+## Owner listening result (2026-10-21)
+Owner compared MP3 128 kbit/s and Opus 64 kbit/s (action and dialog excerpts, files in ~/Downloads/codec_audio_test, not blind) and heard no significant difference: Opus at about half the bitrate is acceptable. Not yet measured: Opus decode cost on the Pocket CPU (fixed-point) and whether 48 kbit/s also passes. Decision on the audio codec is still the owner's; this is the evidence so far.

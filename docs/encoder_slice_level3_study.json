@@ -1,0 +1,18 @@
+{
+  "frames": 240,
+  "source": "action_800.y4m",
+  "level": 3,
+  "qp": 30,
+  "automatic_rows": [
+    11
+  ],
+  "stream_sha256": "1975a3759bbbc9ddf75fe8fdb0a668067a53be4956baced7c9d81707b5f817e7",
+  "container_sha256": "71ca217147564a08a33e59c3830d91cb67e99156ca689e1baa2dd53d8003be02",
+  "container_bytes": 969148,
+  "serial_stream_match": true,
+  "serial_reconstruction_match": true,
+  "frozen_decoder_match": true,
+  "container_check": "valid",
+  "audio": "none",
+  "log": "work/encoder_lab/slice-l3-film.log"
+}

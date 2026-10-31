@@ -1,0 +1,17 @@
+{
+  "variant": "bpool",
+  "base_source_sha256": "67dcf003b92fab59f4c44e632c6a340bf0517c4d1353d4b469d83e07777e2257",
+  "generated_source_sha256": "10006b0753fcc93175cb75f7b28f251d0762813abd66e360f8205c621fc2d9b6",
+  "binary_sha256": "e62acd7bbf989971bfbb11aa268b535a72bd48da1c7d77c74c057e6204572acf",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bpool.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bpool"
+  ]
+}

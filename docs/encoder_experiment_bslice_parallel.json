@@ -1,0 +1,18 @@
+{
+  "variant": "bslice",
+  "base_source_sha256": "0b896a02790711c5e2b13aaf26668a84e36cac9f3b2cfc2c40a20a37ad8ca68d",
+  "generated_source_sha256": "08d6b4096c1290a21c7059f7f96aca4101ca6cfbb155273358aecbdd8605fb8c",
+  "binary_sha256": "b9921dd74382c5f521afe538c0da15a8c68aae396efd9fc0983309e6451f6390",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-bslice.c",
+    "-pthread",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-bslice"
+  ],
+  "bpool_header_sha256": "23dca33525a650e5b637aeb2c53144148d7970b108d0206859d7a9d24fc49fa1"
+}

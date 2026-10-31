@@ -1,0 +1,146 @@
+[
+  {
+    "rep": 0,
+    "clip": "action",
+    "qp": 30,
+    "version": "before",
+    "seconds": 3.488445417024195,
+    "sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+  },
+  {
+    "rep": 0,
+    "clip": "action",
+    "qp": 30,
+    "version": "after",
+    "seconds": 3.098564624786377,
+    "sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+  },
+  {
+    "rep": 0,
+    "clip": "anime_dialog",
+    "qp": 24,
+    "version": "before",
+    "seconds": 6.583204832859337,
+    "sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+  },
+  {
+    "rep": 0,
+    "clip": "anime_dialog",
+    "qp": 24,
+    "version": "after",
+    "seconds": 6.411414708942175,
+    "sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+  },
+  {
+    "rep": 0,
+    "clip": "bw_room",
+    "qp": 36,
+    "version": "before",
+    "seconds": 3.4479515003040433,
+    "sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+  },
+  {
+    "rep": 0,
+    "clip": "bw_room",
+    "qp": 36,
+    "version": "after",
+    "seconds": 3.373083541635424,
+    "sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+  },
+  {
+    "rep": 1,
+    "clip": "action",
+    "qp": 30,
+    "version": "after",
+    "seconds": 3.0527255833148956,
+    "sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+  },
+  {
+    "rep": 1,
+    "clip": "action",
+    "qp": 30,
+    "version": "before",
+    "seconds": 3.1434032088145614,
+    "sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+  },
+  {
+    "rep": 1,
+    "clip": "anime_dialog",
+    "qp": 24,
+    "version": "after",
+    "seconds": 6.391152250114828,
+    "sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+  },
+  {
+    "rep": 1,
+    "clip": "anime_dialog",
+    "qp": 24,
+    "version": "before",
+    "seconds": 6.522465582937002,
+    "sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+  },
+  {
+    "rep": 1,
+    "clip": "bw_room",
+    "qp": 36,
+    "version": "after",
+    "seconds": 3.365035833325237,
+    "sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+  },
+  {
+    "rep": 1,
+    "clip": "bw_room",
+    "qp": 36,
+    "version": "before",
+    "seconds": 3.4053414999507368,
+    "sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+  },
+  {
+    "rep": 2,
+    "clip": "action",
+    "qp": 30,
+    "version": "before",
+    "seconds": 3.1426627500914037,
+    "sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+  },
+  {
+    "rep": 2,
+    "clip": "action",
+    "qp": 30,
+    "version": "after",
+    "seconds": 3.049000999890268,
+    "sha256": "dcc8880088609539a52762ef331010dbd5f8d21cac9578373c33f2fa140a833f"
+  },
+  {
+    "rep": 2,
+    "clip": "anime_dialog",
+    "qp": 24,
+    "version": "before",
+    "seconds": 6.496997416950762,
+    "sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+  },
+  {
+    "rep": 2,
+    "clip": "anime_dialog",
+    "qp": 24,
+    "version": "after",
+    "seconds": 6.33959541702643,
+    "sha256": "5aa3e875b96514d515f4cf2d5353e7d456f5654ddc89f2686844b587a2a446ad"
+  },
+  {
+    "rep": 2,
+    "clip": "bw_room",
+    "qp": 36,
+    "version": "before",
+    "seconds": 3.395081792026758,
+    "sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+  },
+  {
+    "rep": 2,
+    "clip": "bw_room",
+    "qp": 36,
+    "version": "after",
+    "seconds": 3.3565542912110686,
+    "sha256": "848eb44f57b6e34466e94b42e429e98655952c9f9fbf1a4d431408ff9cbd8288"
+  }
+]

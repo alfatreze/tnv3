@@ -1,0 +1,41 @@
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study.py:172: RuntimeWarning: divide by zero encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study.py:172: RuntimeWarning: invalid value encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study.py:202: RuntimeWarning: divide by zero encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+<alternatives-worktree>/tools/codec_study/clean_sheet/transform_study.py:202: RuntimeWarning: invalid value encountered in log2
+  esc = float(np.sum(np.where(a > 20, 2 * np.log2(a - 19 + 1) + 1, 0.0)))
+POT8 angles [-0.4   -0.125  0.    -0.15  -0.05  -0.05 ]
+
+luma-only estimated kB per 800x334 frame at PSNR-Y 34 dB (per image, geo-mean, ratio to dct8)
+dct8      12.55    nan  10.60  gm    nan  xnan
+dct16     11.44    nan  10.20  gm    nan  xnan
+dct8pot   10.73    nan   9.04  gm    nan  xnan
+wav3      12.96    nan   9.51  gm    nan  xnan
+wav4      11.87    nan   8.88  gm    nan  xnan
+wav5      11.48    nan   8.57  gm    nan  xnan
+
+luma-only estimated kB per 800x334 frame at PSNR-Y 36 dB (per image, geo-mean, ratio to dct8)
+dct8      16.12   5.42  14.34  gm  10.78  x1.000
+dct16     14.94   5.06  14.12  gm  10.22  x0.948
+dct8pot   13.85    nan  12.34  gm    nan  xnan
+wav3      17.15   5.84  13.40  gm  11.03  x1.023
+wav4      15.74   4.82  12.34  gm   9.78  x0.908
+wav5      15.31   4.20  11.96  gm   9.16  x0.850
+
+luma-only estimated kB per 800x334 frame at PSNR-Y 38 dB (per image, geo-mean, ratio to dct8)
+dct8      20.23   7.40  18.83  gm  14.13  x1.000
+dct16     19.01   7.08  18.92  gm  13.66  x0.967
+dct8pot   17.46   6.37  16.26  gm  12.18  x0.862
+wav3      21.79   8.86  17.87  gm  15.11  x1.069
+wav4      20.12   6.78  16.53  gm  13.12  x0.928
+wav5      19.68   6.06  16.07  gm  12.43  x0.879
+
+luma-only estimated kB per 800x334 frame at PSNR-Y 40 dB (per image, geo-mean, ratio to dct8)
+dct8      25.04  10.00  24.18  gm  18.22  x1.000
+dct16     23.63   9.62  24.61  gm  17.75  x0.974
+dct8pot   21.68   8.65  21.04  gm  15.80  x0.867
+wav3      26.96  11.86  23.33  gm  19.54  x1.072
+wav4      25.09   9.21  21.65  gm  17.11  x0.939
+wav5      24.64   8.40  21.15  gm  16.36  x0.898

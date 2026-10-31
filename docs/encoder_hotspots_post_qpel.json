@@ -1,0 +1,47 @@
+[
+  {
+    "source_sha256": "4cf4c30e34bccb6da01d4b12130f66c74273ad2394374d27875d4790f4dac820",
+    "instrumentation": "inclusive clock timings; timing-call overhead included; fdct8 excludes 4x4 transforms",
+    "case": "action_400",
+    "qp": 30,
+    "frames": 96,
+    "instrumented_total_s": 2.130573,
+    "fractional_search_sad_s": 0.136020964,
+    "rdoq_s": 1.15817192,
+    "fdct8_s": 0.091200038,
+    "fractional_search_calls": 686400,
+    "rdoq_calls": 2087385,
+    "fdct8_calls": 1131504,
+    "source_commit": "568ecb9a"
+  },
+  {
+    "source_sha256": "4cf4c30e34bccb6da01d4b12130f66c74273ad2394374d27875d4790f4dac820",
+    "instrumentation": "inclusive clock timings; timing-call overhead included; fdct8 excludes 4x4 transforms",
+    "case": "anime_dialog_400",
+    "qp": 30,
+    "frames": 96,
+    "instrumented_total_s": 2.757901,
+    "fractional_search_sad_s": 0.182486999,
+    "rdoq_s": 1.604470941,
+    "fdct8_s": 0.113643974,
+    "fractional_search_calls": 936000,
+    "rdoq_calls": 2670602,
+    "fdct8_calls": 1412466,
+    "source_commit": "568ecb9a"
+  },
+  {
+    "source_sha256": "4cf4c30e34bccb6da01d4b12130f66c74273ad2394374d27875d4790f4dac820",
+    "instrumentation": "inclusive clock timings; timing-call overhead included; fdct8 excludes 4x4 transforms",
+    "case": "action_800",
+    "qp": 30,
+    "frames": 96,
+    "instrumented_total_s": 5.465761,
+    "fractional_search_sad_s": 0.385692072,
+    "rdoq_s": 2.266447817,
+    "fdct8_s": 0.345800934,
+    "fractional_search_calls": 2620800,
+    "rdoq_calls": 6664629,
+    "fdct8_calls": 4288170,
+    "source_commit": "568ecb9a"
+  }
+]

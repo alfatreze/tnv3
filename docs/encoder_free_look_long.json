@@ -1,0 +1,110 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "measurement": "one run each; macOS wait4 peak RSS; full encoder including input and output",
+  "samples": [
+    {
+      "case": "action_400",
+      "qp": 30,
+      "encoder": "before",
+      "frames": 240,
+      "seconds": 4.256799666211009,
+      "fps": 56.3803840488516,
+      "peak_rss_bytes": 65257472,
+      "stream_sha256": "1bcf5d21e69274fcbce7291b7c844876db02b106296fbae725d20e57da63f9c2",
+      "recon_sha256": "7b1fe90f9bcc0bf63a47b6c2ccd431953144ea8d5fa51831e9e703754b03431a",
+      "bytes": 425363,
+      "binary_sha256": "8b8e469c9bb1d422a5618ecaf148001015046dd7c5dc3478b8a82608bf174c51"
+    },
+    {
+      "case": "action_400",
+      "qp": 30,
+      "encoder": "after",
+      "frames": 240,
+      "seconds": 4.322502291761339,
+      "fps": 55.52339450633455,
+      "peak_rss_bytes": 63635456,
+      "stream_sha256": "1bcf5d21e69274fcbce7291b7c844876db02b106296fbae725d20e57da63f9c2",
+      "recon_sha256": "7b1fe90f9bcc0bf63a47b6c2ccd431953144ea8d5fa51831e9e703754b03431a",
+      "bytes": 425363,
+      "binary_sha256": "4835971f3c227c1c01cbaba45ca8a9a48c0ef6c8ed1b67f50687c07d8f74ea19"
+    },
+    {
+      "case": "anime_dialog_400",
+      "qp": 24,
+      "encoder": "before",
+      "frames": 240,
+      "seconds": 6.002321291714907,
+      "fps": 39.98453070669102,
+      "peak_rss_bytes": 76005376,
+      "stream_sha256": "dcddc778c79e7786e092119f6d821a12a8f557b6d13b22e23f8c7e3811fc2c63",
+      "recon_sha256": "c5c46c9858a39ceb572182990023f041c756ad3e896ddb9bc8180c6135e7c7e0",
+      "bytes": 474682,
+      "binary_sha256": "8b8e469c9bb1d422a5618ecaf148001015046dd7c5dc3478b8a82608bf174c51"
+    },
+    {
+      "case": "anime_dialog_400",
+      "qp": 24,
+      "encoder": "after",
+      "frames": 240,
+      "seconds": 6.067356625106186,
+      "fps": 39.55594088649762,
+      "peak_rss_bytes": 76120064,
+      "stream_sha256": "dcddc778c79e7786e092119f6d821a12a8f557b6d13b22e23f8c7e3811fc2c63",
+      "recon_sha256": "c5c46c9858a39ceb572182990023f041c756ad3e896ddb9bc8180c6135e7c7e0",
+      "bytes": 474682,
+      "binary_sha256": "4835971f3c227c1c01cbaba45ca8a9a48c0ef6c8ed1b67f50687c07d8f74ea19"
+    },
+    {
+      "case": "bw_room_400",
+      "qp": 36,
+      "encoder": "before",
+      "frames": 240,
+      "seconds": 3.980074082966894,
+      "fps": 60.30038511773006,
+      "peak_rss_bytes": 101171200,
+      "stream_sha256": "6c814883ffeee2e05dd51ecd3d4a96b057e62741b007dff88e7897ed4e194b62",
+      "recon_sha256": "665f7affed8401256906aaea7403e44ae2c40b80be5f5d7505ff238130ade785",
+      "bytes": 146057,
+      "binary_sha256": "8b8e469c9bb1d422a5618ecaf148001015046dd7c5dc3478b8a82608bf174c51"
+    },
+    {
+      "case": "bw_room_400",
+      "qp": 36,
+      "encoder": "after",
+      "frames": 240,
+      "seconds": 3.9869424998760223,
+      "fps": 60.19650396449485,
+      "peak_rss_bytes": 98353152,
+      "stream_sha256": "6c814883ffeee2e05dd51ecd3d4a96b057e62741b007dff88e7897ed4e194b62",
+      "recon_sha256": "665f7affed8401256906aaea7403e44ae2c40b80be5f5d7505ff238130ade785",
+      "bytes": 146057,
+      "binary_sha256": "4835971f3c227c1c01cbaba45ca8a9a48c0ef6c8ed1b67f50687c07d8f74ea19"
+    },
+    {
+      "case": "action_800",
+      "qp": 30,
+      "encoder": "before",
+      "frames": 240,
+      "seconds": 10.838939083274454,
+      "fps": 22.142388489879377,
+      "peak_rss_bytes": 225722368,
+      "stream_sha256": "3c9de9fe4886203276fa1b31e5e877021736fb2c61a67947f46d4ffb687daa82",
+      "recon_sha256": "b2bf90147db4a0dcf1c781a394869ba101461782d4b7801f0ce860036ae94d07",
+      "bytes": 943988,
+      "binary_sha256": "8b8e469c9bb1d422a5618ecaf148001015046dd7c5dc3478b8a82608bf174c51"
+    },
+    {
+      "case": "action_800",
+      "qp": 30,
+      "encoder": "after",
+      "frames": 240,
+      "seconds": 10.773634625133127,
+      "fps": 22.276604725402443,
+      "peak_rss_bytes": 214548480,
+      "stream_sha256": "3c9de9fe4886203276fa1b31e5e877021736fb2c61a67947f46d4ffb687daa82",
+      "recon_sha256": "b2bf90147db4a0dcf1c781a394869ba101461782d4b7801f0ce860036ae94d07",
+      "bytes": 943988,
+      "binary_sha256": "4835971f3c227c1c01cbaba45ca8a9a48c0ef6c8ed1b67f50687c07d8f74ea19"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "variant": "vt",
+  "base_source_sha256": "67dcf003b92fab59f4c44e632c6a340bf0517c4d1353d4b469d83e07777e2257",
+  "generated_source_sha256": "9f53f96bae3c6b2a7f8b18a9640f3d7bf0d80e453cf32b1d6843bafbbc48c439",
+  "binary_sha256": "c0c1a50ebcfb6f687f699fb7efcf426368e89b5e1db0e14fd3f0f2e167c4cb7f",
+  "command": [
+    "cc",
+    "-O3",
+    "-I",
+    "<encoder-worktree>/tools/tvc_ref",
+    "<encoder-worktree>/work/encoder_lab/experiment-vt.c",
+    "<encoder-worktree>/work/encoder_lab/vt_seeds.o",
+    "-framework",
+    "Foundation",
+    "-framework",
+    "VideoToolbox",
+    "-framework",
+    "CoreVideo",
+    "-framework",
+    "CoreMedia",
+    "-lm",
+    "-o",
+    "<encoder-worktree>/work/encoder_lab/encoder-vt"
+  ]
+}

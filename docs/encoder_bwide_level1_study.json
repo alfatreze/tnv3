@@ -1,0 +1,15 @@
+{
+  "frames": 240,
+  "b_count": 6,
+  "level": 1,
+  "source": "action_400.y4m",
+  "stream_sha256": "39b0a1b70b1370019c36273983703c6ef048694bca0e6163f6e9ff4effbc1324",
+  "container_sha256": "005a56695f3d7b1a5c1e969b4f4a7ae1ca340c147a7ac39718f5140caa9b03a7",
+  "container_bytes": 414396,
+  "serial_stream_match": true,
+  "serial_reconstruction_match": true,
+  "frozen_decoder_match": true,
+  "container_check": "valid",
+  "audio": "none",
+  "log": "work/encoder_lab/bwide-l1-film.log"
+}

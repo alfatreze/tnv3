@@ -1,0 +1,19 @@
+{
+  "platform": "macOS; wait4 ru_maxrss in bytes",
+  "samples": [
+    {
+      "version": "before",
+      "seconds": 17.697179124690592,
+      "maxrss_bytes": 225460224,
+      "frames": 240,
+      "sha256": "3c9de9fe4886203276fa1b31e5e877021736fb2c61a67947f46d4ffb687daa82"
+    },
+    {
+      "version": "after",
+      "seconds": 17.398696291726083,
+      "maxrss_bytes": 121602048,
+      "frames": 240,
+      "sha256": "3c9de9fe4886203276fa1b31e5e877021736fb2c61a67947f46d4ffb687daa82"
+    }
+  ]
+}

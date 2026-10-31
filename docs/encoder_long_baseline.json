@@ -1,0 +1,102 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "measurement": "one run each; macOS wait4 peak RSS; full encoder including input and output",
+  "samples": [
+    {
+      "case": "action_400",
+      "qp": 30,
+      "encoder": "original-O2",
+      "frames": 240,
+      "seconds": 7.104753457941115,
+      "fps": 33.78020101904416,
+      "peak_rss_bytes": 50348032,
+      "stream_sha256": "78cf2a92deaa64b9e113804723322fbf99c673fb4c71996766c87af3a2dc988c",
+      "bytes": 431519,
+      "binary_sha256": "b3513d74464aaf33e344dffb30beb6f146eb74bc770aa862b02bb46d1e730810"
+    },
+    {
+      "case": "action_400",
+      "qp": 30,
+      "encoder": "current-O3",
+      "frames": 240,
+      "seconds": 4.761642207857221,
+      "fps": 50.40277902526448,
+      "peak_rss_bytes": 35258368,
+      "stream_sha256": "1bcf5d21e69274fcbce7291b7c844876db02b106296fbae725d20e57da63f9c2",
+      "bytes": 425363,
+      "binary_sha256": "e384b00d5d213a58fdebe972964c0ce88d8467f4bdbc12f188f17d2afa295fa6"
+    },
+    {
+      "case": "anime_dialog_400",
+      "qp": 24,
+      "encoder": "original-O2",
+      "frames": 240,
+      "seconds": 12.167176499962807,
+      "fps": 19.72520083034331,
+      "peak_rss_bytes": 67076096,
+      "stream_sha256": "aafb10ec3061bd17750ac49154ffca103d904c09cceaea2db0e223a84955dc57",
+      "bytes": 482102,
+      "binary_sha256": "b3513d74464aaf33e344dffb30beb6f146eb74bc770aa862b02bb46d1e730810"
+    },
+    {
+      "case": "anime_dialog_400",
+      "qp": 24,
+      "encoder": "current-O3",
+      "frames": 240,
+      "seconds": 7.999794458039105,
+      "fps": 30.00077080215738,
+      "peak_rss_bytes": 42336256,
+      "stream_sha256": "dcddc778c79e7786e092119f6d821a12a8f557b6d13b22e23f8c7e3811fc2c63",
+      "bytes": 474682,
+      "binary_sha256": "e384b00d5d213a58fdebe972964c0ce88d8467f4bdbc12f188f17d2afa295fa6"
+    },
+    {
+      "case": "bw_room_400",
+      "qp": 36,
+      "encoder": "original-O2",
+      "frames": 240,
+      "seconds": 8.434729000087827,
+      "fps": 28.453789090023044,
+      "peak_rss_bytes": 101122048,
+      "stream_sha256": "d3ec06713d620a002cbb6e5c2706eda79c6d7027c1695e8639875bcec5e363bf",
+      "bytes": 146557,
+      "binary_sha256": "b3513d74464aaf33e344dffb30beb6f146eb74bc770aa862b02bb46d1e730810"
+    },
+    {
+      "case": "bw_room_400",
+      "qp": 36,
+      "encoder": "current-O3",
+      "frames": 240,
+      "seconds": 4.240319957956672,
+      "fps": 56.59950248557455,
+      "peak_rss_bytes": 54493184,
+      "stream_sha256": "6c814883ffeee2e05dd51ecd3d4a96b057e62741b007dff88e7897ed4e194b62",
+      "bytes": 146057,
+      "binary_sha256": "e384b00d5d213a58fdebe972964c0ce88d8467f4bdbc12f188f17d2afa295fa6"
+    },
+    {
+      "case": "action_800",
+      "qp": 30,
+      "encoder": "original-O2",
+      "frames": 240,
+      "seconds": 20.508374750148505,
+      "fps": 11.702536301579046,
+      "peak_rss_bytes": 186171392,
+      "stream_sha256": "722887ba3ab1090163c78baa90d93d7554bc4f63427ec86e18b9ab09dcbb51b3",
+      "bytes": 966172,
+      "binary_sha256": "b3513d74464aaf33e344dffb30beb6f146eb74bc770aa862b02bb46d1e730810"
+    },
+    {
+      "case": "action_800",
+      "qp": 30,
+      "encoder": "current-O3",
+      "frames": 240,
+      "seconds": 11.465305124875158,
+      "fps": 20.93271809044971,
+      "peak_rss_bytes": 120504320,
+      "stream_sha256": "3c9de9fe4886203276fa1b31e5e877021736fb2c61a67947f46d4ffb687daa82",
+      "bytes": 943988,
+      "binary_sha256": "e384b00d5d213a58fdebe972964c0ce88d8467f4bdbc12f188f17d2afa295fa6"
+    }
+  ]
+}

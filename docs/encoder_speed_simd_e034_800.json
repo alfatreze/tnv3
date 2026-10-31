@@ -1,0 +1,82 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "frames": 96,
+  "repeats": 3,
+  "suffix": "800",
+  "binaries": {
+    "before": {
+      "path": "<encoder-worktree>/tools/tvc_ref/tvc_enc",
+      "sha256": "c7ab37e56ea0f2c89b1f46397d798457be2004cd352a97a0f7f9eabc0ee35c05"
+    },
+    "after": {
+      "path": "<encoder-worktree>/work/encoder_lab/encoder-simd-e034",
+      "sha256": "d534873e2564395b329a570e2eed797e7c45e056c1c3b32ce1a217052d5d3621"
+    }
+  },
+  "samples": [
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 0,
+      "seconds": 4.397322291973978,
+      "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf",
+      "diagnostics": "96 frames, 409455 bytes, 4265.2 bytes/frame, 2 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 0,
+      "seconds": 4.351528875064105,
+      "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf",
+      "diagnostics": "96 frames, 409455 bytes, 4265.2 bytes/frame, 2 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 1,
+      "seconds": 4.348622291348875,
+      "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf",
+      "diagnostics": "96 frames, 409455 bytes, 4265.2 bytes/frame, 2 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 1,
+      "seconds": 4.3544788751751184,
+      "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf",
+      "diagnostics": "96 frames, 409455 bytes, 4265.2 bytes/frame, 2 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "before",
+      "repetition": 2,
+      "seconds": 4.347205041907728,
+      "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf",
+      "diagnostics": "96 frames, 409455 bytes, 4265.2 bytes/frame, 2 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    },
+    {
+      "case": "action:30",
+      "version": "after",
+      "repetition": 2,
+      "seconds": 4.352300291880965,
+      "stream_sha256": "010c63ec2e4f0787032d4d1a653c37f715ea48f998a9df5f4e6097474540e5bf",
+      "diagnostics": "96 frames, 409455 bytes, 4265.2 bytes/frame, 2 scene-cut I pictures, 0 pictures re-encoded for the level\n"
+    }
+  ],
+  "summary": [
+    {
+      "case": "action:30",
+      "median_seconds": {
+        "before": 4.3544788751751184,
+        "after": 4.351528875064105
+      },
+      "fps": {
+        "before": 22.046266097947093,
+        "after": 22.061211761713466
+      },
+      "speedup": 1.0006779226786058,
+      "identical_streams": true
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+
+##### long_tears: raw points (q, kB/frame, vmaf, psnr, ssim, enc s)
+  long_v3   q26    4.677  95.446  42.536 0.9846    123s
+  long_v3   q30    2.841  91.931  40.246 0.9771    120s
+  long_v3   q34    1.724  85.689  37.797 0.9651    120s
+  long_v3s  q26    4.714  95.485  42.591 0.9847    121s
+  long_v3s  q30    2.861  92.063  40.323 0.9776    120s
+  long_v3s  q34    1.734  86.056  37.912 0.9663    120s
+  long_v4   q26    4.713  95.670  42.746 0.9849    137s
+  long_v4   q30    2.875  92.313  40.463 0.9779    127s
+  long_v4   q34    1.752  86.387  38.021 0.9666    124s
+  -- equal vmaf = 91.931 (long_v3 q30)
+  kB/frame: long_v3   2.841  long_v3s   2.829  long_v4   2.785
+  long_v3s/long_v3  0.996   long_v4/long_v3s  0.984   long_v4/long_v3  0.980
+  -- equal psnr = 40.246 (long_v3 q30)
+  kB/frame: long_v3   2.841  long_v3s   2.815  long_v4   2.751
+  long_v3s/long_v3  0.991   long_v4/long_v3s  0.977   long_v4/long_v3  0.968
+
+##### long_anime: raw points (q, kB/frame, vmaf, psnr, ssim, enc s)
+  long_v3   q26    2.472  96.031  46.624 0.9904    152s
+  long_v3   q30    1.668  94.712  44.340 0.9864    149s
+  long_v3   q34    1.110  92.282  41.780 0.9800    143s
+  long_v3s  q26    2.524  96.149  46.851 0.9909    146s
+  long_v3s  q30    1.702  94.971  44.655 0.9872    147s
+  long_v3s  q34    1.130  92.777  42.157 0.9814    146s
+  long_v4   q26    2.385  96.310  47.098 0.9911    165s
+  long_v4   q30    1.622  95.176  44.925 0.9877    163s
+  long_v4   q34    1.093  93.112  42.433 0.9822    158s
+  -- equal vmaf = 94.712 (long_v3 q30)
+  kB/frame: long_v3   1.668  long_v3s   1.622  long_v4   1.484
+  long_v3s/long_v3  0.972   long_v4/long_v3s  0.915   long_v4/long_v3  0.890
+  -- equal psnr = 44.340 (long_v3 q30)
+  kB/frame: long_v3   1.668  long_v3s   1.617  long_v4   1.478
+  long_v3s/long_v3  0.969   long_v4/long_v3s  0.914   long_v4/long_v3  0.886
+
+##### long_bw: raw points (q, kB/frame, vmaf, psnr, ssim, enc s)
+  long_v3   q26    4.559  93.043  44.279 0.9910    202s
+  long_v3   q30    2.586  89.102  42.158 0.9871    193s
+  long_v3   q34    1.462  82.987  39.984 0.9811    170s
+  long_v3s  q26    4.588  93.135  44.301 0.9910    176s
+  long_v3s  q30    2.595  89.244  42.165 0.9871    171s
+  long_v3s  q34    1.458  83.154  39.980 0.9811    168s
+  long_v4   q26    4.687  93.332  44.409 0.9912    191s
+  long_v4   q30    2.663  89.495  42.248 0.9872    180s
+  long_v4   q34    1.495  83.433  40.042 0.9812    173s
+  -- equal vmaf = 89.102 (long_v3 q30)
+  kB/frame: long_v3   2.586  long_v3s   2.560  long_v4   2.565
+  long_v3s/long_v3  0.990   long_v4/long_v3s  1.002   long_v4/long_v3  0.992
+  -- equal psnr = 42.158 (long_v3 q30)
+  kB/frame: long_v3   2.586  long_v3s   2.589  long_v4   2.600
+  long_v3s/long_v3  1.001   long_v4/long_v3s  1.004   long_v4/long_v3  1.006
+
+mean encode seconds: long_v3 152, long_v3s 146, long_v4 158
