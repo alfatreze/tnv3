@@ -765,3 +765,46 @@ fn bidirectional_group_can_encode_residuals() {
         let _ = fs::remove_file(out);
     }
 }
+
+#[cfg(feature = "b-pictures")]
+#[test]
+fn shared_b_stream_handles_short_and_partial_groups() {
+    use std::io::Cursor;
+    use tau_video::{
+        container::mux_tvc,
+        tvc::{encoder::encode_y4m_b, stream::decode_y4m},
+    };
+    for frames in 1..=8u32 {
+        let mut source = b"YUV4MPEG2 W16 H16 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+        for _ in 0..frames {
+            source.extend_from_slice(b"FRAME\n");
+            source.extend(vec![128u8; 384]);
+        }
+        let mut out = Cursor::new(Vec::new());
+        let summary = encode_y4m_b(Cursor::new(source), &mut out, 20).unwrap();
+        assert_eq!(summary.frames, frames);
+        assert_eq!(summary.b_pictures, (frames - 1) / 2);
+        let tvc = out.into_inner();
+        let mut y4m = Vec::new();
+        decode_y4m(&tvc[..], &mut y4m).unwrap();
+        assert_eq!(
+            y4m.windows(6).filter(|x| *x == b"FRAME\n").count(),
+            frames as usize
+        );
+        let mut tnv = Cursor::new(Vec::new());
+        mux_tvc(&tvc[..], &mut tnv).unwrap();
+    }
+}
+
+#[cfg(feature = "b-pictures")]
+#[test]
+fn shared_b_stream_rejects_empty_and_truncated_inputs() {
+    use std::io::Cursor;
+    use tau_video::tvc::encoder::encode_y4m_b;
+    let header = b"YUV4MPEG2 W16 H16 F24:1 Ip A1:1 C420jpeg\n";
+    assert!(encode_y4m_b(Cursor::new(&header[..]), Cursor::new(Vec::new()), 20).is_err());
+    let mut truncated = header.to_vec();
+    truncated.extend_from_slice(b"FRAME\n");
+    truncated.extend_from_slice(&[0; 20]);
+    assert!(encode_y4m_b(Cursor::new(truncated), Cursor::new(Vec::new()), 20).is_err());
+}

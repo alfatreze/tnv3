@@ -103,3 +103,7 @@ experiments. It is not integrated with stream encoding or rate control.
 The opt-in `encode-tvc-b` stream prototype now emits zero-motion B groups with
 residuals and rate-aware intra fallback. It is not competitive on most short
 real clips tested and is not production-qualified; see the experiment record.
+
+The opt-in B stream reuses the previous intra anchor, with tested fallback
+and partial-group handling. It does not yet share P anchors with the normal
+encoder; the short-clip comparisons remain mixed.

@@ -145,3 +145,8 @@ An opt-in Rust three-frame B stream mode now includes zero-motion residuals
 and rate-aware intra fallback. C decode and container checks passed on the
 host. In four short clip comparisons it was larger than the normal P encoder
 on three clips, so it remains experimental. See RUST_ENCODER_EXPERIMENTS.md.
+
+The opt-in B stream now reuses its preceding intra anchor. On four short host
+clips this reduced size versus the prior B prototype on two clips and increased
+it on two; it remained larger than the default P encoder on three. Normal P
+anchors are not yet shared. See `docs/RUST_ENCODER_EXPERIMENTS.md`.

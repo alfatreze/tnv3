@@ -82,3 +82,23 @@ timing runs were too noisy to compare speed. See `rust_b_stream_study.json`.
 Decision: retain as opt-in only; no new Pocket or Quartus claim. Next gate:
 share anchors with the normal P path, then repeat longer paired quality/rate
 and speed studies before considering a default change.
+
+## Shared intra anchors for B stream — 2026-10-31
+
+The experimental B stream now retains the previous intra anchor and buffers
+up to two following input frames. It tries a future intra anchor and a B picture
+against two intra pictures, with the same error/size and rolling rate checks;
+otherwise it writes intra pictures with retries. This affects the opt-in
+encoder hot path. Sharing the normal encoder's P anchors is deferred.
+
+**Host:** on the same four short 400-pixel QP 30 clips, the new B stream
+changed bytes versus the preceding B prototype by -9.98% dialog, -5.91%
+anime, +4.01% black-and-white and +0.07% action. Versus the normal P encoder
+it used +44.80%, +30.65%, +35.58% and -2.46% bytes respectively; Y-PSNR
+differences were +0.144, -0.199, +0.011 and +0.134 dB. These are same-QP
+6–10-frame cases, not equal-quality rate comparisons. Single short timing runs
+are insufficient for speed conclusions. The C decoder and TNV3 checker passed
+all four; synthetic tests cover display order, fallback, 1–8 frame lengths
+and truncated input. Data: `rust_b_stream_study.json`, shared-intra section.
+Decision: retain opt-in only; no new Pocket or Quartus claim. Next: share P
+anchors and test longer diverse inputs before considering default use.

@@ -149,5 +149,79 @@
       "b_pictures": 2,
       "frames": 6
     }
+  ],
+  "shared_intra": [
+    {
+      "case": "dialog",
+      "mode": "encode-tvc",
+      "bytes": 42394,
+      "psnr_y": 36.557,
+      "seconds": 0.3095,
+      "b_pictures": 0,
+      "frames": 10
+    },
+    {
+      "case": "dialog",
+      "mode": "encode-tvc-b",
+      "bytes": 61386,
+      "psnr_y": 36.701,
+      "seconds": 0.0267,
+      "b_pictures": 4,
+      "frames": 10
+    },
+    {
+      "case": "anime",
+      "mode": "encode-tvc",
+      "bytes": 27439,
+      "psnr_y": 40.903,
+      "seconds": 0.0276,
+      "b_pictures": 0,
+      "frames": 8
+    },
+    {
+      "case": "anime",
+      "mode": "encode-tvc-b",
+      "bytes": 35848,
+      "psnr_y": 40.704,
+      "seconds": 0.0236,
+      "b_pictures": 3,
+      "frames": 8
+    },
+    {
+      "case": "bw",
+      "mode": "encode-tvc",
+      "bytes": 27933,
+      "psnr_y": 39.257,
+      "seconds": 0.0276,
+      "b_pictures": 0,
+      "frames": 6
+    },
+    {
+      "case": "bw",
+      "mode": "encode-tvc-b",
+      "bytes": 37871,
+      "psnr_y": 39.268,
+      "seconds": 0.022,
+      "b_pictures": 2,
+      "frames": 6
+    },
+    {
+      "case": "action",
+      "mode": "encode-tvc",
+      "bytes": 46292,
+      "psnr_y": 36.585,
+      "seconds": 0.0207,
+      "b_pictures": 0,
+      "frames": 6
+    },
+    {
+      "case": "action",
+      "mode": "encode-tvc-b",
+      "bytes": 45155,
+      "psnr_y": 36.719,
+      "seconds": 0.0173,
+      "b_pictures": 2,
+      "frames": 6
+    }
   ]
 }

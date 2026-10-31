@@ -89,7 +89,7 @@ same size/error guard. It is off by default; see
 
 The optional `b-pictures` feature provides an experimental three-frame stream
 mode. Build with `make rust-experimental`, then run `tau-video encode-tvc-b
-input.y4m output.tvc`. It uses two intra anchors and one zero-motion B picture
+input.y4m output.tvc`. It reuses the previous intra anchor and tests a future intra anchor plus a zero-motion B picture
 with either skip or residual coding when quality, size and rate checks pass;
 otherwise it falls back to intra pictures. This mode buffers at most three
 frames and is separate from the normal P-picture encoder. Short real-clip tests
