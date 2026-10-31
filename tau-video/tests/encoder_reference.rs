@@ -495,3 +495,117 @@ fn block_motion_candidate_matches_c_decoder() {
         let _ = fs::remove_file(y4m);
     }
 }
+
+#[cfg(feature = "b-pictures")]
+#[test]
+fn bidirectional_group_matches_c_decoder_and_container_checker() {
+    use std::io::Cursor;
+    use tau_video::{
+        container::mux_tvc,
+        tvc::{
+            encoder::try_encode_b_group,
+            frame::{Frame420, decode_intra_picture},
+            stream::decode_y4m,
+        },
+    };
+    fn frame(y: u8) -> Frame420 {
+        Frame420 {
+            width: 32,
+            height: 32,
+            y: vec![y; 1024],
+            cb: vec![128; 256],
+            cr: vec![128; 256],
+        }
+    }
+    let first = frame(80);
+    let last = frame(176);
+    let a = decode_intra_picture(
+        &tau_video::tvc::encoder::encode_intra_picture(&first, 20).unwrap(),
+        32,
+        32,
+    )
+    .unwrap();
+    let b = decode_intra_picture(
+        &tau_video::tvc::encoder::encode_intra_picture(&last, 20).unwrap(),
+        32,
+        32,
+    )
+    .unwrap();
+    let mid = Frame420 {
+        width: 32,
+        height: 32,
+        y: a.y
+            .iter()
+            .zip(&b.y)
+            .map(|(&x, &y)| ((u16::from(x) + u16::from(y) + 1) >> 1) as u8)
+            .collect(),
+        cb: vec![128; 256],
+        cr: vec![128; 256],
+    };
+    let group = try_encode_b_group(&first, &mid, &last, 20)
+        .unwrap()
+        .unwrap();
+    assert_eq!(group.middle_picture[0], 2);
+    let intra_middle = tau_video::tvc::encoder::encode_intra_picture(&mid, 20).unwrap();
+    assert!(group.middle_picture.len() < intra_middle.len());
+    assert!(
+        try_encode_b_group(&first, &frame(0), &last, 20)
+            .unwrap()
+            .is_none()
+    );
+    let mut bytes = b"TVC1".to_vec();
+    bytes.extend_from_slice(&32u16.to_le_bytes());
+    bytes.extend_from_slice(&32u16.to_le_bytes());
+    bytes.extend_from_slice(&24u16.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&3u32.to_le_bytes());
+    bytes.extend_from_slice(&[1, 0, 0, 0]);
+    for p in [
+        &group.first_anchor,
+        &group.future_anchor,
+        &group.middle_picture,
+    ] {
+        bytes.extend_from_slice(&(p.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(p);
+    }
+    let mut rust = Vec::new();
+    decode_y4m(&bytes[..], &mut rust).unwrap();
+    let start = rust.windows(6).position(|x| x == b"FRAME\n").unwrap();
+    let frame_len = 1536;
+    let second = start + 6 + frame_len;
+    assert_eq!(&rust[second..second + 6], b"FRAME\n");
+    assert_eq!(&rust[second + 6..second + 6 + 1024], &mid.y);
+    let mut muxed = Cursor::new(Vec::new());
+    mux_tvc(&bytes[..], &mut muxed).unwrap();
+    let container = muxed.into_inner();
+    if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-bgroup-{}", std::process::id()));
+        let tvc = base.with_extension("tvc");
+        let y4m = base.with_extension("y4m");
+        fs::write(&tvc, &bytes).unwrap();
+        assert!(
+            Command::new(tool)
+                .arg(&tvc)
+                .arg(&y4m)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&y4m).unwrap());
+        if let Some(checker) = std::env::var_os("TAU_TNV3_TOOL") {
+            let tnv = base.with_extension("tnv3");
+            fs::write(&tnv, &container).unwrap();
+            assert!(
+                Command::new(checker)
+                    .arg("check")
+                    .arg(&tnv)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+            let _ = fs::remove_file(tnv);
+        }
+        let _ = fs::remove_file(tvc);
+        let _ = fs::remove_file(y4m);
+    }
+}

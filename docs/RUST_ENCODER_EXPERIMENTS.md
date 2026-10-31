@@ -46,3 +46,17 @@ beneficial blocks outside the sample. The opposing-motion synthetic test still
 passes the C decoder. Decision: retain the precheck only in the opt-in feature;
 keep the default unchanged. Next gate: longer, interleaved repeated tests and
 rate/quality curves over a diverse licensed corpus. No new hardware claim.
+
+## Three-frame B-picture prototype — 2026-10-31
+
+Decision: expose `try_encode_b_group` behind the opt-in `b-pictures` feature.
+Two intra anchors are encoded first; the middle picture uses bidirectional
+zero-motion skip only if its reconstructed YUV mean squared error is at most
+4. Alternatives: emitting B pictures unconditionally would weaken the quality
+bound; buffering arbitrary GOPs is deferred until stream and rate handling are
+ready. This affects the experimental encoder hot path only when explicitly
+called. **Host:** one synthetic three-frame case passed Rust/C decoded-pixel
+equality, display ordering and the C TNV3 checker. The B payload was smaller
+than a separately encoded intra picture on that case. No performance, corpus,
+Pocket or Quartus claim. The stream encoder does not use this function. Next:
+rate-window-aware integration, fallback, broader quality tests and benchmarks.

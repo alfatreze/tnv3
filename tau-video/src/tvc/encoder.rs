@@ -593,6 +593,70 @@ fn close_to_reference(current: &Frame420, reference: &Frame420) -> bool {
     }
     sum <= count * 4
 }
+/// Three pictures in TVC decoding order: first anchor, future anchor, B picture.
+#[cfg(feature = "b-pictures")]
+#[derive(Clone, Debug)]
+pub struct BPictureGroup {
+    /// First input picture, encoded as an intra anchor.
+    pub first_anchor: Vec<u8>,
+    /// Third input picture, encoded as the future intra anchor.
+    pub future_anchor: Vec<u8>,
+    /// Middle input picture, encoded as a bidirectional skip picture.
+    pub middle_picture: Vec<u8>,
+}
+/// Try encoding three display-order frames using a bidirectional skip picture.
+///
+/// Returns `Ok(None)` if the middle picture differs from the rounded average
+/// of reconstructed anchors by more than a YUV mean squared error of 4. The
+/// caller must enforce stream level/rate limits and write the returned pictures
+/// in decoding order. This experimental group is not used by `encode_y4m`.
+#[cfg(feature = "b-pictures")]
+pub fn try_encode_b_group(
+    first: &Frame420,
+    middle: &Frame420,
+    last: &Frame420,
+    qp: u8,
+) -> Result<Option<BPictureGroup>, EncodeError> {
+    if first.width != middle.width
+        || first.height != middle.height
+        || first.width != last.width
+        || first.height != last.height
+        || middle.y.len() != first.y.len()
+        || middle.cb.len() != first.cb.len()
+        || middle.cr.len() != first.cr.len()
+    {
+        return Err(EncodeError);
+    }
+    let a = encode_intra_picture(first, qp)?;
+    let b = encode_intra_picture(last, qp)?;
+    let ar = super::frame::decode_intra_picture(&a, first.width, first.height)
+        .map_err(|_| EncodeError)?;
+    let br =
+        super::frame::decode_intra_picture(&b, last.width, last.height).map_err(|_| EncodeError)?;
+    fn average(a: &[u8], b: &[u8]) -> Vec<u8> {
+        a.iter()
+            .zip(b)
+            .map(|(&x, &y)| ((u16::from(x) + u16::from(y) + 1) >> 1) as u8)
+            .collect()
+    }
+    let predicted = Frame420 {
+        width: first.width,
+        height: first.height,
+        y: average(&ar.y, &br.y),
+        cb: average(&ar.cb, &br.cb),
+        cr: average(&ar.cr, &br.cr),
+    };
+    if !close_to_reference(middle, &predicted) {
+        return Ok(None);
+    }
+    let mut picture = encode_skip_picture(usize::from(first.width), usize::from(first.height), qp);
+    picture[0] = 2;
+    Ok(Some(BPictureGroup {
+        first_anchor: a,
+        future_anchor: b,
+        middle_picture: picture,
+    }))
+}
 /// Encoded TVC stream statistics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EncodeSummary {

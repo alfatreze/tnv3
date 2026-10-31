@@ -86,3 +86,9 @@ rust-experimental` (Cargo feature `block-motion`). It searches a small even-
 pixel window per macroblock and competes with the existing candidates under the
 same size/error guard. It is off by default; see
 [the experiment record](../docs/RUST_ENCODER_EXPERIMENTS.md).
+
+The optional `b-pictures` feature exposes `try_encode_b_group` for a narrow
+three-frame experiment: two intra anchors and a zero-motion bidirectional
+skip picture, accepted only when its YUV mean squared error is at most 4. It
+returns pictures in decoding order. The stream encoder and CLI do not yet use
+this API or emit B pictures; callers must enforce level and rate limits.

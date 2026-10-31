@@ -135,3 +135,8 @@ A 12-case short real-clip study did not justify enabling Rust block motion by
 default. A sampled precheck retained identical outputs on those cases; its
 timings are preliminary. See `docs/RUST_ENCODER_EXPERIMENTS.md` and the linked
 measurement data. Longer interleaved quality and speed tests remain open.
+
+Rust has an opt-in library experiment for a three-frame group with two intra
+anchors and a zero-motion B picture. A synthetic case passed the C decoder and
+TNV3 checker on the host. The stream encoder does not emit B pictures; wider
+quality, rate, speed and end-to-end integration remain open.

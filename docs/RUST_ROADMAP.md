@@ -96,3 +96,6 @@ production quality/performance validation remain open.
 An opt-in `block-motion` experiment searches a small per-macroblock window.
 It is not production-qualified; wider corpus quality and performance tests and
 B-picture encoding remain open. See RUST_ENCODER_EXPERIMENTS.md.
+
+An optional three-frame zero-motion B-group primitive is available for
+experiments. It is not integrated with stream encoding or rate control.
