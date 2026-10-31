@@ -28,6 +28,35 @@ two. The budget limits concurrent TVC encoder slots, not FFmpeg, audio or OS
 threads. `--encoder-threads 1` forces the serial slice fallback. The experimental
 path has bounded race and failure testing but is not production-qualified.
 
+## Research highlights
+
+The project explored MPEG-4 playback, a constrained AV1 decoder, and a custom
+codec family. These are separate tracks; historical host results do not imply
+that every format runs on Pocket hardware.
+
+- **MPEG-4 and AV1:** In a nine-clip host study, full libaom AV1 averaged 73%
+  smaller files than tuned MPEG-4 at comparable VMAF; the leanest tested AV1
+  configuration averaged 66% smaller. These are study-specific estimates, not
+  measurements of TVC or of an AV1 hardware implementation.
+- **TVC encoder:** On three 400-pixel, 96-frame host cases, the optimized serial
+  encoder ran 1.72–2.19× as fast as the original. This comparison includes
+  compiler changes and uses the same nominal QP, not equal-quality settings. A
+  separate four-clip quality gate measured a mean 1.52% lower BD-rate.
+- **Parallel work:** Parallelizing slices already required by level 3 reached
+  1.82× serial throughput in one 800-pixel action case with the same slice
+  layout. Creating extra slices for speed increased mean BD-rate by 9.26% in a
+  separate test, so the worker remains opt-in and experimental.
+- **Apple acceleration:** VideoToolbox motion proposals and hardware-assisted
+  input did not improve throughput in the tested workflows. GPU and Neural
+  Engine performance has not been established, and VideoToolbox does not
+  implement the custom TVC format.
+
+See [the research index](docs/RESEARCH_INDEX.md),
+[codec comparison](docs/CODEC_PHASE0B.md),
+[encoder results](docs/ENCODER_TOTAL_RESULTS.md), and
+[parallel experiments](docs/ENCODER_PARALLEL_HYPOTHESES.md) for methods and
+limits.
+
 The four format files in `docs/` are snapshots. Tau V retains normative format
 authority until that is intentionally transferred. `LICENSE`, `NOTICE.md` and
 `SOURCE_MANIFEST.json` preserve upstream provenance. The standalone smoke test uses generated content; media-derived clips and

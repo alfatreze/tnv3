@@ -25,3 +25,6 @@ reproduction constraints. These additions make no new hardware-validation claim.
 
 The research index separates MPEG-4 player history, AV1 subset work, the custom
 format family and comparative research; this is a documentation change only.
+
+The README summarizes measured encoder and comparative codec research, with
+links to the underlying methods and evidence limits.

@@ -33,13 +33,13 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "78f17d2e6482363f2045598d6fa22a321e86ebde44dd9b7b0c36533ced503cf9",
+      "sha256": "bc239ffac76646b522f1cbb835be810ee369be588205560153de920c53a246fb",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
     },
     "README.md": {
-      "sha256": "64957febe9b64e17e8acd8007bec8279d07b5d2bbae598ee131066d6033e911b",
+      "sha256": "3863cfc5fb840390ff8d449c04ff11807af8c22d443a55b20faa0c4349ed4002",
       "status": "modified_for_release",
       "upstream_path": "README.md",
       "upstream_sha256": "5c43fc240f8973828cb354f8452106096a74d94281e7df6b3e28216e2cba1ab6"
