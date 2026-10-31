@@ -51,16 +51,22 @@ fn encode_pixels(
             input[y][x] = i64::from(src[sy * dims.0 + sx]) - i64::from(pred[y][x]);
         }
     }
+    // A separable integer transform computes the same unrounded sums using
+    // two 1-D passes instead of a four-deep direct transform.
+    let mut temp = [[0i64; 8]; 8];
+    for u in 0..8 {
+        for x in 0..8 {
+            for y in 0..8 {
+                temp[u][x] += T8[u][y] * input[y][x];
+            }
+        }
+    }
     let mut transformed = [[0i64; 8]; 8];
     for u in 0..8 {
         for v in 0..8 {
-            let mut sum = 0i64;
-            for y in 0..8 {
-                for x in 0..8 {
-                    sum += T8[u][y] * T8[v][x] * input[y][x];
-                }
+            for x in 0..8 {
+                transformed[u][v] += T8[v][x] * temp[u][x];
             }
-            transformed[u][v] = sum;
         }
     }
     let mut levels = [0i16; 64];
@@ -199,6 +205,53 @@ pub fn encode_intra_picture(frame: &Frame420, qp: u8) -> Result<Vec<u8>, EncodeE
     Ok(output)
 }
 
+// A P picture containing only zero-motion skip blocks. Each row is its own
+// slice, so its first macroblock has no left or top skip context.
+fn encode_skip_picture(width: usize, height: usize, qp: u8) -> Vec<u8> {
+    let mw = width.div_ceil(16);
+    let mh = height.div_ceil(16);
+    let mut slices = Vec::with_capacity(mh);
+    for _ in 0..mh {
+        let mut r = RangeEncoder::new();
+        let mut skip = [Probability::default(); 3];
+        for x in 0..mw {
+            r.bit(&mut skip[usize::from(x > 0)], true);
+        }
+        slices.push(r.finish());
+    }
+    let mut out = vec![1, qp, if mh > 1 { 8 } else { 0 }];
+    if mh > 1 {
+        out.push(1);
+        for slice in slices.iter().take(mh - 1) {
+            out.extend_from_slice(&(slice.len() as u32).to_le_bytes());
+        }
+    }
+    for slice in slices {
+        out.extend_from_slice(&slice);
+    }
+    out
+}
+// Require a low mean squared error over all planes, bounded in integer math.
+fn close_to_reference(current: &Frame420, reference: &Frame420) -> bool {
+    let mut sum = 0u64;
+    let mut count = 0u64;
+    let budget = ((current.y.len() + current.cb.len() + current.cr.len()) as u64) * 4;
+    for (a, b) in [
+        (&current.y, &reference.y),
+        (&current.cb, &reference.cb),
+        (&current.cr, &reference.cr),
+    ] {
+        for (&x, &y) in a.iter().zip(b.iter()) {
+            let d = i32::from(x) - i32::from(y);
+            sum += (d * d) as u64;
+            count += 1;
+            if sum > budget {
+                return false;
+            }
+        }
+    }
+    sum <= count * 4
+}
 /// Encoded TVC stream statistics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EncodeSummary {
@@ -208,6 +261,8 @@ pub struct EncodeSummary {
     pub level: u8,
     /// Number of frames retried at a higher quantizer for level limits.
     pub reencoded: u32,
+    /// Pictures encoded using zero-motion prediction.
+    pub predicted: u32,
 }
 /// Stream encoding failure.
 #[derive(Debug)]
@@ -260,7 +315,8 @@ fn line<R: std::io::BufRead>(input: &mut R) -> Result<Option<Vec<u8>>, StreamEnc
 }
 /// Encode a YUV4MPEG2 8-bit 4:2:0 stream into a TVC1 elementary stream.
 ///
-/// The baseline is intra-only and holds one input frame and one encoded picture
+/// The baseline uses intra pictures and limited zero-motion P pictures, and holds
+/// one input frame and one encoded picture
 /// at a time. Output must be seekable so its frame count can be filled in. On
 /// error the caller must discard the partially written output. The encoder
 /// selects the smallest fitting TVC level and retries with a higher QP if the
@@ -362,7 +418,8 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
     let window = usize::from(n).div_ceil(usize::from(d));
     let mut lengths = std::collections::VecDeque::new();
     let mut sum = 0usize;
-    let (mut frames, mut reencoded) = (0u32, 0u32);
+    let (mut frames, mut reencoded, mut predicted) = (0u32, 0u32, 0u32);
+    let mut reference: Option<Frame420> = None;
     while let Some(tag) = line(&mut input)? {
         if tag != b"FRAME\n" && !tag.starts_with(b"FRAME ") {
             return Err(StreamEncodeError::Invalid("Invalid Y4M frame marker."));
@@ -378,17 +435,36 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                 .pop_front()
                 .ok_or(StreamEncodeError::Invalid("Invalid rate window."))?;
         }
+        let use_prediction = frames % 96 != 0
+            && reference
+                .as_ref()
+                .is_some_and(|r| close_to_reference(&frame, r));
         let mut q = qp;
-        let picture = loop {
-            match encode_intra_picture(&frame, q) {
-                Ok(p) if p.len() <= limits.4 && sum + p.len() <= limits.5 => break p,
-                _ if q < 51 => q += 1,
-                _ => {
-                    return Err(StreamEncodeError::Invalid(
-                        "Picture cannot fit TVC level limits.",
-                    ));
-                }
+        let picture = if use_prediction {
+            let p = encode_skip_picture(wz, hz, qp);
+            if p.len() > limits.4 || sum + p.len() > limits.5 {
+                return Err(StreamEncodeError::Invalid(
+                    "Predictive picture exceeds TVC level limits.",
+                ));
             }
+            predicted += 1;
+            p
+        } else {
+            let p = loop {
+                match encode_intra_picture(&frame, q) {
+                    Ok(p) if p.len() <= limits.4 && sum + p.len() <= limits.5 => break p,
+                    _ if q < 51 => q += 1,
+                    _ => {
+                        return Err(StreamEncodeError::Invalid(
+                            "Picture cannot fit TVC level limits.",
+                        ));
+                    }
+                }
+            };
+            reference = Some(super::frame::decode_intra_picture(&p, w, h).map_err(|_| {
+                StreamEncodeError::Invalid("Encoded picture could not be reconstructed.")
+            })?);
+            p
         };
         if q != qp {
             reencoded += 1;
@@ -411,5 +487,6 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         frames,
         level,
         reencoded,
+        predicted,
     })
 }

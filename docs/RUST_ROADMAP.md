@@ -76,3 +76,8 @@ remain open. The temporary MP3 path remains separate from the TNV3 format.
 TNV3 video-track decoding is available and matched all nine local vectors
 against the C demuxer and decoder. Audio, subtitle rendering, full validation
 and seeking remain to be implemented.
+
+The stream baseline now supports zero-motion skip P pictures for near-static
+frames with a bounded mean-squared error. General motion search, residual P/B
+coding, production quality evaluation, cancellation and resume remain open.
+The prior all-intra notes above describe earlier checkpoints.

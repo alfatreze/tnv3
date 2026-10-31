@@ -93,3 +93,47 @@ fn generated_stream_round_trips_and_matches_c_when_available() {
         let _ = fs::remove_file(y4m);
     }
 }
+
+#[test]
+fn static_prediction_is_bounded_and_decodes_like_c() {
+    use std::io::Cursor;
+    use tau_video::tvc::{encoder::encode_y4m, stream::decode_y4m};
+    let mut source = b"YUV4MPEG2 W16 H16 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+    for y in [128u8, 130, 160] {
+        source.extend_from_slice(b"FRAME\n");
+        source.extend(vec![y; 256]);
+        source.extend(vec![128u8; 128]);
+    }
+    let mut out = Cursor::new(Vec::new());
+    let summary = encode_y4m(Cursor::new(source), &mut out, 20).unwrap();
+    assert_eq!(summary.predicted, 1);
+    let bytes = out.into_inner();
+    let mut at = 20;
+    let mut kinds = Vec::new();
+    for _ in 0..3 {
+        let n = u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
+        at += 4;
+        kinds.push(bytes[at]);
+        at += n;
+    }
+    assert_eq!(kinds, [0, 1, 0]);
+    let mut rust = Vec::new();
+    decode_y4m(&bytes[..], &mut rust).unwrap();
+    if let Some(decoder) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-video-static-{}", std::process::id()));
+        let tvc = base.with_extension("tvc");
+        let y4m = base.with_extension("y4m");
+        fs::write(&tvc, &bytes).unwrap();
+        assert!(
+            Command::new(decoder)
+                .arg(&tvc)
+                .arg(&y4m)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&y4m).unwrap());
+        let _ = fs::remove_file(tvc);
+        let _ = fs::remove_file(y4m);
+    }
+}

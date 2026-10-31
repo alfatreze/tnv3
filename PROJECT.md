@@ -103,3 +103,10 @@ checking and production encode/decode gates remain open.
 Rust also decodes the video track of TNV3 files to Y4M, ignoring audio and
 subtitles. Output matched the C demuxer and decoder on all nine local TNV3
 vectors on the host. Full checking, audio, seeking and fuzzing remain open.
+
+The Rust stream encoder now uses a zero-motion P picture when mean squared
+error against its reconstructed reference is at most 4 across YUV samples; it
+starts a new I picture at least every 96 frames. On a generated static 240-frame
+host case, file size fell from 354,740 to 19,622 bytes with identical decoded
+pixels; this is not a general compression or speed claim. General motion/B
+encoding, quality and performance gates remain open.

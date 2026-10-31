@@ -592,3 +592,24 @@ fn baseline_intra_encoder_round_trip() {
     assert!(mse < 300, "mean squared error {mse}");
     assert!(encode_intra_picture(&frame, 52).is_err());
 }
+
+#[test]
+fn separable_forward_transform_preserves_baseline_picture() {
+    use super::{encoder::encode_intra_picture, frame::Frame420};
+    let (w, h) = (160usize, 96usize);
+    let y = (0..h)
+        .flat_map(|y| (0..w).map(move |x| ((x * 2 + y * 3) % 256) as u8))
+        .collect();
+    let c = vec![128; w * h / 4];
+    let frame = Frame420 {
+        width: w as u16,
+        height: h as u16,
+        y,
+        cb: c.clone(),
+        cr: c,
+    };
+    assert_eq!(
+        encode_intra_picture(&frame, 30).unwrap(),
+        include_bytes!("encoder-baseline-picture.bin")
+    );
+}

@@ -51,11 +51,12 @@ gates; do not use it as a validator.
 A preliminary `tvc::encoder::encode_intra_picture` encodes a single YUV420
 frame as an intra-only TVC picture. It uses deterministic integer arithmetic,
 DC prediction, 8×8 transforms and one macroblock row per slice. This baseline
-is not the optimized C encoder: motion prediction, predictive coding, optimized rate-distortion decisions and TNV3 container
+is not the optimized C encoder: motion search, general predictive coding, optimized rate-distortion decisions and TNV3 container
 output remain future work.
 
 The baseline CLI supports `tau-video encode-tvc input.y4m output.tvc` at QP 30.
-It emits intra-only pictures, selects a TVC level, and retries pictures at a
+It emits intra pictures and zero-motion skip P pictures for near-static frames,
+selects a TVC level, and retries pictures at a
 higher QP when level picture/rate limits require it. It is not yet optimized for
 quality or speed and does not create TNV3 or synchronize an MP3 sidecar.
 
