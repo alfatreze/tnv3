@@ -22,3 +22,6 @@ segmented encoder, and validate cross-platform worker integration. See
 Historical codec research, format studies and measurement data accompany the
 four specification snapshots; see `docs/RESEARCH_INDEX.md` for their scope and
 reproduction constraints. These additions make no new hardware-validation claim.
+
+The research index separates MPEG-4 player history, AV1 subset work, the custom
+format family and comparative research; this is a documentation change only.
