@@ -35,3 +35,7 @@ remain future work.
 
 Full-picture luma/chroma deblocking is implemented and matches synthetic C
 reference cases. Macroblock parsing, frame decoding and encoding remain open.
+
+Coefficient block entropy encoding and decoding are implemented and checked
+against C-generated mixed-block bytes; macroblock syntax and full frame
+encoding/decoding still need to connect the existing building blocks.

@@ -10,3 +10,4 @@
 - Add TVC inverse transforms and intra prediction, tested against synthetic C reference fixtures.
 - Add half-pixel, quarter-pixel luma and eighth-pixel chroma inter prediction, with C-reference fixtures.
 - Add complete TVC luma/chroma picture deblocking, tested against synthetic C-reference fixtures.
+- Add draft 5 TVC coefficient block encoding and decoding, checked against a C-reference bitstream.

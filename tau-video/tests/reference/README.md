@@ -26,3 +26,10 @@ For the deblocking fixture:
 cc -O2 -I tools/tvc_ref tau-video/tests/reference/deblock.c -lm -o /tmp/tau-deblock-reference
 /tmp/tau-deblock-reference > tau-video/src/tvc/deblock-reference.bin
 ```
+
+For the coefficient-coding fixture:
+
+```sh
+cc -O2 -I tools/tvc_ref tau-video/tests/reference/coeff.c -lm -o /tmp/tau-coeff-reference
+/tmp/tau-coeff-reference > tau-video/src/tvc/coeff-reference.bin
+```

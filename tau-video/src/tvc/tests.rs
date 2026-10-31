@@ -246,3 +246,61 @@ fn invalid_deblock_input_does_not_modify_planes() {
     assert_eq!(u, [18u8; 64]);
     assert_eq!(v, [19u8; 64]);
 }
+
+#[test]
+fn coefficient_blocks_match_c_reference() {
+    use super::coeff::{BlockClass, CoefficientContexts, decode_block, encode_block};
+    use super::range::{RangeDecoder, RangeEncoder};
+    let classes = [BlockClass::Luma8, BlockClass::Chroma8, BlockClass::Luma4];
+    let mut enc = RangeEncoder::new();
+    let mut ctx = CoefficientContexts::default();
+    let mut state = 163239u32;
+    let mut blocks = Vec::new();
+    for n in 0..300usize {
+        let class = classes[n % 3];
+        let len = if n % 3 == 2 { 16 } else { 64 };
+        let mut lev = vec![0i16; len];
+        for v in &mut lev {
+            state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+            *v = if (state >> 24) % 7 == 0 {
+                (((state >> 8) % 601) as i32 - 300) as i16
+            } else {
+                0
+            };
+        }
+        lev[n % len] = if n % 2 != 0 { -2 } else { 1 };
+        encode_block(&mut enc, &mut ctx, class, &lev).unwrap();
+        blocks.push((class, lev));
+    }
+    let data = enc.finish();
+    assert_eq!(data.as_slice(), include_bytes!("coeff-reference.bin"));
+    let mut dec = RangeDecoder::new(&data);
+    let mut ctx = CoefficientContexts::default();
+    for (class, expected) in blocks {
+        let mut actual = vec![0; expected.len()];
+        decode_block(&mut dec, &mut ctx, class, &mut actual).unwrap();
+        assert_eq!(actual, expected);
+    }
+    let mut enc = RangeEncoder::new();
+    let mut ctx = CoefficientContexts::default();
+    assert!(encode_block(&mut enc, &mut ctx, BlockClass::Luma4, &[0; 16]).is_err());
+}
+
+#[test]
+fn coefficient_extremes_and_invalid_lengths() {
+    use super::coeff::{BlockClass, CoefficientContexts, decode_block, encode_block};
+    use super::range::{RangeDecoder, RangeEncoder};
+    let mut src = [0i16; 16];
+    src[0] = i16::MIN;
+    src[15] = i16::MAX;
+    let mut encoder = RangeEncoder::new();
+    let mut contexts = CoefficientContexts::default();
+    assert!(encode_block(&mut encoder, &mut contexts, BlockClass::Luma4, &src[..15]).is_err());
+    encode_block(&mut encoder, &mut contexts, BlockClass::Luma4, &src).unwrap();
+    let bytes = encoder.finish();
+    let mut decoder = RangeDecoder::new(&bytes);
+    let mut contexts = CoefficientContexts::default();
+    let mut actual = [0i16; 16];
+    decode_block(&mut decoder, &mut contexts, BlockClass::Luma4, &mut actual).unwrap();
+    assert_eq!(actual, src);
+}

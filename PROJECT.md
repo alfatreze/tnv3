@@ -55,3 +55,7 @@ codec operation and cross-platform performance remain unverified.
 The Rust TVC deblocker now filters full YUV pictures; 104 synthetic pictures
 matched the C reference on the host. Full frame encode/decode remains pending;
 no new Pocket, Quartus or cross-platform performance claim is made.
+
+The Rust TVC coefficient coder and decoder now match a synthetic C reference
+across 300 mixed blocks; this is host-tested component evidence, not a complete
+frame codec or new hardware result.
