@@ -34,8 +34,9 @@ authority until that is intentionally transferred. `LICENSE`, `NOTICE.md` and
 uses generated content; existing vectors containing third-party film/audio are
 not redistributed pending provenance review.
 
-Validated on macOS ARM64; the POSIX code is intended for Linux but has not had
-native Linux testing in this release preparation. The Windows worker backend has
+The standalone synthetic smoke test passes on macOS ARM64 and GitHub-hosted
+Ubuntu and macOS runners. Full native Linux corpus and performance testing has
+not yet been run. The Windows worker backend has
 been exercised only through a model, not a native Windows build or runtime.
 The reference encoder holds its complete input in memory. See `VALIDATION.md`
 and the encoder reports for measured results and remaining gates. This alpha is

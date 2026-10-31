@@ -14,7 +14,7 @@
       "status": "modified_for_release"
     },
     "CHANGELOG.md": {
-      "sha256": "566e23ef19809956d76aad3e8b54973d7a9c989295df781dc2374e45373b235d",
+      "sha256": "84dd1f25321d9d596e473f1c4ad594588d4b20cf4d5fff0c60fe6d64840b0c43",
       "status": "new_release_file"
     },
     "LICENSE": {
@@ -36,19 +36,19 @@
       "status": "modified_for_release"
     },
     "PROJECT.md": {
-      "sha256": "f0bf662dde6b573f099abcab271fde16a428a5eba84582f1ff20676f9a61753e",
+      "sha256": "3dd14d2421ed34263b8cb23bc779de696a4c5dcd8d856324191b6431c2229bc3",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1",
       "status": "modified_for_release"
     },
     "README.md": {
-      "sha256": "8f786d120b47fbc9618d8148335c8c8726ef9d6d697ea34b3a60c1c9d454ad25",
+      "sha256": "214fe3a9b4bd0965da45d775edd8769506c3fe3c0863276438048e22269d7657",
       "upstream_path": "README.md",
       "upstream_sha256": "5c43fc240f8973828cb354f8452106096a74d94281e7df6b3e28216e2cba1ab6",
       "status": "modified_for_release"
     },
     "VALIDATION.md": {
-      "sha256": "06724a21161166498bd3bf9b3482798f64b608bc43eb89f37b17b63ae7b2daa8",
+      "sha256": "d181f9b87a100ecd75c922ee57abc88b1f7fd07b891297fb1070f0de22db9ee0",
       "status": "new_release_file"
     },
     "docs/ENCODER_PARALLEL_HYPOTHESES.md": {

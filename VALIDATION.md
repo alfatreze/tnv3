@@ -22,7 +22,10 @@ against serial at the same slice layout; introducing extra slices by default
 failed the quality gate. The reported 1.82x speedup is for an already-required
 level-3 two-slice 800-pixel study case, not a full-length-film benchmark.
 
-The release has not been tested natively on Windows or Linux, or with all
-allocation failures, long films, power/thermal limits, or newly on Pocket. The
+The standalone synthetic smoke test also passed on GitHub-hosted Ubuntu and
+macOS runners for commit 15aade93b8a389f2da7d61ca6e12cd3cf8b68ad3
+([CI run](https://github.com/alfatreze/tnv3/actions/runs/41214788520)). Full
+Linux corpus/performance gates and native Windows tests remain open, as do all
+allocation failures, long films, power/thermal limits and new Pocket testing. The
 experimental Windows threading backend has only been exercised through a model.
 No GPU/ANE acceleration is enabled. All formats remain draft specifications.

@@ -9,5 +9,5 @@
 - Include synthetic end-to-end smoke tests and format-specification snapshots.
 - Target TVC v0 draft 5, TNV3 v0 draft 1.4, TAC v0 draft 1.2 and the TST v0 snapshot.
 
-Pure-Rust crate, native Windows/Linux validation and production-qualified parallel
-workers remain future work. See `VALIDATION.md`.
+The pure-Rust crate, full native Linux and Windows validation, and
+production-qualified parallel workers remain future work. See `VALIDATION.md`.
