@@ -22,3 +22,4 @@
 - Decode the video track of TNV3 files to Y4M; audio and subtitles are ignored.
 - Add bounded zero-motion P pictures for near-static frames and an exact separable forward transform.
 - Add bounded whole-frame integer translation for zero-residual P pictures.
+- Add zero-motion residual P-picture candidates with size and reconstruction-error selection.

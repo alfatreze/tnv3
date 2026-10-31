@@ -71,3 +71,8 @@ The limited motion path searches even-pixel whole-frame translations within
 ±8 pixels for dimensions divisible by 16. It emits zero-residual P pictures
 only if reconstructed YUV mean squared error is at most 4; otherwise it falls
 back to intra encoding. This does not replace general block motion search.
+
+For aligned pictures, the stream encoder also tries zero-motion residual P
+pictures. It selects one only when it is smaller than the intra candidate and
+its reconstructed total YUV squared error is no more than the intra error plus
+one per sample. This is an initial heuristic, not a production quality gate.

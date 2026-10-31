@@ -115,3 +115,8 @@ Rust now also tests small whole-frame integer translations for zero-residual P
 pictures, gated by the same YUV error bound; it falls back to I pictures. A
 synthetic successive-translation case matches the C decoder on the host.
 General block motion, B pictures and quality/performance gates remain open.
+
+Rust now tests zero-motion residual P candidates against intra size and YUV
+error; generated successive P pictures matched the C decoder on the host.
+This heuristic is experimental and may cost extra encoding work. Motion
+residuals, B pictures and comprehensive quality/performance gates remain open.

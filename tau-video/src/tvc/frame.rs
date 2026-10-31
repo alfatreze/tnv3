@@ -121,6 +121,29 @@ pub struct CodedPicture {
     cr: Vec<u8>,
 }
 impl CodedPicture {
+    pub(crate) fn from_aligned_frame(frame: &Frame420) -> Result<Self, IntraPictureError> {
+        let (w, h) = (usize::from(frame.width), usize::from(frame.height));
+        if w == 0
+            || h == 0
+            || w > 800
+            || h > 720
+            || w % 16 != 0
+            || h % 16 != 0
+            || frame.y.len() != w * h
+            || frame.cb.len() != w * h / 4
+            || frame.cr.len() != w * h / 4
+        {
+            return Err(IntraPictureError);
+        }
+        Ok(Self {
+            width: frame.width,
+            height: frame.height,
+            y: frame.y.clone(),
+            cb: frame.cb.clone(),
+            cr: frame.cr.clone(),
+        })
+    }
+
     /// Return a cropped picture suitable for presentation.
     pub fn display_frame(&self) -> Frame420 {
         let w = (usize::from(self.width) + 15) & !15;

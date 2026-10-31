@@ -220,3 +220,92 @@ fn translated_frames_use_motion_and_match_c_decoder() {
         let _ = fs::remove_file(y4m);
     }
 }
+
+#[test]
+fn changed_frame_can_use_residual_p_and_match_c() {
+    use std::io::Cursor;
+    use tau_video::tvc::{
+        encoder::{encode_intra_picture, encode_y4m},
+        frame::{Frame420, decode_intra_picture},
+        intra::IntraSliceDecoder,
+        picture::{PictureHeader, PictureType},
+        stream::decode_y4m,
+    };
+    let first = Frame420 {
+        width: 32,
+        height: 32,
+        y: (0..1024)
+            .map(|i| ((i * 7 + i / 32 * 13) % 200 + 24) as u8)
+            .collect(),
+        cb: vec![100; 256],
+        cr: vec![150; 256],
+    };
+    let reference =
+        decode_intra_picture(&encode_intra_picture(&first, 20).unwrap(), 32, 32).unwrap();
+    let changed = Frame420 {
+        width: 32,
+        height: 32,
+        y: reference.y.iter().map(|&v| v.saturating_add(12)).collect(),
+        cb: reference.cb.iter().map(|&v| v.saturating_add(12)).collect(),
+        cr: reference.cr.iter().map(|&v| v.saturating_add(12)).collect(),
+    };
+    let changed_again = Frame420 {
+        width: 32,
+        height: 32,
+        y: reference.y.iter().map(|&v| v.saturating_add(24)).collect(),
+        cb: reference.cb.iter().map(|&v| v.saturating_add(24)).collect(),
+        cr: reference.cr.iter().map(|&v| v.saturating_add(24)).collect(),
+    };
+    let mut input = b"YUV4MPEG2 W32 H32 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+    for f in [&first, &changed, &changed_again] {
+        input.extend_from_slice(b"FRAME\n");
+        input.extend_from_slice(&f.y);
+        input.extend_from_slice(&f.cb);
+        input.extend_from_slice(&f.cr);
+    }
+    let mut output = Cursor::new(Vec::new());
+    let summary = encode_y4m(Cursor::new(input), &mut output, 20).unwrap();
+    assert_eq!(summary.predicted, 2);
+    let bytes = output.into_inner();
+    let first_len = u32::from_le_bytes(bytes[20..24].try_into().unwrap()) as usize;
+    let p = 24 + first_len;
+    let len = u32::from_le_bytes(bytes[p..p + 4].try_into().unwrap()) as usize;
+    let picture = &bytes[p + 4..p + 4 + len];
+    assert_eq!(picture[0], 1);
+    let header = PictureHeader::parse(picture, 2).unwrap();
+    let slice = &picture[header.slices[0].clone()];
+    let mut decoder = IntraSliceDecoder::for_picture(
+        slice,
+        2,
+        1,
+        header.qp,
+        header.adaptive_quantization,
+        header.transform_4x4,
+        PictureType::Predictive,
+    )
+    .unwrap();
+    let mut coded = 0;
+    while let Some(m) = decoder.next_macroblock().unwrap() {
+        coded |= m.coded;
+    }
+    assert_ne!(coded, 0, "P picture must contain residual coefficients");
+    let mut rust = Vec::new();
+    decode_y4m(&bytes[..], &mut rust).unwrap();
+    if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-residual-{}", std::process::id()));
+        let tvc = base.with_extension("tvc");
+        let y4m = base.with_extension("y4m");
+        fs::write(&tvc, bytes).unwrap();
+        assert!(
+            Command::new(tool)
+                .arg(&tvc)
+                .arg(&y4m)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&y4m).unwrap());
+        let _ = fs::remove_file(tvc);
+        let _ = fs::remove_file(y4m);
+    }
+}

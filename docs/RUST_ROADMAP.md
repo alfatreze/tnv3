@@ -84,3 +84,7 @@ The prior all-intra notes above describe earlier checkpoints.
 
 A limited whole-frame translation search now extends the zero-motion P path;
 it does not provide block-level search or residual P/B encoding.
+
+Zero-motion residual P candidates are now available for aligned pictures, with
+a simple size/error comparison to intra encoding. Nonzero-motion residuals,
+block-level search, B encoding and production quality evaluation remain open.

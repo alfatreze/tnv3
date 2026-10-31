@@ -51,6 +51,18 @@ fn encode_pixels(
             input[y][x] = i64::from(src[sy * dims.0 + sx]) - i64::from(pred[y][x]);
         }
     }
+    let levels = quantize_8(&input, qp);
+    let coded = levels.iter().any(|&x| x != 0);
+    let residual = inverse_8x8(&levels, qp).unwrap_or([[0; 8]; 8]);
+    for y in 0..8 {
+        for x in 0..8 {
+            plane[(by + y) * stride + bx + x] =
+                (i32::from(pred[y][x]) + residual[y][x]).clamp(0, 255) as u8;
+        }
+    }
+    (levels, coded)
+}
+fn quantize_8(input: &[[i64; 8]; 8], qp: u8) -> [i16; 64] {
     // A separable integer transform computes the same unrounded sums using
     // two 1-D passes instead of a four-deep direct transform.
     let mut temp = [[0i64; 8]; 8];
@@ -83,15 +95,7 @@ fn encode_pixels(
             n += 1;
         }
     }
-    let coded = levels.iter().any(|&x| x != 0);
-    let residual = inverse_8x8(&levels, qp).unwrap_or([[0; 8]; 8]);
-    for y in 0..8 {
-        for x in 0..8 {
-            plane[(by + y) * stride + bx + x] =
-                (i32::from(pred[y][x]) + residual[y][x]).clamp(0, 255) as u8;
-        }
-    }
-    (levels, coded)
+    levels
 }
 /// Encode a single TVC intra picture from tightly packed YUV420 planes.
 ///
@@ -350,6 +354,128 @@ fn find_translation(current: &Frame420, reference: &Frame420) -> Option<(i32, i3
         None
     }
 }
+// Encode a P picture with zero motion and quantized 8x8 residuals.
+fn encode_residual_picture(
+    frame: &Frame420,
+    reference: &Frame420,
+    qp: u8,
+) -> Result<Vec<u8>, EncodeError> {
+    let (w, h) = (usize::from(frame.width), usize::from(frame.height));
+    if w % 16 != 0
+        || h % 16 != 0
+        || reference.width != frame.width
+        || reference.height != frame.height
+    {
+        return Err(EncodeError);
+    }
+    let (mw, mh) = (w / 16, h / 16);
+    let mut slices = Vec::with_capacity(mh);
+    for my in 0..mh {
+        let mut coder = RangeEncoder::new();
+        let p = Probability::default();
+        let mut skip = p;
+        let mut intra = p;
+        let mut zero = [p; 2];
+        let mut cbp = [[p; 3]; 3];
+        let mut coeff = CoefficientContexts::default();
+        let mut left_coded = 0u8;
+        for mx in 0..mw {
+            let mut levels = [[0i16; 64]; 6];
+            let mut coded = 0u8;
+            for (b, block) in levels.iter_mut().enumerate() {
+                let (src, pred, stride, origin) = if b < 4 {
+                    (
+                        &frame.y,
+                        &reference.y,
+                        w,
+                        (mx * 16 + (b % 2) * 8, my * 16 + (b / 2) * 8),
+                    )
+                } else if b == 4 {
+                    (&frame.cb, &reference.cb, w / 2, (mx * 8, my * 8))
+                } else {
+                    (&frame.cr, &reference.cr, w / 2, (mx * 8, my * 8))
+                };
+                let mut residual = [[0i64; 8]; 8];
+                for (y, row) in residual.iter_mut().enumerate() {
+                    for (x, value) in row.iter_mut().enumerate() {
+                        let i = (origin.1 + y) * stride + origin.0 + x;
+                        *value = i64::from(src[i]) - i64::from(pred[i]);
+                    }
+                }
+                *block = quantize_8(&residual, qp);
+                if block.iter().any(|&v| v != 0) {
+                    coded |= 1 << b;
+                }
+            }
+            coder.bit(&mut skip, false);
+            coder.bit(&mut intra, false);
+            for z in &mut zero {
+                coder.bit(z, false);
+            }
+            for b in 0..6 {
+                let (l, t, class) = if b < 4 {
+                    (
+                        if b & 1 != 0 {
+                            (coded >> (b - 1)) & 1
+                        } else {
+                            (left_coded >> (b + 1)) & 1
+                        },
+                        if b & 2 != 0 {
+                            (coded >> (b - 2)) & 1
+                        } else {
+                            0
+                        },
+                        0,
+                    )
+                } else {
+                    ((left_coded >> b) & 1, 0, b - 3)
+                };
+                coder.bit(&mut cbp[class][usize::from(l + t)], coded & (1 << b) != 0);
+            }
+            for (b, block) in levels.iter().enumerate() {
+                if coded & (1 << b) != 0 {
+                    encode_block(
+                        &mut coder,
+                        &mut coeff,
+                        if b < 4 {
+                            BlockClass::Luma8
+                        } else {
+                            BlockClass::Chroma8
+                        },
+                        block,
+                    )
+                    .map_err(|_| EncodeError)?;
+                }
+            }
+            left_coded = coded;
+        }
+        slices.push(coder.finish());
+    }
+    let mut out = vec![1, qp, if mh > 1 { 8 } else { 0 }];
+    if mh > 1 {
+        out.push(1);
+        for slice in slices.iter().take(mh - 1) {
+            out.extend_from_slice(&(slice.len() as u32).to_le_bytes());
+        }
+    }
+    for slice in slices {
+        out.extend_from_slice(&slice);
+    }
+    if out.len() > 384_000 {
+        return Err(EncodeError);
+    }
+    Ok(out)
+}
+fn squared_error(a: &Frame420, b: &Frame420) -> u64 {
+    [(&a.y, &b.y), (&a.cb, &b.cb), (&a.cr, &b.cr)]
+        .into_iter()
+        .flat_map(|(a, b)| a.iter().zip(b.iter()))
+        .map(|(&a, &b)| {
+            let d = i32::from(a) - i32::from(b);
+            (d * d) as u64
+        })
+        .sum()
+}
 // Require a low mean squared error over all planes, bounded in integer math.
 fn close_to_reference(current: &Frame420, reference: &Frame420) -> bool {
     let mut sum = 0u64;
@@ -595,10 +721,49 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                     }
                 }
             };
-            reference = Some(super::frame::decode_intra_picture(&p, w, h).map_err(|_| {
+            let intra_recon = super::frame::decode_intra_picture(&p, w, h).map_err(|_| {
                 StreamEncodeError::Invalid("Encoded picture could not be reconstructed.")
-            })?);
-            p
+            })?;
+            let mut chosen = p;
+            if frames % 96 != 0 && wz % 16 == 0 && hz % 16 == 0 {
+                if let Some(previous) = reference.as_ref() {
+                    if let Ok(candidate) = encode_residual_picture(&frame, previous, q) {
+                        if candidate.len() < chosen.len()
+                            && candidate.len() <= limits.4
+                            && sum + candidate.len() <= limits.5
+                        {
+                            let anchor = super::frame::CodedPicture::from_aligned_frame(previous)
+                                .map_err(|_| {
+                                StreamEncodeError::Invalid("Invalid prediction reference.")
+                            })?;
+                            let recon = super::frame::decode_picture(
+                                &candidate,
+                                w,
+                                h,
+                                [Some(&anchor), None],
+                            )
+                            .map_err(|_| {
+                                StreamEncodeError::Invalid(
+                                    "Residual picture could not be reconstructed.",
+                                )
+                            })?
+                            .display_frame();
+                            let count = (frame.y.len() + frame.cb.len() + frame.cr.len()) as u64;
+                            if squared_error(&frame, &recon)
+                                <= squared_error(&frame, &intra_recon) + count
+                            {
+                                reference = Some(recon);
+                                chosen = candidate;
+                                predicted += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            if chosen.first() == Some(&0) {
+                reference = Some(intra_recon);
+            }
+            chosen
         };
         if q != qp {
             reencoded += 1;
