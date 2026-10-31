@@ -6,7 +6,9 @@ plus the isolated release-integration changes identified in SOURCE_MANIFEST.json
 On macOS ARM64, the standalone build and synthetic smoke test pass: the serial
 and experimental slice encoders produce identical level-3 streams, their
 reconstructions match the frozen reference decoder, and TAC/TNV3 mux and check
-succeed. Serial fallback is exercised when one worker is requested or pool
+succeed. TAC reference and fixed-point model decode the synthetic audio with the
+expected 48,000 stereo sample frames; container demux and audio decoding are
+also checked. The fixed-point transform self-test passes. Serial fallback is exercised when one worker is requested or pool
 initialization is forced to fail. A separately generated 24-frame 800x480 test
 with silence passes the full film helper at level 3; serial and parallel TNV3
 files match byte-for-byte. This is a generated study input, not a feature film.

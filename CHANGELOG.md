@@ -2,7 +2,7 @@
 
 ## 0.1.0-alpha.1 — release candidate
 
-- Extract TVC encoder/decoder, TAC reference and TNV3 container/film tooling.
+- Extract TVC encoder/decoder, TAC reference and fixed-point decoder model, and TNV3 container/film tooling.
 - Preserve the validated exact-counting and look-ahead memory improvements.
 - Add an opt-in slice-parallel encoder for already sliced pictures, with CPU-slot
   budgeting and serial fallback on worker initialization failure.

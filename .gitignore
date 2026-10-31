@@ -2,6 +2,7 @@
 /tools/tvc_ref/tvc_dec
 /tools/tvc_ref/tvc_enc_slice_experimental
 /tools/tac_ref/tac
+/tools/tac_ref/tac_fx
 /tools/tnv3_ref/tnv3
 /target/
 __pycache__/

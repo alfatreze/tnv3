@@ -8,13 +8,13 @@
       "status": "new_release_file"
     },
     ".gitignore": {
-      "sha256": "4679aa676b81ef578542d9ff5392541dddfae686fbf23292d5f52f1b4d302613",
+      "sha256": "7071cd89141493f3ea838dc12aea65ceb7ec6b068631500228d13f933a7d824c",
       "upstream_path": ".gitignore",
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163",
       "status": "modified_for_release"
     },
     "CHANGELOG.md": {
-      "sha256": "cbb1ec9fd1b83fa094e3fd4fb1f3d5203c4a5388d26035f150d041929aa990e3",
+      "sha256": "566e23ef19809956d76aad3e8b54973d7a9c989295df781dc2374e45373b235d",
       "status": "new_release_file"
     },
     "LICENSE": {
@@ -24,7 +24,7 @@
       "status": "unchanged"
     },
     "Makefile": {
-      "sha256": "7ac6c0eef82a1278436fa6011ab12678511bf6b5bb068086d984b49f7619bea4",
+      "sha256": "7dcca293a476252479200d9d5489ee9cbd75243318d2a3ccfb788c71090b8363",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442",
       "status": "modified_for_release"
@@ -42,13 +42,13 @@
       "status": "modified_for_release"
     },
     "README.md": {
-      "sha256": "4bacb1f990d744f0bd371bccf4b0fcec0d468abb80cba8b2ea86435e7ac7ec9f",
+      "sha256": "8f786d120b47fbc9618d8148335c8c8726ef9d6d697ea34b3a60c1c9d454ad25",
       "upstream_path": "README.md",
       "upstream_sha256": "5c43fc240f8973828cb354f8452106096a74d94281e7df6b3e28216e2cba1ab6",
       "status": "modified_for_release"
     },
     "VALIDATION.md": {
-      "sha256": "e1ce510ab331a71f1e361aaf5ac5790c1b2d5f3bd000135eb30b27cd58f8133e",
+      "sha256": "06724a21161166498bd3bf9b3482798f64b608bc43eb89f37b17b63ae7b2daa8",
       "status": "new_release_file"
     },
     "docs/ENCODER_PARALLEL_HYPOTHESES.md": {
@@ -120,13 +120,19 @@
       "status": "new_release_file"
     },
     "tests/smoke.py": {
-      "sha256": "4aa80f770505da3f3232b5382d7cc178680877020b96ec0e2598afe83fd88832",
+      "sha256": "971ec03492fe9e6f3cfab95138f6623731133019f599b5be774c1fc3b5a0cc94",
       "status": "new_release_file"
     },
     "tools/tac_ref/tac.c": {
       "sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
       "upstream_path": "tools/tac_ref/tac.c",
       "upstream_sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
+      "status": "unchanged"
+    },
+    "tools/tac_ref/tac_fx.c": {
+      "sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e",
+      "upstream_path": "tools/tac_ref/tac_fx.c",
+      "upstream_sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e",
       "status": "unchanged"
     },
     "tools/tnv3_ref/encode_film.py": {
