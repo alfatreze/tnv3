@@ -375,6 +375,33 @@ fn block_motion(frame: &Frame420, reference: &Frame420, mx: usize, my: usize) ->
     }
     (best.1, best.2)
 }
+// Conservative precheck: test up to eight spatially distributed macroblocks.
+fn block_motion_worthwhile(frame: &Frame420, reference: &Frame420) -> bool {
+    let (w, h) = (usize::from(frame.width), usize::from(frame.height));
+    let (mw, mh) = (w / 16, h / 16);
+    let total = mw * mh;
+    let n = total.min(8);
+    let (mut zero, mut best) = (0u64, 0u64);
+    for i in 0..n {
+        let index = i * total / n;
+        let (mx, my) = (index % mw, index / mw);
+        let (dx, dy) = block_motion(frame, reference, mx, my);
+        for y in (0..16).step_by(4) {
+            for x in (0..16).step_by(4) {
+                let px = mx * 16 + x;
+                let py = my * 16 + y;
+                let value = i32::from(frame.y[py * w + px]);
+                let dz = value - i32::from(reference.y[py * w + px]);
+                let sx = (px as i32 + dx).clamp(0, w as i32 - 1) as usize;
+                let sy = (py as i32 + dy).clamp(0, h as i32 - 1) as usize;
+                let dm = value - i32::from(reference.y[sy * w + sx]);
+                zero += (dz * dz) as u64;
+                best += (dm * dm) as u64;
+            }
+        }
+    }
+    best * 100 < zero * 85
+}
 fn encode_residual_picture(
     frame: &Frame420,
     reference: &Frame420,
@@ -809,7 +836,7 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                     if let Some((dx, dy, shifted)) = translation.as_ref() {
                         candidates.push((shifted, (*dx, *dy), false));
                     }
-                    if cfg!(feature = "block-motion") {
+                    if cfg!(feature = "block-motion") && block_motion_worthwhile(&frame, previous) {
                         candidates.push((previous, (0, 0), true));
                     }
                     for (predictor, motion, per_block) in candidates {

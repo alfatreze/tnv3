@@ -22,3 +22,27 @@ Build separately with and without `block-motion`, encode at CLI default QP 30,
 decode with the reference and compare size and YUV PSNR. The next gate is a
 paired, repeated multi-clip rate/quality and throughput study including motion,
 anime, dark scenes and longer inputs.
+
+## Real-clip sample and precheck — 2026-10-31
+
+**Host:** decoded four local reference clips (dialog, anime, black-and-white,
+action), scaled each to 400 pixels wide, and tested QP 24, 30 and 36. Each
+clip contains only 6–10 frames. Each mode ran twice; the default, ungated
+block search and gated block search ran in separate batches. The C decoder
+was used for every output; measurements are Y-plane PSNR at the same nominal
+QP, not equal-quality BD-rate. See `rust_block_motion_study.json`.
+
+Against the default, ungated block search produced unchanged file size in
+7 of 12 cases; the others ranged from 0.70% smaller to 0.56% larger. Y-PSNR
+changes ranged from -0.072 to +0.017 dB. The second-run wall-time ratios were
+1.05–1.33× default (slower), but these short timings are noisy. This does not
+justify enabling the feature by default.
+
+A sampled precheck was then tested inside the optional feature. All 12 gated
+outputs were byte-identical to the ungated block outputs; second-run wall times
+were 0.869–0.978× ungated, median 0.926×. These are preliminary short,
+non-interleaved timings, not a reliable speed claim. The precheck may miss
+beneficial blocks outside the sample. The opposing-motion synthetic test still
+passes the C decoder. Decision: retain the precheck only in the opt-in feature;
+keep the default unchanged. Next gate: longer, interleaved repeated tests and
+rate/quality curves over a diverse licensed corpus. No new hardware claim.

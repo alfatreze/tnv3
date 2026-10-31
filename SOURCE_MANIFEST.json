@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "4a2e2b5415d8f8ba6e73d8ddcd2d1ff05354422a5822510877a8d0da557cc460",
+      "sha256": "85d879ec705faf919c336bb84ab9ad968c8316d494c4f9644e9c8ab515efa5fd",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
@@ -137,7 +137,7 @@
       "sha256": "8a60c50fd3fc6f95ab4d44990153482128498bee817f866b4755ddeb66c4842c"
     },
     "docs/RUST_ENCODER_EXPERIMENTS.md": {
-      "sha256": "a66bd9a8bc493a77a4506a90991059c2a6be7ca176f45908285e57b19a2c8077"
+      "sha256": "af68b1a06ed91a42a577f294f0bc222c84e4117a0123e95bac0ab688811827a7"
     },
     "docs/RUST_ROADMAP.md": {
       "sha256": "6516e4f3f1a009fc0c511d8c4c552ca26aa85a54843e873ee3ade85c26283a39",
@@ -931,8 +931,11 @@
     "docs/research/DECODE_QUALITY_RESEARCH.md": {
       "sha256": "3da9ca782ff5e1090ffd50c056bb38a5a144209e6cb96e225c2fb331d2979ed8"
     },
+    "docs/rust_block_motion_study.json": {
+      "sha256": "76db3ffeea025c1dc1093dcbb4444bcb60e3c90f5b7271bd5016e321f43a91b8"
+    },
     "tau-video/CHANGELOG.md": {
-      "sha256": "1c2542fe06572ff69d9adb5b7221276154b249be3c4c14638ed8e0eb4a1af385"
+      "sha256": "a6a6e594bd0a9ba6b67b9628700163e695b9ceece8d802e7e5960bf0d715430e"
     },
     "tau-video/Cargo.lock": {
       "sha256": "a70d751d12315aac2d7a9d894ef799386493662f2d8111ace4022ae1a2165180"
@@ -974,7 +977,7 @@
       "sha256": "72d47cbb961c3dd5e242ae7924053a6371e1ff2efafad46927ed9a7de8d87ca0"
     },
     "tau-video/src/tvc/encoder.rs": {
-      "sha256": "55707c97b08bba2f7283d9ed82dd37e481f10b493e97e163e1ad8092cf391a6e"
+      "sha256": "621bf7352e1f92b3064d14758aeb303861ab690fd91e581597156b8f204fb2a5"
     },
     "tau-video/src/tvc/frame.rs": {
       "sha256": "68b238fef2746ad01eb28d9a6b1d681e9f07ab2a090ab5395446596590c39297"

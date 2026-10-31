@@ -130,3 +130,8 @@ An opt-in Rust block-motion experiment is available; on one generated
 12-frame host case it reduced size while improving measured YUV PSNR. The
 short sample does not establish general quality or speed; default remains off.
 See `docs/RUST_ENCODER_EXPERIMENTS.md` for the data and next gates.
+
+A 12-case short real-clip study did not justify enabling Rust block motion by
+default. A sampled precheck retained identical outputs on those cases; its
+timings are preliminary. See `docs/RUST_ENCODER_EXPERIMENTS.md` and the linked
+measurement data. Longer interleaved quality and speed tests remain open.

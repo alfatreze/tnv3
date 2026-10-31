@@ -1,0 +1,807 @@
+{
+  "date": "2026-10-31",
+  "classification": "host",
+  "architecture": "arm64",
+  "method": "Decode local TVC vectors with C reference, scale to 400 pixels wide and a multiple-of-16 height, encode QP 24/30/36 with two repeats per mode, decode outputs with C reference, measure Y-plane PSNR and output bytes. Runs are short and modes were run in separate batches.",
+  "cases": {
+    "dialog": "v01_dialog_ip.tvc",
+    "anime": "v02_anime_aq.tvc",
+    "bw": "v03_bw_lowq.tvc",
+    "action": "v04_action_highq_aq.tvc"
+  },
+  "measurements": [
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 24,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.3613,
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0402,
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 24,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.3368,
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0446,
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 30,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0333,
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0341,
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 30,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0374,
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0379,
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 36,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0279,
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0277,
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 36,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0321,
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0329,
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 24,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0327,
+          "bytes": 48222,
+          "psnr_y": 44.7924,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.0339,
+          "bytes": 48222,
+          "psnr_y": 44.7924,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 24,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.039,
+          "bytes": 47997,
+          "psnr_y": 44.7206,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.04,
+          "bytes": 47997,
+          "psnr_y": 44.7206,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 30,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0295,
+          "bytes": 27439,
+          "psnr_y": 40.9028,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.0285,
+          "bytes": 27439,
+          "psnr_y": 40.9028,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 30,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0334,
+          "bytes": 27267,
+          "psnr_y": 40.8524,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.0343,
+          "bytes": 27267,
+          "psnr_y": 40.8524,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 36,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0263,
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.0255,
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 36,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0292,
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.0298,
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 24,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0329,
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.0335,
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 24,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0372,
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.038,
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 30,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0291,
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.0309,
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 30,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0347,
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.0325,
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 36,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0252,
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.025,
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 36,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0293,
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.03,
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 24,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0238,
+          "bytes": 79322,
+          "psnr_y": 41.0644,
+          "stats": "frames=6 predicted=2 retries=0"
+        },
+        {
+          "seconds": 0.0242,
+          "bytes": 79322,
+          "psnr_y": 41.0644,
+          "stats": "frames=6 predicted=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 24,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0323,
+          "bytes": 78858,
+          "psnr_y": 41.0091,
+          "stats": "frames=6 predicted=4 retries=0"
+        },
+        {
+          "seconds": 0.0313,
+          "bytes": 78858,
+          "psnr_y": 41.0091,
+          "stats": "frames=6 predicted=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 30,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0212,
+          "bytes": 46292,
+          "psnr_y": 36.585,
+          "stats": "frames=6 predicted=4 retries=0"
+        },
+        {
+          "seconds": 0.0212,
+          "bytes": 46292,
+          "psnr_y": 36.585,
+          "stats": "frames=6 predicted=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 30,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.029,
+          "bytes": 46552,
+          "psnr_y": 36.6019,
+          "stats": "frames=6 predicted=3 retries=0"
+        },
+        {
+          "seconds": 0.0283,
+          "bytes": 46552,
+          "psnr_y": 36.6019,
+          "stats": "frames=6 predicted=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 36,
+      "mode": "base",
+      "runs": [
+        {
+          "seconds": 0.0201,
+          "bytes": 24869,
+          "psnr_y": 32.7456,
+          "stats": "frames=6 predicted=3 retries=0"
+        },
+        {
+          "seconds": 0.0194,
+          "bytes": 24869,
+          "psnr_y": 32.7456,
+          "stats": "frames=6 predicted=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 36,
+      "mode": "block",
+      "runs": [
+        {
+          "seconds": 0.0238,
+          "bytes": 24695,
+          "psnr_y": 32.7221,
+          "stats": "frames=6 predicted=3 retries=0"
+        },
+        {
+          "seconds": 0.0234,
+          "bytes": 24695,
+          "psnr_y": 32.7221,
+          "stats": "frames=6 predicted=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 24,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.3148,
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0407,
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 30,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0356,
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0338,
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "width": 400,
+      "height": 160,
+      "frames": 10,
+      "qp": 36,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0289,
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "seconds": 0.0286,
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 24,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0366,
+          "bytes": 47997,
+          "psnr_y": 44.7206,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.037,
+          "bytes": 47997,
+          "psnr_y": 44.7206,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 30,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0326,
+          "bytes": 27267,
+          "psnr_y": 40.8524,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.0322,
+          "bytes": 27267,
+          "psnr_y": 40.8524,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "width": 400,
+      "height": 224,
+      "frames": 8,
+      "qp": 36,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0292,
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "seconds": 0.0291,
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 24,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.033,
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.0352,
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 30,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0303,
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.0298,
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "width": 400,
+      "height": 288,
+      "frames": 6,
+      "qp": 36,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0267,
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "seconds": 0.0268,
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 24,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0314,
+          "bytes": 78858,
+          "psnr_y": 41.0091,
+          "stats": "frames=6 predicted=4 retries=0"
+        },
+        {
+          "seconds": 0.0306,
+          "bytes": 78858,
+          "psnr_y": 41.0091,
+          "stats": "frames=6 predicted=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 30,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0268,
+          "bytes": 46552,
+          "psnr_y": 36.6019,
+          "stats": "frames=6 predicted=3 retries=0"
+        },
+        {
+          "seconds": 0.0263,
+          "bytes": 46552,
+          "psnr_y": 36.6019,
+          "stats": "frames=6 predicted=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "width": 400,
+      "height": 160,
+      "frames": 6,
+      "qp": 36,
+      "mode": "gated",
+      "runs": [
+        {
+          "seconds": 0.0227,
+          "bytes": 24695,
+          "psnr_y": 32.7221,
+          "stats": "frames=6 predicted=3 retries=0"
+        },
+        {
+          "seconds": 0.0225,
+          "bytes": 24695,
+          "psnr_y": 32.7221,
+          "stats": "frames=6 predicted=3 retries=0"
+        }
+      ]
+    }
+  ],
+  "comparison_note": "All 12 gated outputs were byte-identical to ungated block-motion outputs. Reported elapsed times are wall clock; the first run in some batches was anomalously slow."
+}

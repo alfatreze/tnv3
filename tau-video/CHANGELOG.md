@@ -25,3 +25,4 @@
 - Add zero-motion residual P-picture candidates with size and reconstruction-error selection.
 - Evaluate whole-frame motion plus residual P-picture candidates.
 - Add opt-in experimental block-motion P-picture search.
+- Add a sampled precheck to the opt-in block-motion experiment; default remains unchanged.
