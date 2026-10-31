@@ -76,3 +76,7 @@ For aligned pictures, the stream encoder also tries zero-motion residual P
 pictures. It selects one only when it is smaller than the intra candidate and
 its reconstructed total YUV squared error is no more than the intra error plus
 one per sample. This is an initial heuristic, not a production quality gate.
+
+The encoder also evaluates residual P pictures using the selected whole-frame
+translation. It compares their size and decoded error with an intra candidate;
+this adds encoding work and remains a preliminary heuristic.

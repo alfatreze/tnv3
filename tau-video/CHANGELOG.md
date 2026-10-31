@@ -23,3 +23,4 @@
 - Add bounded zero-motion P pictures for near-static frames and an exact separable forward transform.
 - Add bounded whole-frame integer translation for zero-residual P pictures.
 - Add zero-motion residual P-picture candidates with size and reconstruction-error selection.
+- Evaluate whole-frame motion plus residual P-picture candidates.

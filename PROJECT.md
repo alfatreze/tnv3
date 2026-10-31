@@ -120,3 +120,8 @@ Rust now tests zero-motion residual P candidates against intra size and YUV
 error; generated successive P pictures matched the C decoder on the host.
 This heuristic is experimental and may cost extra encoding work. Motion
 residuals, B pictures and comprehensive quality/performance gates remain open.
+
+Rust now evaluates whole-frame motion with residual P pictures against intra
+size and YUV error. A generated translated-and-changed frame matched the C
+decoder on the host. The search remains coarse and picture-wide; block motion,
+B encoding, comprehensive quality and performance gates remain open.

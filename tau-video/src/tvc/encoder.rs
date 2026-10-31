@@ -344,21 +344,18 @@ fn find_translation(current: &Frame420, reference: &Frame420) -> Option<(i32, i3
     // unrelated pictures. This may miss a motion opportunity, but cannot
     // bypass the full-frame quality check below.
     let samples = w.div_ceil(8) * h.div_ceil(8);
-    if best.0 > samples as u64 * 16 {
+    if best.0 > samples as u64 * 400 {
         return None;
     }
     let shifted = shift_reference(reference, best.1, best.2);
-    if close_to_reference(current, &shifted) {
-        Some((best.1, best.2, shifted))
-    } else {
-        None
-    }
+    Some((best.1, best.2, shifted))
 }
-// Encode a P picture with zero motion and quantized 8x8 residuals.
+// Encode a P picture with a whole-frame integer vector and 8x8 residuals.
 fn encode_residual_picture(
     frame: &Frame420,
     reference: &Frame420,
     qp: u8,
+    motion: (i32, i32),
 ) -> Result<Vec<u8>, EncodeError> {
     let (w, h) = (usize::from(frame.width), usize::from(frame.height));
     if w % 16 != 0
@@ -375,7 +372,9 @@ fn encode_residual_picture(
         let p = Probability::default();
         let mut skip = p;
         let mut intra = p;
-        let mut zero = [p; 2];
+        let mut zero = [[p; 3]; 2];
+        let mut magnitude = [[p; 6]; 2];
+        let mut previous_diff = [0i32; 2];
         let mut cbp = [[p; 3]; 3];
         let mut coeff = CoefficientContexts::default();
         let mut left_coded = 0u8;
@@ -409,8 +408,32 @@ fn encode_residual_picture(
             }
             coder.bit(&mut skip, false);
             coder.bit(&mut intra, false);
-            for z in &mut zero {
-                coder.bit(z, false);
+            for component in 0..2 {
+                let diff = if mx == 0 {
+                    if component == 0 {
+                        motion.0 * 2
+                    } else {
+                        motion.1 * 2
+                    }
+                } else {
+                    0
+                };
+                let magnitude_before = previous_diff[component].unsigned_abs();
+                let class = if magnitude_before < 2 {
+                    0
+                } else if magnitude_before < 16 {
+                    1
+                } else {
+                    2
+                };
+                super::signed::encode_signed(
+                    &mut coder,
+                    &mut zero[component][class],
+                    &mut magnitude[component],
+                    diff,
+                )
+                .map_err(|_| EncodeError)?;
+                previous_diff[component] = diff;
             }
             for b in 0..6 {
                 let (l, t, class) = if b < 4 {
@@ -680,16 +703,22 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                 .pop_front()
                 .ok_or(StreamEncodeError::Invalid("Invalid rate window."))?;
         }
-        let prediction = if frames % 96 == 0 {
-            None
-        } else if let Some(r) = reference.as_ref() {
-            if close_to_reference(&frame, r) {
-                Some((0, 0, None))
-            } else {
-                find_translation(&frame, r).map(|(x, y, p)| (x, y, Some(p)))
-            }
+        let still = frames % 96 != 0
+            && reference
+                .as_ref()
+                .is_some_and(|r| close_to_reference(&frame, r));
+        let translation = if frames % 96 != 0 && !still {
+            reference.as_ref().and_then(|r| find_translation(&frame, r))
         } else {
             None
+        };
+        let prediction = if still {
+            Some((0, 0, None))
+        } else {
+            translation
+                .as_ref()
+                .filter(|(_, _, p)| close_to_reference(&frame, p))
+                .map(|(x, y, p)| (*x, *y, Some(p.clone())))
         };
         let mut q = qp;
         let picture = if let Some((dx, dy, shifted)) = prediction {
@@ -725,17 +754,24 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                 StreamEncodeError::Invalid("Encoded picture could not be reconstructed.")
             })?;
             let mut chosen = p;
+            let mut chosen_recon = None;
             if frames % 96 != 0 && wz % 16 == 0 && hz % 16 == 0 {
                 if let Some(previous) = reference.as_ref() {
-                    if let Ok(candidate) = encode_residual_picture(&frame, previous, q) {
-                        if candidate.len() < chosen.len()
-                            && candidate.len() <= limits.4
-                            && sum + candidate.len() <= limits.5
+                    let anchor = super::frame::CodedPicture::from_aligned_frame(previous)
+                        .map_err(|_| StreamEncodeError::Invalid("Invalid prediction reference."))?;
+                    let mut candidates = vec![(previous, (0, 0))];
+                    if let Some((dx, dy, shifted)) = translation.as_ref() {
+                        candidates.push((shifted, (*dx, *dy)));
+                    }
+                    for (predictor, motion) in candidates {
+                        if let Ok(candidate) = encode_residual_picture(&frame, predictor, q, motion)
                         {
-                            let anchor = super::frame::CodedPicture::from_aligned_frame(previous)
-                                .map_err(|_| {
-                                StreamEncodeError::Invalid("Invalid prediction reference.")
-                            })?;
+                            if candidate.len() >= chosen.len()
+                                || candidate.len() > limits.4
+                                || sum + candidate.len() > limits.5
+                            {
+                                continue;
+                            }
                             let recon = super::frame::decode_picture(
                                 &candidate,
                                 w,
@@ -752,15 +788,17 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                             if squared_error(&frame, &recon)
                                 <= squared_error(&frame, &intra_recon) + count
                             {
-                                reference = Some(recon);
+                                chosen_recon = Some(recon);
                                 chosen = candidate;
-                                predicted += 1;
                             }
                         }
                     }
                 }
             }
-            if chosen.first() == Some(&0) {
+            if let Some(recon) = chosen_recon {
+                reference = Some(recon);
+                predicted += 1;
+            } else {
                 reference = Some(intra_recon);
             }
             chosen
