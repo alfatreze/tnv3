@@ -1,0 +1,14 @@
+name: codec-smoke
+on:
+  push:
+  pull_request:
+jobs:
+  smoke:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run synthetic conformance smoke
+        run: make test
