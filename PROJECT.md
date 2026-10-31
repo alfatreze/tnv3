@@ -63,3 +63,13 @@ frame codec or new hardware result.
 TVC macroblock motion-vector prediction and signed Exp-Golomb coding now match
 synthetic C-reference cases on the host. The full macroblock parser and frame
 encoder/decoder remain unfinished; no new hardware validation is claimed.
+
+The Rust crate now parses intra-picture macroblocks in a TVC slice, including
+adaptive quantizers, prediction modes and 4x4/8x8 coefficients. A generated
+C-reference slice passes on the host. P/B syntax, full-frame reconstruction,
+encoding and hardware validation remain open.
+
+Rust can reconstruct standalone TVC intra pictures to YUV420; first frames of
+21 local vectors match the C decoder byte-for-byte on the host. This does not
+include P/B frames, full stream playback or encoding, and makes no new Pocket
+hardware claim.

@@ -395,3 +395,51 @@ fn signed_exp_golomb_limits() {
     }
     assert!(decode_signed(&mut d, &mut z, &mut []).is_err());
 }
+
+#[test]
+fn intra_macroblocks_match_reference_encoder() {
+    use super::intra::IntraSliceDecoder;
+    let data = include_bytes!("intra-mb-reference.bin");
+    let mut d = IntraSliceDecoder::new(data, 3, 3, 25, true, true).unwrap();
+    for n in 0..9usize {
+        let mb = d.next_macroblock().unwrap().unwrap();
+        assert_eq!(mb.qp, 20 + n as u8 * 3);
+        assert_eq!(mb.coded, 63);
+        let t4 = if n % 2 != 0 { 5 } else { 10 };
+        assert_eq!(mb.transform_4x4, t4);
+        assert_eq!(mb.subblocks_4x4, if t4 == 5 { 0x0f0f } else { 0xf0f0 });
+        for b in 0..4 {
+            assert_eq!(mb.luma_modes[b], ((n + b) % 4) as u8);
+        }
+        assert_eq!(mb.chroma_mode, (n % 4) as u8);
+        for b in 0..6 {
+            for i in 0..64 {
+                if i != 0 && (i % 16 != 0 || b >= 4 || (t4 >> b) & 1 == 0) {
+                    assert_eq!(mb.coefficients[b][i], 0);
+                }
+            }
+            if b < 4 && (t4 >> b) & 1 != 0 {
+                for k in 0..4 {
+                    assert_eq!(
+                        mb.coefficients[b][16 * k],
+                        if (n + b + k) % 2 != 0 { -3 } else { 2 }
+                    );
+                }
+            } else {
+                assert_eq!(mb.coefficients[b][0], if (n + b) % 2 != 0 { -3 } else { 2 });
+            }
+        }
+    }
+    assert!(d.next_macroblock().unwrap().is_none());
+}
+
+#[test]
+fn intra_picture_reconstruction_matches_c_decoder() {
+    use super::frame::decode_intra_picture;
+    let f = decode_intra_picture(include_bytes!("intra-picture-reference.bin"), 32, 32).unwrap();
+    let reference = include_bytes!("intra-pixels-reference.bin");
+    assert_eq!(f.y, &reference[..1024]);
+    assert_eq!(f.cb, &reference[1024..1280]);
+    assert_eq!(f.cr, &reference[1280..]);
+    assert!(decode_intra_picture(&[], 32, 32).is_err());
+}

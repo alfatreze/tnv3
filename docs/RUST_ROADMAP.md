@@ -43,3 +43,11 @@ encoding/decoding still need to connect the existing building blocks.
 Motion-vector prediction and signed Exp-Golomb coding are now implemented and
 reference-tested; the complete macroblock syntax still needs to combine them
 with coefficient coding and picture reconstruction.
+
+Intra-slice macroblock syntax is now decoded and checked against a synthetic
+C-reference stream. It does not yet decode P/B macroblocks or reconstruct a
+complete frame; the full encoder is also still pending.
+
+Standalone intra-picture reconstruction is connected end-to-end and matches
+first frames of 21 local vectors against the C decoder. P/B macroblocks, frame
+reordering and complete encoding remain open.

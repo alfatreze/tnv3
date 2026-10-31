@@ -40,3 +40,7 @@ Encoding produces 48 kHz stereo MP3 at 128 kbit/s; decoding produces 48 kHz
 decoded samples need not equal the input. This adapter does not mux MP3 into
 TNV3, generate matching video, or establish audio/video synchronization. MP3
 is a temporary sidecar path; TAC and subtitle support remain future work.
+
+The library can reconstruct a standalone TVC intra picture to cropped planar
+YUV420 via `tvc::frame::decode_intra_picture`. P/B pictures, complete stream
+handling, encoder and a full container checker are still unimplemented.

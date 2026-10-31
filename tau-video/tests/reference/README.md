@@ -47,3 +47,16 @@ For signed Exp-Golomb coding:
 cc -O2 -I tools/tvc_ref tau-video/tests/reference/seg.c -lm -o /tmp/tau-seg-reference
 /tmp/tau-seg-reference > tau-video/src/tvc/seg-reference.bin
 ```
+
+For the intra macroblock syntax fixture:
+
+```sh
+cc -O2 -I tools/tvc_ref tau-video/tests/reference/intra-mb.c -lm -o /tmp/tau-intra-reference
+/tmp/tau-intra-reference > tau-video/src/tvc/intra-mb-reference.bin
+```
+
+The `intra-picture-reference.bin` fixture is a single 32×32 synthetic YUV
+frame, with Y=(7x+11y+xy)%256, Cb=(13x+7y+19)%256 and Cr=(3x+17y+91)%256.
+It was encoded using the C reference with `-q 30 -b 0 -n 1 -l 1 -S 1`;
+`intra-pixels-reference.bin` contains the C decoder's YUV420 output after
+removing the Y4M header. No media-derived content is included.

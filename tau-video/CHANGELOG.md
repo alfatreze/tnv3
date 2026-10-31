@@ -12,3 +12,5 @@
 - Add complete TVC luma/chroma picture deblocking, tested against synthetic C-reference fixtures.
 - Add draft 5 TVC coefficient block encoding and decoding, checked against a C-reference bitstream.
 - Add TVC macroblock motion-vector prediction and signed Exp-Golomb coding, checked against C-reference fixtures.
+- Decode intra-picture macroblock syntax within a slice; checked against a synthetic C-reference fixture.
+- Reconstruct standalone sliced or unsliced TVC intra pictures into YUV420; compared against the C decoder on local vectors.
