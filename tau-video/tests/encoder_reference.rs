@@ -137,3 +137,86 @@ fn static_prediction_is_bounded_and_decodes_like_c() {
         let _ = fs::remove_file(y4m);
     }
 }
+
+#[test]
+fn translated_frames_use_motion_and_match_c_decoder() {
+    use std::io::Cursor;
+    use tau_video::tvc::{
+        encoder::{encode_intra_picture, encode_y4m},
+        frame::{Frame420, decode_intra_picture},
+        stream::decode_y4m,
+    };
+    fn shift(src: &[u8], w: usize, h: usize, dx: i32, dy: i32) -> Vec<u8> {
+        let mut out = vec![0; src.len()];
+        for y in 0..h {
+            for x in 0..w {
+                let sx = (x as i32 + dx).clamp(0, w as i32 - 1) as usize;
+                let sy = (y as i32 + dy).clamp(0, h as i32 - 1) as usize;
+                out[y * w + x] = src[sy * w + sx];
+            }
+        }
+        out
+    }
+    let original = Frame420 {
+        width: 32,
+        height: 32,
+        y: (0..1024)
+            .map(|i| ((i * 13 + i / 32 * 17 + (i % 32) * (i / 32) * 3) % 256) as u8)
+            .collect(),
+        cb: (0..256).map(|i| ((i * 11) % 256) as u8).collect(),
+        cr: (0..256).map(|i| ((i * 7 + 80) % 256) as u8).collect(),
+    };
+    let reference =
+        decode_intra_picture(&encode_intra_picture(&original, 20).unwrap(), 32, 32).unwrap();
+    let mut generated = Vec::new();
+    let mut current = reference;
+    for (dx, dy) in [(2, 0), (-2, 2), (-2, -2), (2, -2)] {
+        current = Frame420 {
+            width: 32,
+            height: 32,
+            y: shift(&current.y, 32, 32, dx, dy),
+            cb: shift(&current.cb, 16, 16, dx / 2, dy / 2),
+            cr: shift(&current.cr, 16, 16, dx / 2, dy / 2),
+        };
+        generated.push(current.clone());
+    }
+    let mut source = b"YUV4MPEG2 W32 H32 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+    for f in std::iter::once(&original).chain(generated.iter()) {
+        source.extend_from_slice(b"FRAME\n");
+        source.extend_from_slice(&f.y);
+        source.extend_from_slice(&f.cb);
+        source.extend_from_slice(&f.cr);
+    }
+    let mut target = Cursor::new(Vec::new());
+    let summary = encode_y4m(Cursor::new(source), &mut target, 20).unwrap();
+    assert_eq!(summary.predicted, 4);
+    let bytes = target.into_inner();
+    let mut rust = Vec::new();
+    decode_y4m(&bytes[..], &mut rust).unwrap();
+    let mut at = rust.windows(6).position(|v| v == b"FRAME\n").unwrap();
+    at += 6 + 1536;
+    for f in &generated {
+        assert_eq!(&rust[at..at + 6], b"FRAME\n");
+        at += 6;
+        let expected: Vec<_> = f.y.iter().chain(&f.cb).chain(&f.cr).copied().collect();
+        assert_eq!(&rust[at..at + 1536], expected);
+        at += 1536;
+    }
+    if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-move-{}", std::process::id()));
+        let tvc = base.with_extension("tvc");
+        let y4m = base.with_extension("y4m");
+        fs::write(&tvc, bytes).unwrap();
+        assert!(
+            Command::new(tool)
+                .arg(&tvc)
+                .arg(&y4m)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&y4m).unwrap());
+        let _ = fs::remove_file(tvc);
+        let _ = fs::remove_file(y4m);
+    }
+}

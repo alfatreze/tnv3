@@ -81,3 +81,6 @@ The stream baseline now supports zero-motion skip P pictures for near-static
 frames with a bounded mean-squared error. General motion search, residual P/B
 coding, production quality evaluation, cancellation and resume remain open.
 The prior all-intra notes above describe earlier checkpoints.
+
+A limited whole-frame translation search now extends the zero-motion P path;
+it does not provide block-level search or residual P/B encoding.

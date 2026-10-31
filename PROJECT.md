@@ -110,3 +110,8 @@ starts a new I picture at least every 96 frames. On a generated static 240-frame
 host case, file size fell from 354,740 to 19,622 bytes with identical decoded
 pixels; this is not a general compression or speed claim. General motion/B
 encoding, quality and performance gates remain open.
+
+Rust now also tests small whole-frame integer translations for zero-residual P
+pictures, gated by the same YUV error bound; it falls back to I pictures. A
+synthetic successive-translation case matches the C decoder on the host.
+General block motion, B pictures and quality/performance gates remain open.

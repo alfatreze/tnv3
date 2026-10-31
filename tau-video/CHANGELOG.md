@@ -21,3 +21,4 @@
 - Mux TVC1 streams into video-only TNV3 containers with display order and chunk CRCs.
 - Decode the video track of TNV3 files to Y4M; audio and subtitles are ignored.
 - Add bounded zero-motion P pictures for near-static frames and an exact separable forward transform.
+- Add bounded whole-frame integer translation for zero-residual P pictures.

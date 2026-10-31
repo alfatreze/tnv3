@@ -231,6 +231,125 @@ fn encode_skip_picture(width: usize, height: usize, qp: u8) -> Vec<u8> {
     }
     out
 }
+// Encode a whole-picture integer translation as zero-residual inter blocks.
+fn encode_translation_picture(
+    width: usize,
+    height: usize,
+    qp: u8,
+    dx: i32,
+    dy: i32,
+) -> Result<Vec<u8>, EncodeError> {
+    let mw = width.div_ceil(16);
+    let mh = height.div_ceil(16);
+    let mut slices = Vec::with_capacity(mh);
+    for _ in 0..mh {
+        let mut r = RangeEncoder::new();
+        let p = Probability::default();
+        let mut skip = p;
+        let mut intra = p;
+        let mut zero = [[p; 3]; 2];
+        let mut mag = [[p; 6]; 2];
+        let mut cbp = [[p; 3]; 3];
+        let mut prev = [0i32; 2];
+        for x in 0..mw {
+            r.bit(&mut skip, false);
+            r.bit(&mut intra, false);
+            for k in 0..2 {
+                let diff = if x == 0 { [dx * 2, dy * 2][k] } else { 0 };
+                let pd = prev[k].unsigned_abs();
+                let class = if pd < 2 {
+                    0
+                } else if pd < 16 {
+                    1
+                } else {
+                    2
+                };
+                super::signed::encode_signed(&mut r, &mut zero[k][class], &mut mag[k], diff)
+                    .map_err(|_| EncodeError)?;
+                prev[k] = diff;
+            }
+            for b in 0..6 {
+                let class = if b < 4 { 0 } else { b - 3 };
+                r.bit(&mut cbp[class][0], false);
+            }
+        }
+        slices.push(r.finish());
+    }
+    let mut out = vec![1, qp, if mh > 1 { 8 } else { 0 }];
+    if mh > 1 {
+        out.push(1);
+        for slice in slices.iter().take(mh - 1) {
+            out.extend_from_slice(&(slice.len() as u32).to_le_bytes());
+        }
+    }
+    for slice in slices {
+        out.extend_from_slice(&slice);
+    }
+    Ok(out)
+}
+fn shifted_plane(src: &[u8], width: usize, height: usize, dx: i32, dy: i32) -> Vec<u8> {
+    let mut out = vec![0; src.len()];
+    for y in 0..height {
+        for x in 0..width {
+            let sx = (x as i32 + dx).clamp(0, width as i32 - 1) as usize;
+            let sy = (y as i32 + dy).clamp(0, height as i32 - 1) as usize;
+            out[y * width + x] = src[sy * width + sx];
+        }
+    }
+    out
+}
+fn shift_reference(reference: &Frame420, dx: i32, dy: i32) -> Frame420 {
+    let (w, h) = (usize::from(reference.width), usize::from(reference.height));
+    let (cw, ch) = (w / 2, h / 2);
+    Frame420 {
+        width: reference.width,
+        height: reference.height,
+        y: shifted_plane(&reference.y, w, h, dx, dy),
+        cb: shifted_plane(&reference.cb, cw, ch, dx / 2, dy / 2),
+        cr: shifted_plane(&reference.cr, cw, ch, dx / 2, dy / 2),
+    }
+}
+// Search integer translations on a sparse luma grid, then verify the entire
+// YUV frame against the same error bound used for zero-motion prediction.
+fn find_translation(current: &Frame420, reference: &Frame420) -> Option<(i32, i32, Frame420)> {
+    let (w, h) = (usize::from(current.width), usize::from(current.height));
+    if w % 16 != 0 || h % 16 != 0 {
+        return None;
+    }
+    let mut best = (u64::MAX, 0, 0);
+    for dy in (-8i32..=8).step_by(2) {
+        for dx in (-8i32..=8).step_by(2) {
+            if dx == 0 && dy == 0 {
+                continue;
+            }
+            let mut score = 0u64;
+            for y in (0..h).step_by(8) {
+                for x in (0..w).step_by(8) {
+                    let sx = (x as i32 + dx).clamp(0, w as i32 - 1) as usize;
+                    let sy = (y as i32 + dy).clamp(0, h as i32 - 1) as usize;
+                    let d = i32::from(current.y[y * w + x]) - i32::from(reference.y[sy * w + sx]);
+                    score += (d * d) as u64;
+                }
+            }
+            if score < best.0 {
+                best = (score, dx, dy);
+            }
+        }
+    }
+    // A coarse rejection avoids building a full-frame candidate for clearly
+    // unrelated pictures. This may miss a motion opportunity, but cannot
+    // bypass the full-frame quality check below.
+    let samples = w.div_ceil(8) * h.div_ceil(8);
+    if best.0 > samples as u64 * 16 {
+        return None;
+    }
+    let shifted = shift_reference(reference, best.1, best.2);
+    if close_to_reference(current, &shifted) {
+        Some((best.1, best.2, shifted))
+    } else {
+        None
+    }
+}
 // Require a low mean squared error over all planes, bounded in integer math.
 fn close_to_reference(current: &Frame420, reference: &Frame420) -> bool {
     let mut sum = 0u64;
@@ -435,17 +554,32 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                 .pop_front()
                 .ok_or(StreamEncodeError::Invalid("Invalid rate window."))?;
         }
-        let use_prediction = frames % 96 != 0
-            && reference
-                .as_ref()
-                .is_some_and(|r| close_to_reference(&frame, r));
+        let prediction = if frames % 96 == 0 {
+            None
+        } else if let Some(r) = reference.as_ref() {
+            if close_to_reference(&frame, r) {
+                Some((0, 0, None))
+            } else {
+                find_translation(&frame, r).map(|(x, y, p)| (x, y, Some(p)))
+            }
+        } else {
+            None
+        };
         let mut q = qp;
-        let picture = if use_prediction {
-            let p = encode_skip_picture(wz, hz, qp);
+        let picture = if let Some((dx, dy, shifted)) = prediction {
+            let p = if dx == 0 && dy == 0 {
+                encode_skip_picture(wz, hz, qp)
+            } else {
+                encode_translation_picture(wz, hz, qp, dx, dy)
+                    .map_err(|_| StreamEncodeError::Invalid("Could not encode motion picture."))?
+            };
             if p.len() > limits.4 || sum + p.len() > limits.5 {
                 return Err(StreamEncodeError::Invalid(
                     "Predictive picture exceeds TVC level limits.",
                 ));
+            }
+            if let Some(updated) = shifted {
+                reference = Some(updated);
             }
             predicted += 1;
             p

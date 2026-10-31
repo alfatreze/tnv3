@@ -87,7 +87,7 @@ for usage and limitations. The custom TAC codec and subtitles remain future work
 Decode a TVC elementary stream with `tau-video decode-tvc input.tvc output.y4m`
 after `make rust`. This decoder is not yet a complete conformance checker.
 
-A preliminary encoder with limited zero-motion P pictures is available as `tau-video encode-tvc
+A preliminary encoder with limited whole-frame-motion P pictures is available as `tau-video encode-tvc
 input.y4m output.tvc`. It is a functional baseline, not yet comparable to the
 optimized C encoder for compression efficiency or speed.
 
