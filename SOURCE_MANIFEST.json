@@ -30,10 +30,10 @@
       "status": "modified_for_release"
     },
     "NOTICE.md": {
-      "sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1",
+      "sha256": "c4c919e521807376872d8868ab2ca9e0c82f8ec1f57254c74419351a0e60ca7e",
       "upstream_path": "NOTICE.md",
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1",
-      "status": "unchanged"
+      "status": "modified_for_release"
     },
     "PROJECT.md": {
       "sha256": "f0bf662dde6b573f099abcab271fde16a428a5eba84582f1ff20676f9a61753e",

@@ -5,9 +5,10 @@ Tau is a derivative work based on
 Development began from upstream commit
 `7ef8f0fb84abd4ae5a6a187805fd910351ae57dc`.
 
-The repository preserves the complete upstream Git history. HarpMudd's original
-copyright notice remains in `LICENSE`, alongside the notice for Tau's later
-modifications. The MIT license applies to HarpMudd's MIT-licensed original work
+Tau V preserves the upstream Git history. This extracted codec repository
+starts from a source snapshot; `SOURCE_MANIFEST.json` records its provenance.
+HarpMudd's original copyright notice remains in `LICENSE`, alongside the notice
+for Tau's later modifications. The MIT license applies to HarpMudd's MIT-licensed original work
 and to Tau's own MIT-licensed additions; it does not replace licenses attached
 to third-party components.
 
