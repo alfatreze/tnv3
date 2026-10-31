@@ -60,3 +60,11 @@ remain open.
 A bounded TVC elementary-stream-to-Y4M function and CLI are available. This is
 not a complete conformance checker: full level/stream validation, TNV3 decoding,
 seeking and encoder implementation remain pending.
+
+A first deterministic intra-only picture encoder is available and cross-checked
+against the C decoder. Predictive/B encoding, rate control, stream writing,
+resume and the other encoder requirements remain open.
+
+The intra-only baseline also writes bounded TVC1 streams from Y4M with level
+selection and QP retries. It does not provide P/B encoding, optimized quality,
+TNV3 muxing, progress, cancellation or deterministic resume.

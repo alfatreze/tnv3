@@ -4,9 +4,14 @@ use std::{
     path::Path,
     process::ExitCode,
 };
-use tau_video::{Tnv3Reader, tvc::stream::decode_y4m};
+use tau_video::{
+    Tnv3Reader,
+    tvc::{encoder::encode_y4m, stream::decode_y4m},
+};
 fn usage() -> ExitCode {
-    eprintln!("Usage: tau-video info FILE | tau-video decode-tvc INPUT.tvc OUTPUT.y4m");
+    eprintln!(
+        "Usage: tau-video info FILE | tau-video decode-tvc INPUT.tvc OUTPUT.y4m | tau-video encode-tvc INPUT.y4m OUTPUT.tvc"
+    );
     ExitCode::from(2)
 }
 fn main() -> ExitCode {
@@ -49,7 +54,7 @@ fn main() -> ExitCode {
             }
         };
     }
-    if mode != "decode-tvc" {
+    if mode != "decode-tvc" && mode != "encode-tvc" {
         return usage();
     }
     let Some(output) = args.next() else {
@@ -76,7 +81,14 @@ fn main() -> ExitCode {
             return ExitCode::from(3);
         }
     };
-    match decode_y4m(file, out) {
+    let result = if mode == "decode-tvc" {
+        decode_y4m(file, out).map_err(|e| e.to_string())
+    } else {
+        encode_y4m(std::io::BufReader::new(file), out, 30)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{e}");

@@ -16,3 +16,5 @@
 - Reconstruct standalone sliced or unsliced TVC intra pictures into YUV420; compared against the C decoder on local vectors.
 - Decode P/B macroblocks and pictures, retain anchor references and return frames in display order.
 - Add TVC elementary-stream decoding to Y4M as a library function and CLI command.
+- Add a deterministic baseline single-picture intra encoder, cross-checked with the C decoder.
+- Add baseline intra-only Y4M-to-TVC stream encoding with level selection and size retries.

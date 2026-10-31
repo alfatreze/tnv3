@@ -560,3 +560,35 @@ fn elementary_stream_decodes_synthetic_sequence() {
     assert_eq!(pixels, include_bytes!("sequence-pixels.bin"));
     assert!(decode_y4m(&b"bad"[..], Vec::new()).is_err());
 }
+
+#[test]
+fn baseline_intra_encoder_round_trip() {
+    use super::{
+        encoder::encode_intra_picture,
+        frame::{Frame420, decode_intra_picture},
+    };
+    let frame = Frame420 {
+        width: 32,
+        height: 32,
+        y: (0..1024)
+            .map(|i| ((i * 7 + i / 32 * 11) % 256) as u8)
+            .collect(),
+        cb: vec![96; 256],
+        cr: vec![160; 256],
+    };
+    let pic = encode_intra_picture(&frame, 20).unwrap();
+    assert_eq!(pic, encode_intra_picture(&frame, 20).unwrap());
+    let got = decode_intra_picture(&pic, 32, 32).unwrap();
+    let mse = got
+        .y
+        .iter()
+        .zip(&frame.y)
+        .map(|(&a, &b)| {
+            let d = i32::from(a) - i32::from(b);
+            (d * d) as u64
+        })
+        .sum::<u64>()
+        / 1024;
+    assert!(mse < 300, "mean squared error {mse}");
+    assert!(encode_intra_picture(&frame, 52).is_err());
+}

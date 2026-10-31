@@ -84,3 +84,13 @@ A Rust TVC elementary-stream reader and `decode-tvc` CLI now output Y4M in
 display order; the synthetic eight-frame output matches the C decoder on the
 host. Full conformance and level validation, TNV3 decoding, seeking, encoder
 and malformed-input fuzzing remain open. No new hardware claim is made.
+
+A baseline deterministic Rust intra-picture encoder now emits TVC pictures.
+Generated pictures at three sizes and four QPs decoded identically in the Rust
+and C decoders on the host. It is intra-only and does not yet enforce stream
+levels or rate windows; full encoding, performance and hardware gates remain open.
+
+The Rust baseline now encodes Y4M as intra-only TVC1 with level selection and
+size/rate-window retries. Generated streams passed the C decoder and matched
+the Rust decoder on the host. P/B encoding, quality/performance gates, TNV3
+muxing and resumable operation remain open; no new hardware claim is made.
