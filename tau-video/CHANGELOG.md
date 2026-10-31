@@ -14,3 +14,4 @@
 - Add TVC macroblock motion-vector prediction and signed Exp-Golomb coding, checked against C-reference fixtures.
 - Decode intra-picture macroblock syntax within a slice; checked against a synthetic C-reference fixture.
 - Reconstruct standalone sliced or unsliced TVC intra pictures into YUV420; compared against the C decoder on local vectors.
+- Decode P/B macroblocks and pictures, retain anchor references and return frames in display order.

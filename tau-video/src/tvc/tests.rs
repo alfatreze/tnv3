@@ -443,3 +443,103 @@ fn intra_picture_reconstruction_matches_c_decoder() {
     assert_eq!(f.cr, &reference[1280..]);
     assert!(decode_intra_picture(&[], 32, 32).is_err());
 }
+
+#[test]
+fn predictive_and_bidirectional_macroblocks_match_c_reference() {
+    use super::intra::{IntraSliceDecoder, MacroblockKind};
+    use super::picture::PictureType;
+    for (picture, data) in [
+        (
+            PictureType::Predictive,
+            include_bytes!("p-mb-reference.bin").as_slice(),
+        ),
+        (
+            PictureType::Bidirectional,
+            include_bytes!("b-mb-reference.bin").as_slice(),
+        ),
+    ] {
+        let mut decoder =
+            IntraSliceDecoder::for_picture(data, 3, 3, 25, true, true, picture).unwrap();
+        let mut previous_qp = 25;
+        for n in 0..9usize {
+            let mb = decoder.next_macroblock().unwrap().unwrap();
+            let kind = match n % 3 {
+                0 => MacroblockKind::Intra,
+                1 => MacroblockKind::Inter,
+                _ => MacroblockKind::Skip,
+            };
+            assert_eq!(mb.kind, kind, "case {n}");
+            if kind == MacroblockKind::Skip {
+                assert_eq!(mb.qp, previous_qp);
+                assert_eq!(mb.coded, 0);
+                continue;
+            }
+            previous_qp = 20 + (n as u8) * 3;
+            assert_eq!(mb.qp, previous_qp);
+            assert_eq!(mb.coded, 63);
+            assert_eq!(mb.transform_4x4, if n % 2 != 0 { 5 } else { 10 });
+            if kind == MacroblockKind::Inter {
+                let uses = if picture == PictureType::Bidirectional {
+                    ((n / 3) % 3 + 1) as u8
+                } else {
+                    1
+                };
+                assert_eq!(mb.uses, uses);
+                for l in 0..2 {
+                    for k in 0..2 {
+                        let value = if uses & (1 << l) != 0 {
+                            ((n * 3 + l * 7 + k * 2) % 13) as i16 - 6
+                        } else {
+                            0
+                        };
+                        assert_eq!(mb.motion[l][k], value, "case {n}, list {l}, component {k}");
+                    }
+                }
+            } else {
+                for b in 0..4 {
+                    assert_eq!(mb.luma_modes[b], ((n + b) % 4) as u8);
+                }
+                assert_eq!(mb.chroma_mode, (n % 4) as u8);
+            }
+            for b in 0..6 {
+                if b < 4 && mb.transform_4x4 & (1 << b) != 0 {
+                    for k in 0..4 {
+                        assert_eq!(
+                            mb.coefficients[b][16 * k],
+                            if (n + b + k) % 2 != 0 { -3 } else { 2 }
+                        );
+                    }
+                } else {
+                    assert_eq!(mb.coefficients[b][0], if (n + b) % 2 != 0 { -3 } else { 2 });
+                }
+            }
+        }
+        assert!(decoder.next_macroblock().unwrap().is_none());
+    }
+}
+
+#[test]
+fn synthetic_i_p_b_sequence_matches_c_decoder() {
+    use super::frame::PictureDecoder;
+    let bytes = include_bytes!("sequence-reference.tvc");
+    let expected = include_bytes!("sequence-pixels.bin");
+    let mut decoder = PictureDecoder::new(32, 32).unwrap();
+    let mut at = 20usize;
+    let mut out = Vec::new();
+    for _ in 0..8 {
+        let len = u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
+        at += 4;
+        if let Some(frame) = decoder.decode(&bytes[at..at + len]).unwrap() {
+            out.extend(frame.y);
+            out.extend(frame.cb);
+            out.extend(frame.cr);
+        }
+        at += len;
+    }
+    let frame = decoder.finish().unwrap();
+    out.extend(frame.y);
+    out.extend(frame.cb);
+    out.extend(frame.cr);
+    assert_eq!(out, expected);
+    assert!(decoder.finish().is_none());
+}

@@ -51,3 +51,8 @@ complete frame; the full encoder is also still pending.
 Standalone intra-picture reconstruction is connected end-to-end and matches
 first frames of 21 local vectors against the C decoder. P/B macroblocks, frame
 reordering and complete encoding remain open.
+
+P/B macroblock parsing, reference-picture reconstruction and display ordering
+are now implemented. Host comparison matched 199 local reference frames. The
+full file/container API, robust malformed-input validation, seeking and encoder
+remain open.

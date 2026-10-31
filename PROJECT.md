@@ -73,3 +73,9 @@ Rust can reconstruct standalone TVC intra pictures to YUV420; first frames of
 21 local vectors match the C decoder byte-for-byte on the host. This does not
 include P/B frames, full stream playback or encoding, and makes no new Pocket
 hardware claim.
+
+Rust `PictureDecoder` now reconstructs I/P/B TVC pictures in display order.
+All 199 frames in the 21 local vectors matched the C decoder on the host; a
+synthetic I/P/B sequence is checked in public tests. Full stream/container
+validation, seeking, encoding, fuzzing and cross-platform performance remain
+open. No new Pocket claim is made.

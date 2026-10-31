@@ -60,3 +60,17 @@ frame, with Y=(7x+11y+xy)%256, Cb=(13x+7y+19)%256 and Cr=(3x+17y+91)%256.
 It was encoded using the C reference with `-q 30 -b 0 -n 1 -l 1 -S 1`;
 `intra-pixels-reference.bin` contains the C decoder's YUV420 output after
 removing the Y4M header. No media-derived content is included.
+
+The synthetic eight-picture I/P/B sequence uses 32×32 generated frames with
+Y=((x+2k)*7+11y+(x+2k)*y)%256, Cb=(13x+7y+19+k)%256 and
+Cr=(3x+17y+91+k)%256, encoded using `-q 30 -g 8 -b 2 -n 8 -l 1 -S 1`.
+The corresponding pixel fixture is the C decoder's planar YUV output, with Y4M
+headers removed. These fixtures contain no media-derived samples.
+
+The inter-macroblock fixtures are generated with:
+
+```sh
+cc -O2 -I tools/tvc_ref tau-video/tests/reference/inter-mb.c -lm -o /tmp/tau-inter-mb
+/tmp/tau-inter-mb 1 > tau-video/src/tvc/p-mb-reference.bin
+/tmp/tau-inter-mb 2 > tau-video/src/tvc/b-mb-reference.bin
+```
