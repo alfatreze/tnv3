@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "1a7a96de3534434f526c56ece741220c4120fb59e30925991d07e700955e9d3e",
+      "sha256": "411956997583673b27a17e252cd751af6d1e088f88dcfa7c60bb67edc20d9125",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
@@ -137,7 +137,7 @@
       "sha256": "8a60c50fd3fc6f95ab4d44990153482128498bee817f866b4755ddeb66c4842c"
     },
     "docs/RUST_ROADMAP.md": {
-      "sha256": "bcb12d7d8b3e99eb317e8632a225c225ab84a78a676fab87e3a9861a3861dcd9",
+      "sha256": "5e8f32ed7f89290f62f306a075769635c209b0262d0d5dfd331d4c4470672c9a",
       "status": "new_release_file"
     },
     "docs/SDRAM_CONTROLLER_REQUIREMENTS.md": {
@@ -929,7 +929,7 @@
       "sha256": "3da9ca782ff5e1090ffd50c056bb38a5a144209e6cb96e225c2fb331d2979ed8"
     },
     "tau-video/CHANGELOG.md": {
-      "sha256": "5ce1c9a0fee959f455dc36d6eb2d719aa7006d8eb543646d6f2736d13d64de44"
+      "sha256": "a62324ead966b5eb1f82240593e88dee54741cca37a6da0aaabb1b0a7a156995"
     },
     "tau-video/Cargo.lock": {
       "sha256": "a70d751d12315aac2d7a9d894ef799386493662f2d8111ace4022ae1a2165180"
@@ -938,7 +938,7 @@
       "sha256": "a8afe8ea07e8d4a27578028cc9e6c50a34f5ed24d516384be5400e2d7307c978"
     },
     "tau-video/README.md": {
-      "sha256": "8107a9e2f65ebf0a46c6b8fc288da46cfe79db0c9848c36e17e39cfcb6d26c2e"
+      "sha256": "7e33cd760772af64236baa0af59719b6d3d15bbe6725989b3031a8c69b597bea"
     },
     "tau-video/src/bin/tau-mp3.rs": {
       "sha256": "b5467b3a13bbe979ebf00f8373ab3077098b3c7072a4fc499833e5dc504047f7"
@@ -949,8 +949,14 @@
     "tau-video/src/lib.rs": {
       "sha256": "dc15f54689894d58530315fac3cc78df5f3de83a3a014fabe81b826582882b1b"
     },
+    "tau-video/src/tvc/inter-reference.bin": {
+      "sha256": "6019c985d8d127ccd175d8a1858e12734ddf043f122f18bc95d9f65ba15c47b0"
+    },
+    "tau-video/src/tvc/inter.rs": {
+      "sha256": "ea81e3ced37790d5da263550e11afa7b43faefc01ff2e32781575af3bfc6d782"
+    },
     "tau-video/src/tvc/mod.rs": {
-      "sha256": "7bd7e81e859f6da10f208712911a4835b0160eeaf5e148608459f63ef133c0bb"
+      "sha256": "21c21b68192cde77fc19a41f4768cdb4af98480d01e1aaa67fcfb83ba515d12e"
     },
     "tau-video/src/tvc/picture.rs": {
       "sha256": "624eb132cfbbf3d076303544a1b307a1c0fe6a0a50091e6b2e6a3c22946944ae"
@@ -968,7 +974,7 @@
       "sha256": "93d54a8271d90e7ab9983d8a9cef9611b945d5340255df4bc6dc01fef8cb3e65"
     },
     "tau-video/src/tvc/tests.rs": {
-      "sha256": "963854d055dc1517d8194ecf1436d0474059af015d413048d3eb9fdb0739d9e6"
+      "sha256": "b05ffa02e20e13a6f0690fd22bf1d80ac6b59024cd5dc5580f9b3dde5bcb7d0a"
     },
     "tau-video/src/tvc/transform-reference.bin": {
       "sha256": "2b176f402e9a01add839a5a861be6612b8f431e96f4517a4db4420ec356abfd5"
@@ -980,7 +986,10 @@
       "sha256": "fad504818284d7e2382d348743b814f6a96002d2837b0aa52ff367df4d3c7a9a"
     },
     "tau-video/tests/reference/README.md": {
-      "sha256": "94ab3d8a8b79d180b283c926a015a5fd99ef65e9c9d0c831bfbfad4d81cc7e44"
+      "sha256": "2d4a2401210500c7515850e2c243f4d3caeb5f8968355053d39cfddeb0a78a2b"
+    },
+    "tau-video/tests/reference/inter.c": {
+      "sha256": "0effbc67417b6dcd2a3eb2997d571e83b342060b76178a8964d0cee84d3d57a2"
     },
     "tau-video/tests/reference/prediction.c": {
       "sha256": "4e098cb4a35668bb7cfcff1ed539674b98b75291b2a59a32010f3822665d228c"

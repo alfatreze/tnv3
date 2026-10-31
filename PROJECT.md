@@ -47,3 +47,7 @@ no new Pocket or cross-platform codec claim is made.
 TVC integer inverse transforms and intra prediction now match synthetic C
 reference fixtures across all quantizers and edge availability cases. This is
 host-only component evidence; full frame encoding and decoding remain pending.
+
+TVC motion compensation now has host-tested half-pixel, quarter-pixel luma,
+and eighth-pixel chroma paths matching generated C-reference cases. Full frame
+codec operation and cross-platform performance remain unverified.

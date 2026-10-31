@@ -28,3 +28,7 @@ decoding and the encoder remain to be implemented and cross-checked.
 The draft 5 inverse 4x4/8x8 transforms and intra prediction are implemented
 and tested against generated C-reference results. Macroblock parsing, motion
 prediction, deblocking, full decode and encoding still need implementation.
+
+Motion-compensated inter prediction is implemented and compared to generated
+C-reference cases; macroblock motion-vector syntax and complete frame decoding
+remain future work.

@@ -151,3 +151,36 @@ fn intra_prediction_matches_c_reference() {
     }
     assert_eq!(offset, expected.len());
 }
+
+#[test]
+fn inter_prediction_matches_c_reference() {
+    use super::inter::{Interpolation, ReferencePlane};
+    let expected = include_bytes!("inter-reference.bin");
+    let mut offset = 0;
+    let mut state = 912325u32;
+    for n in 0..128i32 {
+        let mut plane = [0u8; 32 * 24];
+        for p in &mut plane {
+            state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+            *p = (state >> 24) as u8;
+        }
+        let r = ReferencePlane::new(&plane, 32, 24, 32).unwrap();
+        let origin = ((n * 7) % 32, (n * 11) % 24);
+        let mv = ((n % 33) - 16, ((n * 13) % 33) - 16);
+        for mode in [
+            Interpolation::HalfSample,
+            Interpolation::QuarterLuma,
+            Interpolation::EighthChroma,
+        ] {
+            let result = r.predict(origin, mv, (16, 16), mode).unwrap();
+            assert_eq!(
+                &result,
+                &expected[offset..offset + 256],
+                "case {n} {mode:?}"
+            );
+            offset += 256;
+        }
+    }
+    assert_eq!(offset, expected.len());
+    assert!(ReferencePlane::new(&[0; 4], 10, 10, 10).is_err());
+}

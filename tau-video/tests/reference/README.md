@@ -12,3 +12,10 @@ cc -O2 -I tools/tvc_ref tau-video/tests/reference/prediction.c -lm -o /tmp/tau-p
 
 They generate artificial numeric inputs, not media-derived samples. The normal
 Rust test/build does not need a C compiler or these generators.
+
+For the motion-compensation fixture:
+
+```sh
+cc -O2 -I tools/tvc_ref tau-video/tests/reference/inter.c -lm -o /tmp/tau-inter-reference
+/tmp/tau-inter-reference > tau-video/src/tvc/inter-reference.bin
+```
