@@ -184,3 +184,65 @@ fn inter_prediction_matches_c_reference() {
     assert_eq!(offset, expected.len());
     assert!(ReferencePlane::new(&[0; 4], 10, 10, 10).is_err());
 }
+
+#[test]
+fn deblocking_matches_c_reference() {
+    use super::deblock::{DeblockMacroblock, deblock};
+    let expected = include_bytes!("deblock-reference.bin");
+    let mut pos = 0;
+    let mut state = 29132u32;
+    for n in 0..104usize {
+        let mut mb = [DeblockMacroblock {
+            intra: false,
+            uses: 0,
+            coded: 0,
+            qp: 0,
+            motion: [[0; 2]; 2],
+        }; 4];
+        for (j, m) in mb.iter_mut().enumerate() {
+            m.intra = (n + j) % 3 == 0;
+            m.uses = ((n + j) % 4) as u8;
+            m.coded = ((n * 7 + j * 13) % 64) as u8;
+            m.qp = ((n + j) % 52) as u8;
+            for l in 0..2 {
+                for k in 0..2 {
+                    m.motion[l][k] = ((n * 3 + j * 11 + l * 7 + k * 5) % 25) as i16 - 12;
+                }
+            }
+        }
+        let mut y = [0u8; 1024];
+        let mut u = [0u8; 256];
+        let mut v = [0u8; 256];
+        for plane in [&mut y[..], &mut u[..], &mut v[..]] {
+            for p in plane {
+                state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+                *p = 112 + ((state >> 24) % 32) as u8;
+            }
+        }
+        deblock(&mut y, &mut u, &mut v, 32, 32, &mb, n % 2 != 0).unwrap();
+        for plane in [&y[..], &u[..], &v[..]] {
+            assert_eq!(plane, &expected[pos..pos + plane.len()], "case {n}");
+            pos += plane.len();
+        }
+    }
+    assert_eq!(pos, expected.len());
+}
+
+#[test]
+fn invalid_deblock_input_does_not_modify_planes() {
+    use super::deblock::{DeblockMacroblock, deblock};
+    let mut y = [17u8; 256];
+    let mut u = [18u8; 64];
+    let mut v = [19u8; 64];
+    let invalid = [DeblockMacroblock {
+        intra: true,
+        uses: 0,
+        motion: [[0; 2]; 2],
+        coded: 0,
+        qp: 52,
+    }];
+    assert!(deblock(&mut y, &mut u, &mut v, 16, 16, &invalid, false).is_err());
+    assert_eq!(y, [17u8; 256]);
+    assert_eq!(u, [18u8; 64]);
+    assert_eq!(v, [19u8; 64]);
+}

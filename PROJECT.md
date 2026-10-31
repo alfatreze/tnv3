@@ -51,3 +51,7 @@ host-only component evidence; full frame encoding and decoding remain pending.
 TVC motion compensation now has host-tested half-pixel, quarter-pixel luma,
 and eighth-pixel chroma paths matching generated C-reference cases. Full frame
 codec operation and cross-platform performance remain unverified.
+
+The Rust TVC deblocker now filters full YUV pictures; 104 synthetic pictures
+matched the C reference on the host. Full frame encode/decode remains pending;
+no new Pocket, Quartus or cross-platform performance claim is made.

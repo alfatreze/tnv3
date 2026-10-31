@@ -19,3 +19,10 @@ For the motion-compensation fixture:
 cc -O2 -I tools/tvc_ref tau-video/tests/reference/inter.c -lm -o /tmp/tau-inter-reference
 /tmp/tau-inter-reference > tau-video/src/tvc/inter-reference.bin
 ```
+
+For the deblocking fixture:
+
+```sh
+cc -O2 -I tools/tvc_ref tau-video/tests/reference/deblock.c -lm -o /tmp/tau-deblock-reference
+/tmp/tau-deblock-reference > tau-video/src/tvc/deblock-reference.bin
+```

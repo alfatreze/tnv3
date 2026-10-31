@@ -32,3 +32,6 @@ prediction, deblocking, full decode and encoding still need implementation.
 Motion-compensated inter prediction is implemented and compared to generated
 C-reference cases; macroblock motion-vector syntax and complete frame decoding
 remain future work.
+
+Full-picture luma/chroma deblocking is implemented and matches synthetic C
+reference cases. Macroblock parsing, frame decoding and encoding remain open.
