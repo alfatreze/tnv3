@@ -33,3 +33,17 @@ For the coefficient-coding fixture:
 cc -O2 -I tools/tvc_ref tau-video/tests/reference/coeff.c -lm -o /tmp/tau-coeff-reference
 /tmp/tau-coeff-reference > tau-video/src/tvc/coeff-reference.bin
 ```
+
+For motion-vector predictor cases:
+
+```sh
+cc -O2 -I tools/tvc_ref tau-video/tests/reference/mvp.c -lm -o /tmp/tau-mvp-reference
+/tmp/tau-mvp-reference > tau-video/src/tvc/mvp-reference.bin
+```
+
+For signed Exp-Golomb coding:
+
+```sh
+cc -O2 -I tools/tvc_ref tau-video/tests/reference/seg.c -lm -o /tmp/tau-seg-reference
+/tmp/tau-seg-reference > tau-video/src/tvc/seg-reference.bin
+```

@@ -59,3 +59,7 @@ no new Pocket, Quartus or cross-platform performance claim is made.
 The Rust TVC coefficient coder and decoder now match a synthetic C reference
 across 300 mixed blocks; this is host-tested component evidence, not a complete
 frame codec or new hardware result.
+
+TVC macroblock motion-vector prediction and signed Exp-Golomb coding now match
+synthetic C-reference cases on the host. The full macroblock parser and frame
+encoder/decoder remain unfinished; no new hardware validation is claimed.

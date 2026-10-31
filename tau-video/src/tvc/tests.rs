@@ -304,3 +304,94 @@ fn coefficient_extremes_and_invalid_lengths() {
     decode_block(&mut decoder, &mut contexts, BlockClass::Luma4, &mut actual).unwrap();
     assert_eq!(actual, src);
 }
+
+#[test]
+fn macroblock_motion_prediction_matches_c_reference() {
+    use super::deblock::DeblockMacroblock;
+    use super::motion::predict_motion;
+    let expected = include_bytes!("mvp-reference.bin");
+    let mut pos = 0;
+    for n in 0..512usize {
+        let mut mb = [DeblockMacroblock {
+            intra: false,
+            uses: 0,
+            motion: [[0; 2]; 2],
+            coded: 0,
+            qp: 0,
+        }; 9];
+        for (j, m) in mb.iter_mut().enumerate() {
+            m.uses = ((n + j * 3) % 4) as u8;
+            for l in 0..2 {
+                for k in 0..2 {
+                    m.motion[l][k] = ((n * 19 + j * 17 + l * 37 + k * 53) % 401) as i16 - 200;
+                }
+            }
+        }
+        let x = n % 3;
+        let y = (n / 3) % 3;
+        let start = if n % 2 != 0 { y } else { 0 };
+        for list in 0..2 {
+            let got = predict_motion(&mb, 3, 3, x, y, start, list).unwrap();
+            for v in got {
+                let e = i16::from_le_bytes(expected[pos..pos + 2].try_into().unwrap());
+                pos += 2;
+                assert_eq!(v, e, "case {n} list {list}");
+            }
+        }
+    }
+    assert_eq!(pos, expected.len());
+    assert!(predict_motion(&[], 3, 3, 0, 0, 0, 0).is_err());
+}
+
+#[test]
+fn signed_exp_golomb_matches_c_reference() {
+    use super::range::{Probability, RangeDecoder, RangeEncoder};
+    use super::signed::{MAX_MAGNITUDE, decode_signed, encode_signed};
+    let mut state = 918823u32;
+    let mut values = Vec::new();
+    let mut e = RangeEncoder::new();
+    let mut z = [Probability::default(); 2];
+    let mut m = [Probability::default(); 6];
+    for n in 0..1500 {
+        state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+        let v = if (state >> 24) % 5 != 0 {
+            ((state >> 8) % 4097) as i32 - 2048
+        } else {
+            0
+        };
+        encode_signed(&mut e, &mut z[n % 2], &mut m, v).unwrap();
+        values.push(v);
+    }
+    let bytes = e.finish();
+    assert_eq!(bytes.as_slice(), include_bytes!("seg-reference.bin"));
+    let mut d = RangeDecoder::new(&bytes);
+    let mut z = [Probability::default(); 2];
+    let mut m = [Probability::default(); 6];
+    for (n, v) in values.into_iter().enumerate() {
+        assert_eq!(decode_signed(&mut d, &mut z[n % 2], &mut m).unwrap(), v);
+    }
+    let mut e = RangeEncoder::new();
+    let mut p = Probability::default();
+    let mut m = [p; 3];
+    assert!(encode_signed(&mut e, &mut p, &mut m, MAX_MAGNITUDE + 1).is_err());
+}
+
+#[test]
+fn signed_exp_golomb_limits() {
+    use super::range::{Probability, RangeDecoder, RangeEncoder};
+    use super::signed::{MAX_MAGNITUDE, decode_signed, encode_signed};
+    let mut e = RangeEncoder::new();
+    let mut z = Probability::default();
+    let mut c = [Probability::default(); 3];
+    for v in [-MAX_MAGNITUDE, 0, MAX_MAGNITUDE] {
+        encode_signed(&mut e, &mut z, &mut c, v).unwrap();
+    }
+    let bytes = e.finish();
+    let mut d = RangeDecoder::new(&bytes);
+    let mut z = Probability::default();
+    let mut c = [Probability::default(); 3];
+    for v in [-MAX_MAGNITUDE, 0, MAX_MAGNITUDE] {
+        assert_eq!(decode_signed(&mut d, &mut z, &mut c).unwrap(), v);
+    }
+    assert!(decode_signed(&mut d, &mut z, &mut []).is_err());
+}

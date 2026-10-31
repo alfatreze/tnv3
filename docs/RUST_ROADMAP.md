@@ -39,3 +39,7 @@ reference cases. Macroblock parsing, frame decoding and encoding remain open.
 Coefficient block entropy encoding and decoding are implemented and checked
 against C-generated mixed-block bytes; macroblock syntax and full frame
 encoding/decoding still need to connect the existing building blocks.
+
+Motion-vector prediction and signed Exp-Golomb coding are now implemented and
+reference-tested; the complete macroblock syntax still needs to combine them
+with coefficient coding and picture reconstruction.
