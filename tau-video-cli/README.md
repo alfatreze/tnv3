@@ -1,71 +1,19 @@
-# `tau-codecs-cli` integration candidate
+# Tau video CLI prototype
 
-This standalone crate is staged beside a fresh copy of `tau-video`. Cargo uses
-that local path dependency and enables its existing `c-encoder` feature
-explicitly. No files in the Tau codecs checkout are modified.
+This standalone crate sits beside `tau-video` and does not modify the Tau codecs checkout.
 
-The CLI invokes `tau_video::c_encoder::encode_video` to write TNV3. It takes
-explicit Python, script, FFmpeg, FFprobe, TVC encoder and TNV3 tool paths, plus
-QP and segment job count. The default remains video-only. The opt-in
-`--profile pocket-sidecar` also encodes a matching MP3 using tau-encoder's
-current defaults: `apad`, output limited to `frames / 24` seconds, 48 kHz,
-stereo, `libmp3lame` at 128 kbit/s, with metadata removed. The MP3 name uses
-the same base name and `.mp3` extension as the requested TNV3 path.
-
-On Linux and macOS, it stages both pair assets in a private sibling directory.
-Each final path uses atomic no-replace rename, preserving pre-existing files
-and symlinks. Pair publication itself is not atomic: TNV3 is briefly visible
-before MP3. If MP3 publication fails, rollback attempts to remove the just
-published TNV3. This is best effort; if rollback fails, TNV3 may remain. A
-same-user concurrent process can race rollback's name-based unlink, so the
-directory should not be modified concurrently during pair publication. The
-output parent must be trusted and not group/world-writable, including
-directories with the sticky bit. Publication is anchored to the opened parent
-directory; if another actor renames that directory, publication may occur in
-the pinned directory at its new pathname. The implementation does not prevent
-or detect that pathname change. Unsupported atomic rename behavior fails
-closed. Windows and other platforms explicitly report unsupported.
-FAT/exFAT behavior has not been verified and is not promised.
-
-FFmpeg opens the staged MP3 through the output directory's pathname. If the
-parent directory is renamed while encoding is in progress, FFmpeg may fail to
-open that staging path; in that case no final pair is published.
-
-## Build and unit tests
-
-From this directory:
+On macOS, the default command writes a TNV3 video and a matching MP3 sidecar:
 
 ```sh
-cargo fmt --check
-cargo test --offline
-cargo build --offline
+cargo run --release -- encode input.mp4 output.tnv3
 ```
 
-The `c-encoder` feature is enabled in this crate's dependency declaration; the
-generated smoke additionally needs the C-reference tools in a Tau codecs
-checkout:
+The checkout is discovered from the current directory or `TAU_CODECS_ROOT`. Python 3, FFmpeg, and FFprobe are discovered on `PATH`. To supply tools directly, use `--codec-root PATH`, `--script PATH`, `--python PATH|NAME`, `--ffmpeg PATH|NAME`, `--ffprobe PATH|NAME`, `--tvc-encoder PATH|NAME`, and `--tnv3-tool PATH|NAME`. Bare executable names are resolved on `PATH`; Unix lookup skips files without execute permission. Paths work for bundled tools outside the checkout. The script and C helpers can be omitted when the checkout supplies them. Use `--video-only` to omit MP3. `--qp` defaults to 30 and `--jobs` to 1.
 
-```sh
-python3 smoke.py --codec-root "/path/to/Tau codecs"
-```
+The MP3 uses the current Tau encoder settings: padded audio limited to the encoded frame duration, 48 kHz stereo, 128 kbit/s, and stripped metadata. No independent MP3 analysis or transformation is performed.
 
-The pair-specific integration smoke also checks the TNV3 reference checker,
-decoded frame count, MP3 stream properties, no-audio cleanup, and preservation
-of existing output paths:
+Both outputs refuse to replace existing files. On Linux and macOS, publication uses a private sibling staging directory and no-replace renames. The two-file publish is not atomic; if MP3 publication fails, rollback of the TNV3 is best effort. The output directory must be trusted and not group/world-writable.
 
-```sh
-python3 pocket_sidecar_smoke.py --codec-root "/path/to/Tau codecs" \
-  --codec-tools "/path/to/bundled/codec-tools" \
-  --tvc-decoder "/path/to/tvc_dec" \
-  --ffmpeg "/path/to/bundled/ffmpeg" --ffprobe "/path/to/bundled/ffprobe"
-```
+On Windows, outputs are copied directly to final paths reserved with `create_new`. They may be visible while incomplete; pair publication is not atomic. If a later MP3 open, copy, or flush fails after the TNV3 has been published, the error identifies the remaining TNV3 path. Final outputs are never unlinked on error, and existing paths are not overwritten. This MVP makes no ACL, crash-consistency, or concurrent-directory protection guarantee. Inspect partial outputs before retrying. Windows runtime behavior has not been verified here. FAT/exFAT publication is unverified.
 
-When no `--tvc-decoder` is supplied, the smoke uses
-`<codec-root>/tools/tvc_ref/tvc_dec`; app bundles that omit the decoder can
-pass the local reference decoder explicitly.
-
-The smoke script builds a generated 24-frame input, runs the C container
-checker, confirms overwrite refusal preserves bytes, and uses a temporary Cargo
-target directory. It is a helper-level host smoke test, not a Rust desktop
-integration, warning-path test, or Pocket hardware test. Strict FFmpeg warning
-checks belong to the earlier helper regression fixture.
+The generated `smoke.py` and `pocket_sidecar_smoke.py` helpers remain optional. The latter verifies generated TNV3 plus MP3 output, format properties, and no-overwrite behavior on the host; it does not test Pocket hardware.

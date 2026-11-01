@@ -292,3 +292,14 @@ A process-group cancellation prototype remains isolated after review found
 that descendants may survive and numeric group IDs can race an external
 reaper. **Host:** fake-process tests on macOS; no cancellation is claimed
 for the app or CLI. See `docs/issues/009-c-encoder-process-cancellation.md`.
+
+MVP focus: the experimental CLI defaults to a TNV3/MP3 pair and discovers
+common tools, with explicit overrides. **Host:** macOS generated-pair and
+no-overwrite checks passed. Native Windows/Linux app builds previously passed
+CI; downloadable executable artifacts and updated CLI builds await CI.
+Dependencies remain external; Windows CLI publication is still unsupported.
+
+The MVP CLI now has a Windows direct-copy publication path with exclusive
+file creation. **Cross-compile:** Windows code and tests type-check; native
+Windows execution is unverified, and interrupted copies can leave partial
+new files. This supersedes the earlier Windows-unsupported CLI note.

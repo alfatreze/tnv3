@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "abe8c8159ea30a7ce8c3406759d0bdfafc40bb42cad6748d7cf86b7dad84830b"
+      "sha256": "7e3594e03724509e1adff684dc57ca3c3db81bc5fe067c5564addb4ab32a6d2d"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1573,7 +1573,7 @@
     },
     ".github/workflows/tau-encoder.yml": {
       "status": "new_release_file",
-      "sha256": "95c26740d8fdd3516a7b54c07c9f038808824ba0ee457af78472f3153f7a312d"
+      "sha256": "4c4359b59c0731302b09f0899036fbaf5b9b462196e9fd97639393385d40d946"
     },
     "tau-video/src/c_encoder.rs": {
       "status": "new_release_file",
@@ -1584,7 +1584,7 @@
       "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
     },
     "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
-      "sha256": "13417df5e3a56222ef10837ca915ce6be45b982b3fa68dd4d52d572b043867c2",
+      "sha256": "5ed5e3638dd804cd35ba5aa98d85df3362e38abd986b30288058a892b32f9a80",
       "status": "new_release_file"
     },
     "tools/codec_study/cli_migration_smoke.py": {
@@ -1597,7 +1597,7 @@
     },
     "docs/issues/008-staged-cli-final-output-copy.md": {
       "status": "new_release_file",
-      "sha256": "292ca580ca0a9a72e6c4437ebc1c58065b0aed79ac45b203b89d302ddb21bdd4"
+      "sha256": "493386aaf849b357b72ed11ade0bcc2b56911c24c50a168beda4de45821a9942"
     },
     "tau-video-cli/Cargo.toml": {
       "status": "new_release_file",
@@ -1609,23 +1609,23 @@
     },
     "tau-video-cli/README.md": {
       "status": "new_release_file",
-      "sha256": "4b0badabe1e33ddfa8528c55dc93dc68c0231f91f0f34c9500b1b86d9f563078"
+      "sha256": "345fd0cda315c357e85f01426c7a0d480c13361734a93c79b97ec94fe4ab1cec"
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "e17d4a0e69b89f4883aba868f71e29c9b99f7c4771cd874b8c85ceb27ab6d581"
+      "sha256": "85c21ae844257013fcbc265471364302211b09d5b6858ffa90333b22f36a5dc9"
     },
     "tau-video-cli/smoke.py": {
       "status": "new_release_file",
-      "sha256": "9cb582b8b2774be82865c566031a3d961057c25a23c1833b9efc9990de8d4d04"
+      "sha256": "991d056212526430a88d4ae68f2106d3904639c91384f1d9505f8b2f20f16467"
     },
     ".github/workflows/experimental-tau-codecs-cli.yml": {
       "status": "new_release_file",
-      "sha256": "43f7c39254162067c86feea4f277e90f045ca5619a63ea2523bacc6025c16031"
+      "sha256": "73553ec8d896326b7778adf9503de8106cda2fcbd363a561b0db237a467904f9"
     },
     "tau-video-cli/pocket_sidecar_smoke.py": {
       "status": "new_release_file",
-      "sha256": "f2fcea16ac30ec487212b3034de95bedd4d3c91f6be3904d6db4a8e1bf61c897"
+      "sha256": "6431a7fa8ec7483ec7f57e4af8e6131a694b3a83b8a70e2d3d395dbfe8d479fc"
     },
     "docs/issues/009-c-encoder-process-cancellation.md": {
       "status": "new_release_file",

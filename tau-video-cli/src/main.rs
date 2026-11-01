@@ -240,7 +240,216 @@ mod publication {
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(windows)]
+mod publication {
+    use super::*;
+    use std::{
+        fs::{self, File, OpenOptions},
+        io::{self, Seek, SeekFrom},
+    };
+
+    const PAYLOAD: &str = "payload.tnv3";
+    const AUDIO_PAYLOAD: &str = "payload.mp3";
+
+    pub struct ProtectedStage {
+        parent: PathBuf,
+        stage_dir: PathBuf,
+        payload: Option<File>,
+    }
+
+    impl ProtectedStage {
+        pub fn create(parent: &Path) -> Result<Self, String> {
+            for _ in 0..100 {
+                let id = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+                let stage_dir =
+                    env::temp_dir().join(format!("tau-codecs-cli-{}-{id}", std::process::id()));
+                match fs::create_dir(&stage_dir) {
+                    Ok(()) => {
+                        let payload = match OpenOptions::new()
+                            .read(true)
+                            .write(true)
+                            .create_new(true)
+                            .open(stage_dir.join(PAYLOAD))
+                        {
+                            Ok(file) => file,
+                            Err(error) => {
+                                let _ = fs::remove_dir(&stage_dir);
+                                return Err(format!("Could not create staged TNV3: {error}"));
+                            }
+                        };
+                        return Ok(Self {
+                            parent: parent.to_path_buf(),
+                            stage_dir,
+                            payload: Some(payload),
+                        });
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => {
+                        return Err(format!("Could not create staging directory: {error}"));
+                    }
+                }
+            }
+            Err("Could not reserve a unique staging directory".into())
+        }
+
+        pub fn writer(&mut self) -> &mut File {
+            self.payload.as_mut().expect("staged payload exists")
+        }
+
+        pub fn audio_path(&self, _parent: &Path) -> PathBuf {
+            self.stage_dir.join(AUDIO_PAYLOAD)
+        }
+
+        pub fn publish_pair(
+            mut self,
+            video_name: &OsStr,
+            audio_name: &OsStr,
+        ) -> Result<(u64, u64, Option<String>), String> {
+            let audio_source = self.audio_path(&self.parent);
+            let mut audio_input = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&audio_source)
+                .map_err(|e| format!("Could not open staged MP3 before publication: {e}"))?;
+            audio_input
+                .sync_all()
+                .map_err(|e| format!("Could not sync staged MP3 before publication: {e}"))?;
+            let audio_len = audio_input
+                .metadata()
+                .map_err(|e| format!("Could not inspect staged MP3 before publication: {e}"))?
+                .len();
+            audio_input
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| format!("Could not rewind staged MP3 before publication: {e}"))?;
+
+            let video = self.payload.as_mut().expect("staged payload exists");
+            video
+                .sync_all()
+                .map_err(|e| format!("Could not sync staged TNV3: {e}"))?;
+            let video_len = video
+                .metadata()
+                .map_err(|e| format!("Could not inspect staged TNV3: {e}"))?
+                .len();
+            video
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| format!("Could not rewind staged TNV3: {e}"))?;
+
+            let video_path = self.parent.join(video_name);
+            copy_new(video, &video_path, "TNV3")?;
+
+            let audio_path = self.parent.join(audio_name);
+            if let Err(error) = copy_new(&mut audio_input, &audio_path, "MP3") {
+                return Err(format!(
+                    "{error}. TNV3 remains published at '{}'; the output pair is incomplete and publication is not atomic.",
+                    video_path.display()
+                ));
+            }
+            Ok((video_len, audio_len, None))
+        }
+
+        pub fn publish(mut self, output_name: &OsStr) -> Result<(u64, Option<String>), String> {
+            let video = self.payload.as_mut().expect("staged payload exists");
+            video
+                .sync_all()
+                .map_err(|e| format!("Could not sync staged TNV3: {e}"))?;
+            let length = video
+                .metadata()
+                .map_err(|e| format!("Could not inspect staged TNV3: {e}"))?
+                .len();
+            video
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| format!("Could not rewind staged TNV3: {e}"))?;
+            let output_path = self.parent.join(output_name);
+            copy_new(video, &output_path, "TNV3")?;
+            Ok((length, None))
+        }
+    }
+
+    impl Drop for ProtectedStage {
+        fn drop(&mut self) {
+            self.payload.take();
+            let _ = fs::remove_dir_all(&self.stage_dir);
+        }
+    }
+
+    fn copy_new(source: &mut File, destination: &Path, label: &str) -> Result<u64, String> {
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(destination)
+            .map_err(|e| {
+                format!(
+                    "Could not create {label} output '{}': {e}",
+                    destination.display()
+                )
+            })?;
+        let result = (|| {
+            let copied = io::copy(source, &mut output)
+                .map_err(|e| format!("Could not copy {label} output: {e}"))?;
+            output
+                .sync_all()
+                .map_err(|e| format!("Could not sync {label} output: {e}"))?;
+            Ok::<u64, String>(copied)
+        })();
+        drop(output);
+        result.map_err(|error| {
+            format!(
+                "{error}. Partial {label} output may remain at '{}'; inspect it before retrying. Final outputs are never removed on error.",
+                destination.display()
+            )
+        })
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        fn temp_dir() -> PathBuf {
+            let stamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let path = env::temp_dir().join(format!("tau-cli-win-{}-{stamp}", std::process::id()));
+            fs::create_dir(&path).unwrap();
+            path
+        }
+
+        #[test]
+        fn staged_audio_is_opened_before_video_publication() {
+            use std::io::Write;
+            let dir = temp_dir();
+            let mut stage = ProtectedStage::create(&dir).unwrap();
+            stage.writer().write_all(b"staged video").unwrap();
+            let error = stage
+                .publish_pair(OsStr::new("film.tnv3"), OsStr::new("film.mp3"))
+                .unwrap_err();
+            assert!(error.contains("before publication"));
+            assert!(!dir.join("film.tnv3").exists());
+            fs::remove_dir_all(dir).unwrap();
+        }
+
+        #[test]
+        fn pair_error_after_video_publish_names_and_keeps_video() {
+            use std::io::Write;
+            let dir = temp_dir();
+            let mut stage = ProtectedStage::create(&dir).unwrap();
+            stage.writer().write_all(b"video").unwrap();
+            fs::write(stage.audio_path(&dir), b"staged audio").unwrap();
+            fs::write(dir.join("film.mp3"), b"existing audio").unwrap();
+            let error = stage
+                .publish_pair(OsStr::new("film.tnv3"), OsStr::new("film.mp3"))
+                .unwrap_err();
+            assert!(error.contains("film.tnv3"));
+            assert!(error.contains("incomplete"));
+            assert_eq!(fs::read(dir.join("film.tnv3")).unwrap(), b"video");
+            assert_eq!(fs::read(dir.join("film.mp3")).unwrap(), b"existing audio");
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 mod publication {
     use super::*;
     pub struct ProtectedStage;
@@ -262,15 +471,79 @@ struct Args {
     script: PathBuf,
     ffmpeg: PathBuf,
     ffprobe: PathBuf,
-    tvc_encoder: PathBuf,
-    tnv3_tool: PathBuf,
+    tvc_encoder: Option<PathBuf>,
+    tnv3_tool: Option<PathBuf>,
     qp: u8,
     jobs: usize,
     pocket_sidecar: bool,
 }
 
+fn on_path(name: &str) -> Option<PathBuf> {
+    let path = env::var_os("PATH")?;
+    let names = if cfg!(windows) && !name.to_ascii_lowercase().ends_with(".exe") {
+        vec![format!("{name}.exe"), name.to_owned()]
+    } else {
+        vec![name.to_owned()]
+    };
+    env::split_paths(&path)
+        .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
+        .find(|p| is_executable(p))
+}
+
+fn is_executable(path: &Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        path.metadata()
+            .map(|meta| meta.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
+fn resolve_executable_arg(path: PathBuf) -> PathBuf {
+    if path.components().count() == 1 {
+        if let Some(found) = path.to_str().and_then(on_path) {
+            return found;
+        }
+    }
+    path
+}
+
+fn codec_tool(root: Option<&Path>, rel: &str) -> Option<PathBuf> {
+    let path = root?.join(rel);
+    #[cfg(windows)]
+    let path = path.with_extension("exe");
+    path.is_file().then_some(path)
+}
+
+fn discover_codec_root() -> Option<PathBuf> {
+    if let Some(root) = env::var_os("TAU_CODECS_ROOT") {
+        let root = PathBuf::from(root);
+        if root.join("tools/tnv3_ref/encode_film.py").is_file() {
+            return Some(root);
+        }
+    }
+    let mut candidates = Vec::new();
+    if let Ok(cwd) = env::current_dir() {
+        candidates.extend(cwd.ancestors().map(Path::to_path_buf));
+    }
+    if let Ok(exe) = env::current_exe() {
+        candidates.extend(exe.ancestors().map(Path::to_path_buf));
+    }
+    candidates
+        .into_iter()
+        .find(|p| p.join("tools/tnv3_ref/encode_film.py").is_file())
+}
+
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT --python PATH --script PATH --ffmpeg PATH --ffprobe PATH --tvc-encoder PATH --tnv3-tool PATH [--qp 0..51] [--jobs N] [--profile pocket-sidecar]\n\nDefault: encode video-only TNV3. --profile pocket-sidecar also creates a matching 48 kHz stereo 128 kbit/s MP3 using tau-encoder's FFmpeg settings. Pair publication has a brief non-atomic window and best-effort rollback. Outputs must not already exist."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--video-only] [--qp 0..51] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME]\n\nDefault: write TNV3 plus a matching 48 kHz stereo 128 kbit/s MP3. Python 3, FFmpeg and FFprobe are found on PATH; the Tau codecs checkout is found from the current directory or TAU_CODECS_ROOT. Explicit executable names are resolved on PATH; paths may be used for bundled tools. Outputs must not already exist. Pair publication is not atomic; a failure may leave partial final output files."
 }
 
 fn run_capturing_stderr(
@@ -344,11 +617,22 @@ where
     let mut tnv3_tool = None;
     let mut qp = 30;
     let mut jobs = 1;
-    let mut pocket_sidecar = false;
+    let mut pocket_sidecar = true;
+    let mut codec_root = None;
     while let Some(key) = it.next() {
         let key_text = key
             .to_str()
             .ok_or_else(|| format!("option name must be UTF-8: {}", key.to_string_lossy()))?;
+        if key_text == "--video-only" {
+            pocket_sidecar = false;
+            continue;
+        }
+        if key_text == "--codec-root" {
+            codec_root = Some(PathBuf::from(
+                it.next().ok_or("missing value for --codec-root")?,
+            ));
+            continue;
+        }
         if key_text == "--profile" {
             let value = it
                 .next()
@@ -392,15 +676,46 @@ where
     if pocket_sidecar && output.extension() != Some(OsStr::new("tnv3")) {
         return Err("The pocket-sidecar profile requires an OUTPUT path ending in .tnv3".into());
     }
+    // An explicit script makes the checkout optional. Explicit TVC/TNV3 helpers
+    // are also sufficient when the encoder script is supplied from a bundle.
+    let root = codec_root.or_else(|| {
+        if script.is_none() {
+            discover_codec_root()
+        } else {
+            None
+        }
+    });
+    let python = python
+        .map(resolve_executable_arg)
+        .or_else(|| on_path("python3"))
+        .or_else(|| on_path("python"))
+        .ok_or("Python 3 not found on PATH; use --python")?;
+    let ffmpeg = ffmpeg
+        .map(resolve_executable_arg)
+        .or_else(|| on_path("ffmpeg"))
+        .ok_or("FFmpeg not found on PATH; use --ffmpeg")?;
+    let ffprobe = ffprobe
+        .map(resolve_executable_arg)
+        .or_else(|| on_path("ffprobe"))
+        .ok_or("FFprobe not found on PATH; use --ffprobe")?;
+    let script = match script {
+        Some(path) => path,
+        None => root.as_ref().ok_or("Could not find Tau codecs checkout; use --codec-root, --script, or TAU_CODECS_ROOT")?
+            .join("tools/tnv3_ref/encode_film.py"),
+    };
     Ok(Some(Args {
         input,
         output,
-        python: python.ok_or("--python is required")?,
-        script: script.ok_or("--script is required")?,
-        ffmpeg: ffmpeg.ok_or("--ffmpeg is required")?,
-        ffprobe: ffprobe.ok_or("--ffprobe is required")?,
-        tvc_encoder: tvc_encoder.ok_or("--tvc-encoder is required")?,
-        tnv3_tool: tnv3_tool.ok_or("--tnv3-tool is required")?,
+        python,
+        script,
+        ffmpeg,
+        ffprobe,
+        tvc_encoder: tvc_encoder
+            .map(resolve_executable_arg)
+            .or_else(|| codec_tool(root.as_deref(), "tools/tvc_ref/tvc_enc")),
+        tnv3_tool: tnv3_tool
+            .map(resolve_executable_arg)
+            .or_else(|| codec_tool(root.as_deref(), "tools/tnv3_ref/tnv3")),
         qp,
         jobs,
         pocket_sidecar,
@@ -417,12 +732,19 @@ fn required_file(path: &Path, label: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn validate_optional_file(path: Option<&Path>, label: &str) -> Result<(), String> {
+    if let Some(path) = path {
+        required_file(path, label)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 fn run(_args: Args) -> Result<(), String> {
     Err("Atomic no-replace publication is unsupported on this platform in this prototype".into())
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
 fn run(args: Args) -> Result<(), String> {
     required_file(&args.input, "Input")?;
     for (path, label) in [
@@ -430,11 +752,11 @@ fn run(args: Args) -> Result<(), String> {
         (&args.script, "Encoder script"),
         (&args.ffmpeg, "FFmpeg"),
         (&args.ffprobe, "FFprobe"),
-        (&args.tvc_encoder, "TVC encoder"),
-        (&args.tnv3_tool, "TNV3 tool"),
     ] {
         required_file(path, label)?;
     }
+    validate_optional_file(args.tvc_encoder.as_deref(), "TVC encoder")?;
+    validate_optional_file(args.tnv3_tool.as_deref(), "TNV3 tool")?;
     if args.output.exists() {
         return Err(format!("Output already exists: {}", args.output.display()));
     }
@@ -462,8 +784,8 @@ fn run(args: Args) -> Result<(), String> {
         script: args.script,
         ffmpeg: args.ffmpeg,
         ffprobe: args.ffprobe,
-        tvc_encoder: Some(args.tvc_encoder),
-        tnv3_tool: Some(args.tnv3_tool),
+        tvc_encoder: args.tvc_encoder,
+        tnv3_tool: args.tnv3_tool,
     };
     let output_name = args
         .output
@@ -577,6 +899,7 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     use std::fs;
     fn required_options() -> Vec<OsString> {
         [
@@ -605,8 +928,49 @@ mod tests {
         let args = parse_args(argv).unwrap().unwrap();
         assert_eq!(args.qp, 30);
         assert_eq!(args.jobs, 1);
-        assert!(!args.pocket_sidecar);
+        assert!(args.pocket_sidecar);
         assert_eq!(args.output, PathBuf::from("out.tnv3"));
+        assert_eq!(args.script, PathBuf::from("/tools/encode_film.py"));
+        assert_eq!(args.tvc_encoder, Some(PathBuf::from("/tools/tvc_enc")));
+    }
+
+    #[test]
+    fn explicit_bundle_paths_do_not_require_checkout_discovery() {
+        let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
+        argv.extend(required_options());
+        let args = parse_args(argv).unwrap().unwrap();
+        assert_eq!(args.script, PathBuf::from("/tools/encode_film.py"));
+        assert_eq!(args.tnv3_tool, Some(PathBuf::from("/tools/tnv3")));
+    }
+
+    #[test]
+    fn invalid_explicit_helper_path_has_a_clear_error() {
+        let error =
+            validate_optional_file(Some(Path::new("/missing/tvc_enc")), "TVC encoder").unwrap_err();
+        assert!(error.contains("TVC encoder does not exist or is not a file"));
+    }
+
+    #[test]
+    fn bare_explicit_executable_names_resolve_through_path() {
+        if let Some(expected) = on_path("ffmpeg") {
+            assert_eq!(resolve_executable_arg(PathBuf::from("ffmpeg")), expected);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn path_discovery_rejects_non_executable_files() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = env::temp_dir().join(format!("tau-cli-exec-check-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("candidate");
+        fs::write(&file, b"tool").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(!is_executable(&file));
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(is_executable(&file));
+        let _ = fs::remove_file(file);
+        let _ = fs::remove_dir(dir);
     }
 
     #[test]
@@ -625,7 +989,11 @@ mod tests {
     }
 
     #[test]
-    fn pocket_sidecar_profile_is_opt_in() {
+    fn video_only_flag_and_legacy_profile_are_supported() {
+        let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
+        argv.extend(required_options());
+        argv.push("--video-only".into());
+        assert!(!parse_args(argv).unwrap().unwrap().pocket_sidecar);
         let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
         argv.extend(required_options());
         argv.extend(["--profile".into(), "pocket-sidecar".into()]);
@@ -772,7 +1140,7 @@ mod tests {
         fs::remove_dir(dir).unwrap();
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     #[test]
     fn unsupported_platform_publication_fails_explicitly() {
         let error = publication::ProtectedStage::create(Path::new("."))

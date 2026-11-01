@@ -25,19 +25,22 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--codec-root", type=Path, required=True)
+    parser.add_argument("--codec-tools", type=Path,
+                        help="directory containing tools/tvc_ref and tools/tnv3_ref executables")
     parser.add_argument("--cargo", default="cargo")
     parser.add_argument("--ffmpeg", default="ffmpeg")
     parser.add_argument("--ffprobe", default="ffprobe")
     args = parser.parse_args()
     root = args.codec_root.resolve()
+    tools = args.codec_tools.resolve() if args.codec_tools else root / "tools"
     cargo = executable(args.cargo)
     ffmpeg = executable(args.ffmpeg)
     ffprobe = executable(args.ffprobe)
     py = Path(os.sys.executable).resolve()
     suffix = ".exe" if os.name == "nt" else ""
     script = root / "tools/tnv3_ref/encode_film.py"
-    tvc = root / "tools/tvc_ref" / f"tvc_enc{suffix}"
-    tnv3 = root / "tools/tnv3_ref" / f"tnv3{suffix}"
+    tvc = tools / "tvc_ref" / f"tvc_enc{suffix}"
+    tnv3 = tools / "tnv3_ref" / f"tnv3{suffix}"
     for path in (script, tvc, tnv3):
         if not path.is_file():
             raise SystemExit(f"required codec dependency missing: {path}")
@@ -57,8 +60,10 @@ def main() -> int:
         command = [cargo, "run", "--offline", "--quiet", "--manifest-path", str(manifest), "--",
                    "encode", str(source), str(output), "--python", str(py), "--script", str(script),
                    "--ffmpeg", ffmpeg, "--ffprobe", ffprobe, "--tvc-encoder", str(tvc),
-                   "--tnv3-tool", str(tnv3), "--qp", "30", "--jobs", "1"]
+                   "--tnv3-tool", str(tnv3), "--qp", "30", "--jobs", "1", "--video-only"]
         subprocess.run(command, env=env, check=True)
+        if output.with_suffix(".mp3").exists():
+            raise AssertionError("--video-only unexpectedly created an MP3 sidecar")
         subprocess.run([str(tnv3), "check", str(output)], check=True)
         info = subprocess.run([str(tnv3), "info", str(output)], check=True, capture_output=True, text=True).stdout
         if "pictures 24" not in info:

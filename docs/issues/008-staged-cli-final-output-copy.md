@@ -44,3 +44,12 @@ is not atomic. Rollback is best effort and its identity check followed by
 name-based unlink still permits a same-user race. Concurrent parent directory
 rename also affects FFmpeg's path-based audio staging; see CLI README. No
 Windows, Linux, card filesystem, or Pocket outcome is claimed.
+
+## Windows MVP direct-copy path
+
+**Cross-compile, 2026-11-01:** Windows uses `create_new` for final outputs
+after staging and reports incomplete outputs rather than deleting them on
+failure. This supplies an MVP path but final files can be visible while
+copying and persist partially after errors or crashes. It assumes trusted
+temp/output directories; ACL behavior, Windows runtime and FAT/exFAT have
+not been verified. Manual inspection/removal may be needed after failure.

@@ -171,3 +171,12 @@ not integrated: descendant teardown and numeric PGID lifetime cannot be
 guaranteed under external reaping. Establish a stronger supervisor or
 enforceable process-ownership contract before wiring cancellation into the
 CLI/app. Host-only evidence and limits are in issue 009.
+
+## MVP priority, 2026-11-01
+
+Owner direction: prioritize a usable macOS TNV3/MP3 workflow; provide basic
+Windows and Linux builds with limited testing. MP3 is a temporary sidecar and
+does not need exhaustive robustness work before the planned audio replacement.
+Keep existing output protection, be explicit about incomplete pair atomicity
+and platform/dependency limits, and defer broad hardening rather than claiming
+the longer release gates have passed.

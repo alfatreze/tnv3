@@ -28,3 +28,39 @@ jobs:
         run: cargo fmt --manifest-path tau-video-cli/Cargo.toml --check
       - name: Test and compile platform-specific CLI code
         run: cargo test --locked --manifest-path tau-video-cli/Cargo.toml
+      - name: Build release CLI
+        run: cargo build --locked --release --manifest-path tau-video-cli/Cargo.toml
+      - name: Upload macOS CLI executable
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tau-codecs-cli-macos-executable-no-installer
+          path: tau-video-cli/target/release/tau-codecs-cli
+          if-no-files-found: error
+      - name: Upload Linux CLI executable
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tau-codecs-cli-linux-executable-no-installer
+          path: tau-video-cli/target/release/tau-codecs-cli
+          if-no-files-found: error
+      - name: Upload Windows CLI executable
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tau-codecs-cli-windows-executable-no-installer
+          path: tau-video-cli/target/release/tau-codecs-cli.exe
+          if-no-files-found: error
+      - name: Describe CLI artifact limits
+        shell: bash
+        run: |
+          {
+            echo '### Experimental Tau codecs CLI artifact'
+            echo '- This is the release-built executable only; no installer is produced.'
+            echo '- Python 3, encode_film.py, FFmpeg, FFprobe, and the Tau C codec tools are external dependencies and are not bundled.'
+            echo '- On macOS/Linux, restore the executable bit after download with `chmod +x tau-codecs-cli` if needed.'
+            echo '- The macOS artifact matches the architecture selected by `macos-latest`; it is not a universal binary.'
+            echo '- Windows has an MVP direct no-overwrite copy path, but Windows runtime behavior is unverified.'
+            echo '- Windows does not provide atomic pair publication; a partial TNV3/MP3 output may remain if publishing one file fails.'
+            echo '- Download the artifact matching the runner OS.'
+          } >> "$GITHUB_STEP_SUMMARY"

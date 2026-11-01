@@ -31,3 +31,35 @@ jobs:
         run: npm run check && npm run build
       - name: Test and build native app
         run: cargo test --locked --manifest-path tau-encoder/src-tauri/Cargo.toml && cargo test --locked --manifest-path tau-encoder/src-tauri/Cargo.toml --features experimental-rust-encoder && cargo build --locked --release --manifest-path tau-encoder/src-tauri/Cargo.toml
+      - name: Upload macOS app executable
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tau-encoder-macos-executable-no-installer
+          path: tau-encoder/src-tauri/target/release/tau-encoder
+          if-no-files-found: error
+      - name: Upload Linux app executable
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tau-encoder-linux-executable-no-installer
+          path: tau-encoder/src-tauri/target/release/tau-encoder
+          if-no-files-found: error
+      - name: Upload Windows app executable
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tau-encoder-windows-executable-no-installer
+          path: tau-encoder/src-tauri/target/release/tau-encoder.exe
+          if-no-files-found: error
+      - name: Describe app artifact limits
+        shell: bash
+        run: |
+          {
+            echo '### Tau Encoder app artifact'
+            echo '- This is the release-built app executable only; no installer is produced.'
+            echo '- Required media/codec tools and system runtime dependencies remain external and are not bundled.'
+            echo '- On macOS/Linux, restore the executable bit after download with `chmod +x tau-encoder` if needed.'
+            echo '- The macOS artifact matches the architecture selected by `macos-latest`; it is not a universal binary.'
+            echo '- Download the artifact matching the runner OS.'
+          } >> "$GITHUB_STEP_SUMMARY"

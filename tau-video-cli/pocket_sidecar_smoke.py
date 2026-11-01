@@ -13,7 +13,7 @@ args=parser.parse_args()
 root=args.codec_root.resolve()
 ffmpeg=str(Path(args.ffmpeg).resolve()); ffprobe=str(Path(args.ffprobe).resolve())
 tools=args.codec_tools.resolve() if args.codec_tools else root/'tools'
-script=str(tools/'tnv3_ref/encode_film.py')
+script=str(root/'tools/tnv3_ref/encode_film.py')
 tvc=str(tools/'tvc_ref/tvc_enc'); tvc_dec=str(args.tvc_decoder.resolve() if args.tvc_decoder else root/'tools/tvc_ref/tvc_dec'); tnv3=str(tools/'tnv3_ref/tnv3')
 py=os.sys.executable
 cli_manifest=Path(__file__).resolve().parent/'Cargo.toml'
@@ -26,8 +26,10 @@ with tempfile.TemporaryDirectory(prefix='tau-pocket-pair-e2e-') as td:
     cli=str(d/'target/debug/tau-codecs-cli')
     run([ffmpeg,'-y','-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=size=64x48:rate=24:duration=1','-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=1','-c:v','mpeg4','-q:v','3','-c:a','aac','-shortest',str(src)])
     run([ffmpeg,'-y','-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=size=64x48:rate=24:duration=1','-c:v','mpeg4','-q:v','3',str(silent)])
-    base=[cli,'encode',str(src),str(out),'--python',py,'--script',script,'--ffmpeg',ffmpeg,'--ffprobe',ffprobe,'--tvc-encoder',tvc,'--tnv3-tool',tnv3,'--qp','30','--jobs','1','--profile','pocket-sidecar']
-    ok=subprocess.run(base,check=True,text=True,capture_output=True,env=env); print('PAIR_CLI_STDOUT:',ok.stdout.strip()); print('PAIR_CLI_STDERR:',ok.stderr.strip())
+    # Exercise the CLI's default TNV3+MP3 profile rather than the compatibility flag.
+    base=[cli,'encode',str(src),str(out),'--python',py,'--script',script,'--ffmpeg',ffmpeg,'--ffprobe',ffprobe,'--tvc-encoder',tvc,'--tnv3-tool',tnv3,'--qp','30','--jobs','1']
+    ok=subprocess.run(base,text=True,capture_output=True,env=env); print('PAIR_CLI_STDOUT:',ok.stdout.strip()); print('PAIR_CLI_STDERR:',ok.stderr.strip())
+    if ok.returncode: raise RuntimeError(f'pair CLI failed: {ok.returncode}')
     audio=out.with_suffix('.mp3')
     checked=run([tnv3,'check',str(out)]); info=run([tnv3,'info',str(out)]).stdout.strip()
     print('TNV3_CHECK:',checked.stdout.strip() or 'exit 0'); print('TNV3_INFO:',info)
