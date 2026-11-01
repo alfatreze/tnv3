@@ -165,3 +165,9 @@ remain unverified. It is not a release gate completion. See issue 008.
 profile, with generated macOS success/failure and no-overwrite smoke coverage.
 It uses best-effort pair rollback and retains the limitations in issue 008.
 This is not the complete crash-recovery or cross-platform publication gate.
+
+**Cancellation investigation:** a Linux/macOS process-group prototype was
+not integrated: descendant teardown and numeric PGID lifetime cannot be
+guaranteed under external reaping. Establish a stronger supervisor or
+enforceable process-ownership contract before wiring cancellation into the
+CLI/app. Host-only evidence and limits are in issue 009.

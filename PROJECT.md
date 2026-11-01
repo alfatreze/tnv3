@@ -287,3 +287,8 @@ The experimental CLI also offers an opt-in Pocket TNV3/MP3 sidecar profile.
 **Host:** generated macOS pair, decode, audio metadata, no-audio cleanup and
 no-overwrite tests passed. Pair publication is not atomic; Windows, Linux,
 card filesystem and Pocket behavior remain unverified. See issue 008.
+
+A process-group cancellation prototype remains isolated after review found
+that descendants may survive and numeric group IDs can race an external
+reaper. **Host:** fake-process tests on macOS; no cancellation is claimed
+for the app or CLI. See `docs/issues/009-c-encoder-process-cancellation.md`.

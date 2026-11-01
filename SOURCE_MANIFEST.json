@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "ff9661906145c5403637e01414e11c7669b7438ef23f38589c5e553341ab5ef0"
+      "sha256": "abe8c8159ea30a7ce8c3406759d0bdfafc40bb42cad6748d7cf86b7dad84830b"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1584,7 +1584,7 @@
       "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
     },
     "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
-      "sha256": "d325cfaee58998ee47adc1e6d65a513b377b2f358e4e4da09ec01cefc6b4b8de",
+      "sha256": "13417df5e3a56222ef10837ca915ce6be45b982b3fa68dd4d52d572b043867c2",
       "status": "new_release_file"
     },
     "tools/codec_study/cli_migration_smoke.py": {
@@ -1626,6 +1626,10 @@
     "tau-video-cli/pocket_sidecar_smoke.py": {
       "status": "new_release_file",
       "sha256": "f2fcea16ac30ec487212b3034de95bedd4d3c91f6be3904d6db4a8e1bf61c897"
+    },
+    "docs/issues/009-c-encoder-process-cancellation.md": {
+      "status": "new_release_file",
+      "sha256": "7937315782bb26d610c04ccf16e84b0b42804f6a2262f23c3777d2c47073ec3b"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",
