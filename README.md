@@ -100,6 +100,6 @@ does not play or extract audio or subtitles.
 ## Desktop encoder preview
 
 [`tau-encoder/`](tau-encoder/README.md) contains a Tauri and Svelte desktop
-preview that uses the Rust crate to encode Y4M to video-only TNV3. The first
-macOS host build and a generated-frame GUI encode were tested; other platform
-builds remain to be validated. MP3 remains a separate sidecar tool.
+preview that accepts common video files and creates a video-only TNV3 and a
+matching MP3 sidecar in a chosen folder. The macOS preview includes FFmpeg;
+Windows and Linux helper bundling remains open. See the app README for limits.

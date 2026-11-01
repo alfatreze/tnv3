@@ -36,16 +36,10 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "39070b34d8846cb2e4cf9f3c3bafe215ffedeaa27039855ae270e47af021347a",
-      "status": "modified_for_release",
-      "upstream_path": "PROJECT.md",
-      "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
+      "sha256": "33aaba98e31808d62a2211ab5c912ee5fe63ecd48b15ed9e640bbb1e17053921"
     },
     "README.md": {
-      "sha256": "b9f3beaf4534c5328410577f9dc028002f493ee5eb91da3d2189c7340814b753",
-      "status": "modified_for_release",
-      "upstream_path": "README.md",
-      "upstream_sha256": "5c43fc240f8973828cb354f8452106096a74d94281e7df6b3e28216e2cba1ab6"
+      "sha256": "1d02aabfade7c6007ca660e053f205e16c265df4239b3bec3a70ef4b1e583b16"
     },
     "VALIDATION.md": {
       "sha256": "d181f9b87a100ecd75c922ee57abc88b1f7fd07b891297fb1070f0de22db9ee0",
@@ -1447,10 +1441,10 @@
       "status": "generated_and_modified_for_release"
     },
     "tau-encoder/.gitignore": {
-      "sha256": "d3e5769245bf7a30443b95c5a6b6583426cb76a4a4403207055ab00e908fa82f"
+      "sha256": "e2b432fc0d4e7e4866a817c4afc44d44cd63559edd5ebe3bd329c55d9b0dc9b7"
     },
     "tau-encoder/README.md": {
-      "sha256": "7d5f98a187d7f260c8bc4b375901e3eb11dac81e3a7a0126c12044066827a5a6"
+      "sha256": "8b3f13da477a15ca4cff93210847f896b7f5b4408f17be6e85f88c4853965829"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
@@ -1462,13 +1456,13 @@
       "sha256": "5401d78a61157220e3cb13a60c1fd6c4500c0d912580ce225a1fbd8cb818b8aa"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "365343ba6e69cc2228f55518625a80e9f096735b044e0489fae6ebee4b2a3e87"
+      "sha256": "6d4d6e1f0d8cc694555e52af2897d5def696c45a67d420b91dd9567b6a5dafdb"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "7596ab1da58d4b921a7bce970c58c631840c312683bb86bfd4f75c6c282e8728"
+      "sha256": "69f4d29b87f5087d040b6f5778e0b89090965cb9e97c6d05e710a1ffcd17ce8e"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
       "sha256": "cf7041ac122a62c43a95117b0a5052ee39ecb95f83c2c4f7472095bdf38c41d6"
@@ -1498,16 +1492,25 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "7bcda2faeea7879eaaad642165038b92c32e489f82ac068615063fe4ca82b06b"
+      "sha256": "9b0d4cb0b8c22a46e5792c0a1601a4cc1456adec40dc2742c41545a998545aba"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
-      "sha256": "61342fd3f0698dea3e4d3b8e17094b9da5e05f504c3f7729bc49d8c76f58d301"
+      "sha256": "51b7790876a1c1c9739bbe0011d0090c92d9f86d97f2dfcda02e4a2a45fc269a"
     },
     "tau-encoder/tsconfig.json": {
       "sha256": "2e1e6c6ab1495e04baba2e339d1c4b2afaacbb753651b46c5786745ff4e60e60"
     },
     "tau-encoder/vite.config.ts": {
       "sha256": "fa14b49798ac993ac1e3b78b6de732929a41aab8066a1365c4939a7ca82bba89"
+    },
+    "tau-encoder/scripts/build-ffmpeg-macos.sh": {
+      "sha256": "ccd76c5cf53e234a8444274e236557747ed2fdaf98d77fee72f2558f720b89ba"
+    },
+    "tau-encoder/src-tauri/tauri.bundle.conf.json": {
+      "sha256": "bea099caaef6dddf3325eae03905bf6300dcfe068ae984bb9fbe0be445081852"
+    },
+    "docs/issues/002-desktop-pair-platform-gates.md": {
+      "sha256": "c7aa0cdece0f92f2ece22ee84744eabc74c318a33ca93b67d855a1f09e893bbf"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

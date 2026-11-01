@@ -192,3 +192,11 @@ opened and used to encode a generated frame; the C TNV3 checker accepted the
 result. The app enables conservative rate control; audio, progress and cancel
 remain separate or unavailable. Windows/Linux CI is configured but has not
 been verified; this is not yet a cross-platform release.
+
+The desktop preview now converts ordinary video files to matching `.tnv3` and
+48 kHz stereo `.mp3` files, supports a chosen output folder and remembers it.
+**Host:** a generated MP4 was processed with the bundled macOS FFmpeg; the C
+TNV3 checker and FFprobe accepted the pair. macOS helper bundling includes
+source and license materials. Windows/Linux source builds passed the earlier
+CI run, but bundled helpers and audio/video hardware validation remain open;
+see `docs/issues/002-desktop-pair-platform-gates.md`.
