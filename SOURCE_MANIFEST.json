@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "3082bed86e54b11fedcbb7bc2ef725dccbe986907f5df1f4f09b9158f7e5bf37"
+      "sha256": "d67be8c79d8453020409494287f6f5e705cddfe4b8614164a0111741701db8ad"
     },
     "README.md": {
       "sha256": "1d02aabfade7c6007ca660e053f205e16c265df4239b3bec3a70ef4b1e583b16"
@@ -1513,7 +1513,7 @@
       "sha256": "c7aa0cdece0f92f2ece22ee84744eabc74c318a33ca93b67d855a1f09e893bbf"
     },
     "docs/issues/003-rust-encoder-player-throughput.md": {
-      "sha256": "9b41bb8bbfa2a4c03ea3b5bb9ebde3aea33f76c6da8b99d48bb8d781eb10c97c"
+      "sha256": "435804e9ae696541398cb28267eb16a7b15183c5975b123523b376ea17c1daa5"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

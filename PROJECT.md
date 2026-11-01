@@ -212,3 +212,8 @@ continuing while paused. The card file passes the host checker and has regular
 24 fps timestamps, but is mostly intra-coded; player pause scheduling and
 hardware throughput remain under investigation. See
 `docs/issues/003-rust-encoder-player-throughput.md`.
+
+A C-encoded comparison played more smoothly on Pocket but later froze while
+audio continued. Full host software decoding and an instantaneous-decoder
+player simulation completed; real hardware timing and the freeze cause remain
+unresolved. See `docs/issues/003-rust-encoder-player-throughput.md`.

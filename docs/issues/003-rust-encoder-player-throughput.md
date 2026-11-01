@@ -35,3 +35,35 @@ scene; compare the Rust encode with a reference-encoder output at the same
 resolution, frame rate and source segment. Investigate freezing presentation
 on pause in the player while preserving safe decoder/slot state. Confirm any
 fix on Pocket hardware.
+
+## Follow-up: C-encoder comparison and persistent freeze
+
+**Pocket, owner report:** a C-encoded version of the same film played more
+smoothly than the Rust output, but the picture eventually stayed frozen
+while audio continued. Exact position and whether another control restored
+video were not established. Do not attribute the freeze to B pictures,
+compression choices, timestamps, storage or RTL without further evidence.
+
+**Host:** the C version has the same 400×226, 24 fps and 34,488 frame count;
+744 intra and 22,780 B pictures. It passed the independent TNV3 checker, and
+its video and copied original MP3 were SHA-256 verified on the card. All
+34,488 presentation timestamps are present exactly once on the expected
+24 fps grid; decode-order reordering is at most two frames. The C software
+TVC decoder decoded the complete video to `/dev/null` successfully.
+
+A local copy of the codec-alternatives Pocket glue host simulation had its
+test-only four-million-loop automatic quit raised to 150 million and ran the
+entire C video twice: once silent and once with a synthetic 48 kHz MP3 of
+the same duration. Both reached the end with 34,488 decoded and shown, no
+fake card-read discards; the audio run consumed 68,976,000 sample pairs with
+no simulated MP3 errors. The simulated decoder is instantaneous, Helix is a
+stub, and the MP3 is synthetic: these are **host** checks, not reproduction
+of real hardware load or the user's actual audio. No changes were made in
+the other agent's player worktree.
+
+**Next investigation:** determine the first failing playback time and whether
+seeking or restarting gets past it; collect player state, shown/decoded
+counts, decoder status, card-cache state and audio clock at the freeze.
+Compare a local excerpt around that time in RTL replay and, if possible, use
+an instrumented Pocket build to distinguish a stuck decoder, stalled I/O,
+slot/presentation deadlock, and a clock mismatch. Keep existing card media.
