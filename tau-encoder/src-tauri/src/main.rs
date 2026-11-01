@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod player;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufRead, BufReader, Read, Seek, SeekFrom},
@@ -186,6 +186,30 @@ fn estimated_frames(ffmpeg: &Path, input: &Path) -> Option<u32> {
     Some((seconds * 24.0).ceil() as u32)
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct AdvancedSettings {
+    round_down: bool,
+    eof_pass: bool,
+    trim_mp3_delay: bool,
+}
+impl AdvancedSettings {
+    fn fps_filter(self) -> &'static str {
+        match (self.round_down, self.eof_pass) {
+            (false, _) => "fps=24",
+            (true, false) => "fps=24:round=down",
+            (true, true) => "fps=24:round=down:eof_action=pass",
+        }
+    }
+    fn audio_filter(self) -> &'static str {
+        if self.trim_mp3_delay {
+            "atrim=start_sample=1105,asetpts=PTS-STARTPTS,apad"
+        } else {
+            "apad"
+        }
+    }
+}
+
 fn encode_pair(
     ffmpeg: &Path,
     input: &Path,
@@ -193,6 +217,7 @@ fn encode_pair(
     name: &str,
     qp: u8,
     c_tools: Option<(&Path, &Path)>,
+    advanced: AdvancedSettings,
     mut progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
     if qp > 51 || !safe_name(name) {
@@ -246,8 +271,15 @@ fn encode_pair(
                 "python3".into()
             }
         });
-        let mut child = Command::new(python)
-            .arg(script)
+        let mut command = Command::new(python);
+        command.arg(script);
+        if advanced.round_down {
+            command.arg("--fps-round-down");
+        }
+        if advanced.round_down && advanced.eof_pass {
+            command.arg("--fps-eof-pass");
+        }
+        let mut child = command
             .arg(input)
             .arg(&_video_tmp.0)
             .args(["--video-only", "--match-app", "--qp"])
@@ -318,6 +350,10 @@ fn encode_pair(
             predicted: 0,
         }
     } else {
+        let video_filter = format!(
+            "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
+            advanced.fps_filter()
+        );
         let mut decoder = Command::new(ffmpeg)
             .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
             .arg(input)
@@ -327,7 +363,7 @@ fn encode_pair(
                 "-an",
                 "-sn",
                 "-vf",
-                "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24",
+                &video_filter,
                 "-pix_fmt",
                 "yuv420p",
                 "-f",
@@ -422,7 +458,7 @@ fn encode_pair(
             "-map_metadata",
             "-1",
             "-af",
-            "apad",
+            advanced.audio_filter(),
             "-t",
             &duration,
             "-ar",
@@ -562,6 +598,7 @@ async fn encode(
     name: String,
     qp: u8,
     mode: String,
+    advanced: AdvancedSettings,
     busy: tauri::State<'_, Mutex<bool>>,
 ) -> Result<ResultInfo, String> {
     {
@@ -595,6 +632,7 @@ async fn encode(
             &name,
             qp,
             script.as_deref().map(|s| (s, ffprobe.as_path())),
+            advanced,
             move |event| {
                 let _ = reporter.emit("encode-progress", event);
             },
@@ -704,6 +742,7 @@ mod tests {
                 &format!("{name}{suffix}"),
                 30,
                 c_tools,
+                AdvancedSettings::default(),
                 |_| {},
             )
             .unwrap();
@@ -736,6 +775,7 @@ mod tests {
             name,
             30,
             None,
+            AdvancedSettings::default(),
             |_| {},
         )
         .unwrap();
@@ -747,6 +787,105 @@ mod tests {
                 .iter()
                 .any(|w| w.contains("Audio decoding reported errors"))
         );
+    }
+    #[test]
+    fn experimental_settings_apply_to_both_encoders() {
+        let (Some(source), Some(ffmpeg), Some(script), Some(probe)) = (
+            std::env::var_os("TAU_TEST_MARKER"),
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_C_SCRIPT"),
+            std::env::var_os("TAU_TEST_FFPROBE"),
+        ) else {
+            return;
+        };
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let folder = reserve.0.parent().unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        for (backend, tools) in [
+            ("rust", None),
+            ("c", Some((Path::new(&script), Path::new(&probe)))),
+        ] {
+            let mut baseline_pulse = None;
+            for (label, settings) in [
+                ("default", AdvancedSettings::default()),
+                (
+                    "down",
+                    AdvancedSettings {
+                        round_down: true,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "pass",
+                    AdvancedSettings {
+                        round_down: true,
+                        eof_pass: true,
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "trim",
+                    AdvancedSettings {
+                        trim_mp3_delay: true,
+                        ..Default::default()
+                    },
+                ),
+            ] {
+                let output = encode_pair(
+                    Path::new(&ffmpeg),
+                    Path::new(&source),
+                    folder,
+                    &format!("{name}_{backend}_{label}"),
+                    30,
+                    tools,
+                    settings,
+                    |_| {},
+                )
+                .unwrap();
+                let _video = Temporary(PathBuf::from(&output.video));
+                let _audio = Temporary(PathBuf::from(&output.audio));
+                let filter = format!(
+                    "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
+                    settings.fps_filter()
+                );
+                let expected = Command::new(&ffmpeg)
+                    .args(["-v", "error", "-i"])
+                    .arg(&source)
+                    .args(["-map", "0:v:0", "-vf", &filter, "-f", "framehash", "-"])
+                    .output()
+                    .unwrap();
+                assert!(expected.status.success());
+                let frames = String::from_utf8(expected.stdout)
+                    .unwrap()
+                    .lines()
+                    .filter(|l| !l.starts_with('#'))
+                    .count();
+                assert_eq!(output.frames as usize, frames, "{backend} {label}");
+                let pcm = Command::new(&ffmpeg)
+                    .args(["-v", "error", "-i"])
+                    .arg(&output.audio)
+                    .args(["-ac", "2", "-ar", "48000", "-f", "s16le", "-"])
+                    .output()
+                    .unwrap();
+                assert!(pcm.status.success());
+                let pulse = pcm
+                    .stdout
+                    .chunks_exact(4)
+                    .position(|pair| {
+                        i16::from_le_bytes([pair[0], pair[1]]).unsigned_abs() > 1000
+                            || i16::from_le_bytes([pair[2], pair[3]]).unsigned_abs() > 1000
+                    })
+                    .unwrap();
+                if label == "default" {
+                    baseline_pulse = Some(pulse);
+                }
+                if label == "trim" {
+                    assert_eq!(baseline_pulse.unwrap() - pulse, 1105, "{backend}");
+                }
+            }
+        }
     }
     #[test]
     fn names_are_safe_on_all_platforms() {
@@ -791,9 +930,16 @@ mod tests {
         let name = reserve.0.file_stem().unwrap().to_str().unwrap();
         let folder = reserve.0.parent().unwrap();
         let mut phases = Vec::new();
-        let result = encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, None, |p| {
-            phases.push(p)
-        })
+        let result = encode_pair(
+            Path::new(&ffmpeg),
+            &src,
+            folder,
+            name,
+            30,
+            None,
+            AdvancedSettings::default(),
+            |p| phases.push(p),
+        )
         .unwrap();
         assert_eq!(phases.first().unwrap().phase, "probing");
         assert!(
@@ -852,7 +998,19 @@ mod tests {
         }
         let audio_bytes = std::fs::read(&audio_guard.0).unwrap();
         assert!(audio_bytes.len() > 1000);
-        assert!(encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, None, |_| {}).is_err());
+        assert!(
+            encode_pair(
+                Path::new(&ffmpeg),
+                &src,
+                folder,
+                name,
+                30,
+                None,
+                AdvancedSettings::default(),
+                |_| {}
+            )
+            .is_err()
+        );
         assert_eq!(std::fs::read(&audio_guard.0).unwrap(), audio_bytes);
         if let Some(script) = std::env::var_os("TAU_TEST_C_SCRIPT") {
             let c_name = format!("{name}_C");
@@ -864,6 +1022,7 @@ mod tests {
                 &c_name,
                 30,
                 Some((Path::new(&script), Path::new(&probe))),
+                AdvancedSettings::default(),
                 |_| {},
             )
             .unwrap();

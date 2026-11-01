@@ -80,3 +80,13 @@ earlier compared with the current policy. The candidate was not enabled.
 See `docs/hevc_ingest_eof_2026-11-01.json` and reproduce with
 `tools/codec_study/ingest_eof_probe.py`. These synthetic host results do
 not establish the behavior of the original source or Pocket playback.
+
+## Opt-in Pocket comparison controls
+
+**Host, 2026-11-01:** the desktop app now exposes the current policy,
+`round=down`, and `round=down:eof_action=pass` as opt-in controls for both
+encoders. The C Python wrapper receives the same policy used in Rust. These
+are experiments, not hardware-validated fixes. Automated generated-marker
+pair tests compared the output frame counts with the corresponding FFmpeg
+filters through both backends. Keep defaults for ordinary use and compare
+one setting per uniquely named pair on Pocket.

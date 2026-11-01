@@ -244,3 +244,8 @@ added a frame in all 11 generated reference comparisons. A separate MP3
 gapless-delay model suggests a possible audio-clock offset, but the actual
 Helix decoder and Pocket timing remain unmeasured. See
 `docs/issues/005-hevc-input-ingest.md` and `docs/issues/006-mp3-gapless-timing.md`.
+
+The desktop encoder exposes opt-in frame-timing and MP3-delay experiments
+for both C and Rust, with existing defaults retained. **Host:** generated
+marker pairs tested each setting through both backends; Pocket playback and
+actual Helix delay remain unverified. See issues 005 and 006.

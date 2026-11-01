@@ -6,6 +6,7 @@
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
   let mode: 'rust' | 'c' = 'rust', suffix = '_R';
+  let roundDown = false, eofPass = false, trimMp3Delay = false;
   type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null };
   let progress: Progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
   function timeLabel(seconds: number): string {
@@ -47,7 +48,7 @@
     let unlisten: UnlistenFn | undefined;
     try {
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
-      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode });
+      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay } });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level} · ${result.reencoded} frames retried. Created ${result.video} and ${result.audio}.`;
     } catch (e) { error = String(e); } finally { unlisten?.(); busy = false; }
@@ -64,6 +65,16 @@
     <div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="rust">Rust encoder</option><option value="c">C encoder</option></select></div>
     <div class="field"><label for="suffix">Output suffix <small>Added to both file names</small></label><input class="name" id="suffix" bind:value={suffix} disabled={busy} /></div>
     <div class="field quality"><div><label for="qp">Quality <small>QP</small></label><p>Lower values use more space. Default: 30.</p></div><input id="qp" type="number" min="0" max="51" step="1" bind:value={qp} disabled={busy} /></div>
+    <details class="advanced">
+      <summary>Advanced Pocket experiments</summary>
+      <p>Optional tests for both encoders. Change one setting at a time and use a different suffix to compare files. These have not been verified on Pocket.</p>
+      <label><input type="checkbox" bind:checked={roundDown} disabled={busy} /> Round frame timestamps down</label>
+      <p>May reduce repeated frames for some sources; can shift timing or omit the last frame.</p>
+      <label><input type="checkbox" bind:checked={eofPass} disabled={busy || !roundDown} /> Pass the final frame with round-down</label>
+      <p>May restore a final frame, but can add an extra frame.</p>
+      <label><input type="checkbox" bind:checked={trimMp3Delay} disabled={busy} /> Test MP3 delay compensation</label>
+      <p>Removes the first 1,105 audio samples (23 ms) before encoding. This may improve or worsen sync and permanently removes that audio.</p>
+    </details>
     <button class="primary" type="button" onclick={encode} disabled={busy || !input || !folder || !name.trim() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp)}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
     {#if busy}
       <div class="progress-area" aria-live="polite">

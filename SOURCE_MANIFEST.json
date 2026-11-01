@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "a6ecdb5a66a5d153cdf8c084ff769f4ed2129916faea65082fce5c338bf14742"
+      "sha256": "b22faf51b32b80e1f470f2055abb035154f2bef22fe81d71f97acc5a7ebe387b"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1279,7 +1279,7 @@
       "upstream_sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e"
     },
     "tools/tnv3_ref/encode_film.py": {
-      "sha256": "cf78718f487d21df9abb898f6b48e4fd361132eb22f91af4649a792dddfd4df9"
+      "sha256": "079a5354f89ae93a17b6dd9b0d51a57a0dfbe6215ee45f9db23a429d6ff23d24"
     },
     "tools/tnv3_ref/tnv3.c": {
       "sha256": "bbf20c8f5b9de74afb97a8937519e1ea9731b237619c475829cd043cdc5cd3e0",
@@ -1441,7 +1441,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "2481e4429f0aa1666cfcb9ebd82226f5db4232c4607952e030ab5acfaf947bef"
+      "sha256": "7f169332d036c717953954e78c24bb0082a99ac5bf32ece8de47838df847bb09"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
@@ -1453,13 +1453,13 @@
       "sha256": "5401d78a61157220e3cb13a60c1fd6c4500c0d912580ce225a1fbd8cb818b8aa"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "509c8c14c9044d9ed7d240223c0a922c310929d6b367fe4cd438c8d5d7973c5c"
+      "sha256": "6ad7dbde5f3daf9ebd9a054c3652df174a3ddc24bc53ab7c47538330e83e01bb"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "b2e3572bf765cee24fcbd4f4e2af82afe331bf581c1ffd7349e0ed3411494845"
+      "sha256": "0984dcf38800f2bc8b849008de0a56086a0336e497a83520d58bc60bc00af0b2"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
       "sha256": "6db1da7e6e0217b24a32c1fec6a123f7fdf6d3ee843994adf32e71d394ba68c4"
@@ -1489,7 +1489,7 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "8fb7ddb8431e56247b660c6c2738854c14e84abb68094ec01965ba7d0d9bf2ed"
+      "sha256": "ed300e22b327e956f330cc41b6934789d19810ad0a4b7afc20c7859a7527986d"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
       "sha256": "009a070af9f70b40f486204bc9d2b523530c80e2f986cf374cdba34b795023ed"
@@ -1525,7 +1525,7 @@
       "sha256": "9b9d63446014c0ee6dadba5332059c475ccd8d7d139c2b65fc037ca20c152cc9"
     },
     "docs/issues/005-hevc-input-ingest.md": {
-      "sha256": "5a6f276156450697c807797fab0cbb84da89e61ab6a360a4017fceddab872d46"
+      "sha256": "06f9e70d9763395b9ee5ac9be5b35913f0b8d5f03b416c89740deb96bf1c89c1"
     },
     "docs/hevc_ingest_probe_2026-11-01.json": {
       "sha256": "d7814e059f3bc1d7b8b4c9cd167fcb334a84a844a1767e6f51861c0e113057f8"
@@ -1541,7 +1541,7 @@
     },
     "docs/issues/006-mp3-gapless-timing.md": {
       "status": "new_release_file",
-      "sha256": "695fdcc65717a866ebaea41a45f7eb6e7cbaa90d8c416a1fe0c0549e686edbfa"
+      "sha256": "82b8667e6ad701eb1040bd98fbe4ee4d8770a1d1379ad11270d0e234eacf4b1e"
     },
     "tools/codec_study/ingest_eof_probe.py": {
       "status": "new_release_file",

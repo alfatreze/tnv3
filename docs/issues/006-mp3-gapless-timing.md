@@ -30,3 +30,13 @@ and measure emitted PCM and its audio clock, then verify synchronization on
 Pocket. Coordinate any decoder or encoder correction with the active player
 work; test offsets, padding and end-of-stream before choosing a policy. Until
 then, use these findings as a diagnostic lead, not a hardware timing claim.
+
+## Opt-in compensation experiment
+
+**Host, 2026-11-01:** an optional desktop setting removes 1,105 source audio
+samples before encoding and pads the end. This irreversibly removes about
+23 ms of initial source audio. It is available identically for C and Rust
+video encoders, remains off by default, and does not establish the actual
+Pocket decoder delay. Generated marker pairs through both backends showed
+the expected 1,105-sample advance when decoded by FFmpeg. Measure the real
+Helix path and hardware before treating this as a correction.

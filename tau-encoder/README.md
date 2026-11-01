@@ -8,10 +8,18 @@ Local preview opens a TNV3 and its matching MP3 if present. It decodes the video
 
 Both encoders currently require a source audio track. Output is 24 fps and 48 kHz stereo MP3; the Rust encoder uses conservative rate control and may fail or reduce quality. The app shows an updating video estimate for Rust and segment progress for C; audio and saving are separate. Cancellation is not yet available. Pocket A/V synchronisation remains to be validated.
 
+## Advanced Pocket experiments
+
+Both encoder choices share these optional ingest/audio controls. Defaults remain unchanged. For a meaningful comparison, use the same source and encoder, change one option at a time, and choose a distinct suffix for each output pair. Test the full video and listen for synchronization on Pocket.
+
+- **Round frame timestamps down** may avoid repeated frames with some source timestamps. Generated tests also showed a missing final frame and a one-frame shift with variable-rate input.
+- **Pass the final frame with round-down** can restore a missing frame but produced an additional frame in other cases. It only applies when round-down is enabled.
+- **Test MP3 delay compensation** removes the first 1,105 samples (about 23 ms) of source audio before MP3 encoding. This permanently discards that audio and may make sync better or worse. The amount comes from an FFmpeg host model, not a Helix or Pocket measurement. Do not assume it corrects hardware synchronization.
+
+Source decoding diagnostics remain enabled for both encoders; they cannot detect every corrupt source. These options do not repair the unresolved Pocket frame freeze, change the player, or make the Rust and C encoder implementations equivalent. See `docs/issues/003-rust-encoder-player-throughput.md`, `005-hevc-input-ingest.md`, and `006-mp3-gapless-timing.md` in the repository.
+
 ## Development
 
 Install Node.js, Rust and the Tauri v2 platform prerequisites. From this directory run `npm ci`, then `cargo install tauri-cli --version '^2' --locked`, compile the C tools with `make` in the repository root, and run `cargo tauri dev`. FFmpeg and FFprobe are used by the app; set `TAU_FFMPEG` or install them on PATH if a bundled copy is absent.
 
 For a self-contained macOS helper bundle, run `scripts/build-ffmpeg-macos.sh`, then `scripts/build-codec-tools.sh`, then `cargo tauri build --config src-tauri/tauri.bundle.conf.json`. This includes the C tools and LGPL FFmpeg 6.1.1 dynamically linked to LGPL LAME 4.0, with corresponding sources, licenses and build instructions. Python remains a separate dependency. Equivalent bundled helpers and platform validation on Windows and Linux remain outstanding.
-
-When FFmpeg reports an error during video or audio ingest, the app displays a bounded diagnostic warning even if FFmpeg exits successfully. A successful encode or absence of warnings does not prove the source has no silent corruption.

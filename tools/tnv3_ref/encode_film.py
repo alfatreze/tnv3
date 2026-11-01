@@ -129,6 +129,8 @@ def main():
     ap.add_argument('--keep', action='store_true')
     ap.add_argument('--video-only', action='store_true', help='create a video-only TNV3 for an MP3 sidecar')
     ap.add_argument('--match-app', action='store_true', help='use the desktop application scaling and 24 fps')
+    ap.add_argument('--fps-round-down', action='store_true', help='experimental desktop frame timestamp rounding')
+    ap.add_argument('--fps-eof-pass', action='store_true', help='experimental end-of-stream policy with round-down')
     o = ap.parse_args()
     if o.experimental_parallel_slices:
         TVC_ENC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc_slice_experimental' + EXE)
@@ -153,8 +155,9 @@ def main():
         sys.exit('frame rate %s does not fit the container' % fps)
     w = sw if o.width == 'native' else int(o.width)
     h = sh if o.width == 'native' else max(2, int(round(w * sh / sw / 2)) * 2)
+    fps_filter = 'fps=24' + (':round=down' if o.fps_round_down else '') + (':eof_action=pass' if o.fps_round_down and o.fps_eof_pass else '')
     if o.match_app:
-        probe_cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src, '-map', '0:v:0', '-an', '-vf', 'scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24', '-frames:v', '1', '-pix_fmt', 'yuv420p', '-f', 'yuv4mpegpipe', '-']
+        probe_cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src, '-map', '0:v:0', '-an', '-vf', 'scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,' + fps_filter, '-frames:v', '1', '-pix_fmt', 'yuv420p', '-f', 'yuv4mpegpipe', '-']
         probe_frame = subprocess.run(probe_cmd, check=True, capture_output=True).stdout
         fields = probe_frame.split(b'\n', 1)[0].split()
         w = int(next(x[1:] for x in fields if x.startswith(b'W')))
@@ -169,7 +172,7 @@ def main():
     log('source %dx%d %s fps %.1f s -> %dx%d at %s fps, level %d, QP %d, %d jobs, work %s' % (sw, sh, sfps, dur, w, h, fps, level, o.qp, jobs, work))
 
     # 1. decode once, cut into segments
-    vf = ('scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24,format=yuv420p' if o.match_app else 'fps=%s,scale=%d:%d:flags=lanczos,format=yuv420p' % (fps, w, h))
+    vf = ('scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,' + fps_filter + ',format=yuv420p' if o.match_app else 'fps=%s,scale=%d:%d:flags=lanczos,format=yuv420p' % (fps, w, h))
     cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src] + (['-t', str(o.seconds)] if o.seconds else []) + ['-vf', vf, '-f', 'yuv4mpegpipe', '-']
     ff = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=1 << 22)
     header = ff.stdout.readline()
