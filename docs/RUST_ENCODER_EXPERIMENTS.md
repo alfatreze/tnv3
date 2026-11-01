@@ -244,3 +244,17 @@ This does not rule out usefulness on other inputs and does not prove the
 successful bitstreams identical. Raw results: `rust_long_rate_study.json`.
 Decision: do not ship the fallback without evidence of benefit. Earlier window
 allocation remains the next investigation; no Pocket or Quartus claim.
+
+## Streaming progress callback — 2026-11-01
+
+Added a synchronous per-written-frame callback to the normal Y4M encoder,
+while retaining the existing API as a wrapper. The callback affects the encoder
+hot path; desktop event emission is throttled to roughly twice per second.
+Alternatives were parsing the raw byte stream or FFmpeg decoder progress;
+neither reflects pictures actually accepted by the encoder. **Host:** a
+three-frame synthetic test checked callback ordering and byte-identical output
+against the existing API; the full local reference test suite, formatting and
+clippy passed. A macOS GUI test on a generated 100-second MP4 showed the
+progress and remaining-time estimate changing during encoding. Frame totals
+come from container duration and are approximate; audio and saving have no
+countdown. Cancellation remains open. No Pocket or Quartus claim.

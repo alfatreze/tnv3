@@ -34,3 +34,5 @@
 - Skip redundant B-candidate work when two identical skip pictures cannot lose the size comparison.
 - Reuse a future anchor when the middle skip preserves the reference and rate-window slack proves the same decision.
 - Add an opt-in conservative per-picture rate budget for rolling-window starvation.
+
+- Add `encode_y4m_with_progress`, which reports each successfully written frame without changing encoded output.

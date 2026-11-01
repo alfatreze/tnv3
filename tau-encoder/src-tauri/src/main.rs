@@ -2,15 +2,16 @@
 use serde::Serialize;
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufReader, Seek, SeekFrom},
+    io::{self, BufReader, Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
         Mutex,
         atomic::{AtomicU64, Ordering},
     },
+    time::{Duration, Instant},
 };
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 struct Temporary(PathBuf);
 impl Drop for Temporary {
@@ -90,12 +91,63 @@ fn process_failed(status: std::process::ExitStatus, action: &str) -> String {
         "{action} failed ({status}). Check that the source has a supported video and audio track."
     )
 }
+#[derive(Clone, Serialize, Debug)]
+struct Progress {
+    phase: &'static str,
+    frames: u32,
+    total_frames_estimate: Option<u32>,
+    remaining_seconds: Option<u64>,
+}
+
+fn parse_duration(text: &str) -> Option<f64> {
+    let value = text
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("Duration: "))?
+        .split(',')
+        .next()?;
+    let mut parts = value.split(':');
+    let hours: f64 = parts.next()?.parse().ok()?;
+    let minutes: f64 = parts.next()?.parse().ok()?;
+    let seconds: f64 = parts.next()?.parse().ok()?;
+    if parts.next().is_some()
+        || !(0.0..60.0).contains(&minutes)
+        || !(0.0..60.0).contains(&seconds)
+        || !(0.0..=4.0).contains(&hours)
+    {
+        return None;
+    }
+    let duration = hours * 3600.0 + minutes * 60.0 + seconds;
+    if duration > 0.0 && duration <= 14400.0 {
+        Some(duration)
+    } else {
+        None
+    }
+}
+
+fn estimated_frames(ffmpeg: &Path, input: &Path) -> Option<u32> {
+    let mut child = Command::new(ffmpeg)
+        .args(["-nostdin", "-hide_banner", "-i"])
+        .arg(input)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .ok()?;
+    let mut buf = Vec::new();
+    if let Some(stderr) = child.stderr.take() {
+        let _ = stderr.take(65536).read_to_end(&mut buf);
+    }
+    let _ = child.wait();
+    let seconds = parse_duration(&String::from_utf8_lossy(&buf))?;
+    Some((seconds * 24.0).ceil() as u32)
+}
+
 fn encode_pair(
     ffmpeg: &Path,
     input: &Path,
     folder: &Path,
     name: &str,
     qp: u8,
+    mut progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
     if qp > 51 || !safe_name(name) {
         return Err("Choose a valid output name and a QP between 0 and 51.".into());
@@ -105,6 +157,19 @@ fn encode_pair(
     if video_path.exists() || audio_path.exists() {
         return Err("An output file already exists. Choose a different name.".into());
     }
+    progress(Progress {
+        phase: "probing",
+        frames: 0,
+        total_frames_estimate: None,
+        remaining_seconds: None,
+    });
+    let total = estimated_frames(ffmpeg, input);
+    progress(Progress {
+        phase: "video",
+        frames: 0,
+        total_frames_estimate: total,
+        remaining_seconds: None,
+    });
     let (_video_tmp, mut tvc) = temporary_file("tvc")?;
     let mut decoder = Command::new(ffmpeg)
         .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
@@ -130,7 +195,37 @@ fn encode_pair(
         .stdout
         .take()
         .ok_or("Could not read FFmpeg video output.")?;
-    let encoded = tau_video::tvc::encoder::encode_y4m(BufReader::new(stdout), &mut tvc, qp);
+    let start = Instant::now();
+    let mut last_update = start;
+    let mut samples = std::collections::VecDeque::from([(start, 0u32)]);
+    let encoded = tau_video::tvc::encoder::encode_y4m_with_progress(
+        BufReader::new(stdout),
+        &mut tvc,
+        qp,
+        |frames| {
+            let now = Instant::now();
+            if frames != 1 && now.duration_since(last_update) < Duration::from_millis(500) {
+                return;
+            }
+            samples.push_back((now, frames));
+            while samples.len() > 2 && now.duration_since(samples[1].0) > Duration::from_secs(10) {
+                samples.pop_front();
+            }
+            let (first, first_frames) = samples.front().copied().unwrap_or((start, 0));
+            let seconds = now.duration_since(first).as_secs_f64();
+            let rate = f64::from(frames - first_frames) / seconds.max(0.001);
+            let remaining_seconds = total
+                .filter(|&n| frames < n && seconds >= 2.0 && rate > 0.0)
+                .map(|n| (f64::from(n - frames) / rate).ceil() as u64);
+            progress(Progress {
+                phase: "video",
+                frames,
+                total_frames_estimate: total,
+                remaining_seconds,
+            });
+            last_update = now;
+        },
+    );
     if encoded.is_err() {
         let _ = decoder.kill();
     }
@@ -141,6 +236,12 @@ fn encode_pair(
     if !status.success() {
         return Err(process_failed(status, "Video conversion"));
     }
+    progress(Progress {
+        phase: "audio",
+        frames: stats.frames,
+        total_frames_estimate: total,
+        remaining_seconds: None,
+    });
     let (audio_tmp, audio_file) = temporary_file("mp3")?;
     drop(audio_file);
     let duration = format!("{:.9}", f64::from(stats.frames) / 24.0);
@@ -176,6 +277,12 @@ fn encode_pair(
     if !status.success() {
         return Err(process_failed(status, "MP3 encoding"));
     }
+    progress(Progress {
+        phase: "saving",
+        frames: stats.frames,
+        total_frames_estimate: total,
+        remaining_seconds: None,
+    });
     tvc.seek(SeekFrom::Start(0))
         .map_err(|e| format!("Could not read temporary video: {e}"))?;
     let mut video = OpenOptions::new()
@@ -266,7 +373,17 @@ async fn encode(
     }
     let ffmpeg = ffmpeg_path(&app);
     let result = tauri::async_runtime::spawn_blocking(move || {
-        encode_pair(&ffmpeg, Path::new(&input), Path::new(&folder), &name, qp)
+        let reporter = app.clone();
+        encode_pair(
+            &ffmpeg,
+            Path::new(&input),
+            Path::new(&folder),
+            &name,
+            qp,
+            move |event| {
+                let _ = reporter.emit("encode-progress", event);
+            },
+        )
     })
     .await;
     *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
@@ -284,6 +401,16 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn duration_probe_handles_valid_and_unknown_lengths() {
+        assert_eq!(
+            parse_duration("  Duration: 01:02:03.50, start: 0.0"),
+            Some(3723.5)
+        );
+        assert_eq!(parse_duration("  Duration: N/A, start: 0.0"), None);
+        assert_eq!(parse_duration("  Duration: 00:99:00.00,"), None);
+        assert_eq!(parse_duration("  Duration: 06:00:00.00,"), None);
+    }
     #[test]
     fn names_are_safe_on_all_platforms() {
         assert!(safe_name("My film"));
@@ -326,7 +453,19 @@ mod tests {
         std::fs::remove_file(&reserve.0).unwrap();
         let name = reserve.0.file_stem().unwrap().to_str().unwrap();
         let folder = reserve.0.parent().unwrap();
-        let result = encode_pair(Path::new(&ffmpeg), &src, folder, name, 30).unwrap();
+        let mut phases = Vec::new();
+        let result = encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, |p| {
+            phases.push(p)
+        })
+        .unwrap();
+        assert_eq!(phases.first().unwrap().phase, "probing");
+        assert!(
+            phases
+                .iter()
+                .any(|p| p.phase == "video" && p.total_frames_estimate == Some(24))
+        );
+        assert!(phases.iter().any(|p| p.phase == "audio"));
+        assert_eq!(phases.last().unwrap().phase, "saving");
         assert_eq!(result.frames, 24);
         let video_guard = Temporary(PathBuf::from(&result.video));
         let audio_guard = Temporary(PathBuf::from(&result.audio));
@@ -372,7 +511,7 @@ mod tests {
         }
         let audio_bytes = std::fs::read(&audio_guard.0).unwrap();
         assert!(audio_bytes.len() > 1000);
-        assert!(encode_pair(Path::new(&ffmpeg), &src, folder, name, 30).is_err());
+        assert!(encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, |_| {}).is_err());
         assert_eq!(std::fs::read(&audio_guard.0).unwrap(), audio_bytes);
     }
 }

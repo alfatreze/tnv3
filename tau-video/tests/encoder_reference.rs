@@ -932,3 +932,24 @@ fn conservative_rate_budget_retries_noisy_frames() {
         pos += 4 + n;
     }
 }
+
+#[test]
+fn stream_progress_reports_written_frames_without_changing_output() {
+    use std::io::Cursor;
+    use tau_video::tvc::encoder::{encode_y4m, encode_y4m_with_progress};
+    let mut source = b"YUV4MPEG2 W16 H16 F24:1 Ip C420jpeg\n".to_vec();
+    for value in [32, 64, 96] {
+        source.extend_from_slice(b"FRAME\n");
+        source.extend_from_slice(&[value; 384]);
+    }
+    let mut baseline = Cursor::new(Vec::new());
+    let expected = encode_y4m(Cursor::new(&source), &mut baseline, 30).unwrap();
+    let mut output = Cursor::new(Vec::new());
+    let mut frames = Vec::new();
+    let actual =
+        encode_y4m_with_progress(Cursor::new(&source), &mut output, 30, |n| frames.push(n))
+            .unwrap();
+    assert_eq!(frames, [1, 2, 3]);
+    assert_eq!(actual, expected);
+    assert_eq!(output.into_inner(), baseline.into_inner());
+}

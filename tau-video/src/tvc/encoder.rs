@@ -781,10 +781,28 @@ fn line<R: std::io::BufRead>(input: &mut R) -> Result<Option<Vec<u8>>, StreamEnc
 /// selects the smallest fitting TVC level and retries with a higher QP if the
 /// picture or rolling video-byte limit would be exceeded.
 pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
+    input: R,
+    output: W,
+    qp: u8,
+) -> Result<EncodeSummary, StreamEncodeError> {
+    encode_y4m_with_progress(input, output, qp, |_| {})
+}
+
+/// Encode a Y4M stream and call `progress` after each successfully written picture.
+///
+/// The callback receives the cumulative frame count. It runs synchronously on the
+/// encoding thread and must return promptly. The output is identical to `encode_y4m`.
+pub fn encode_y4m_with_progress<R, W, F>(
     mut input: R,
     mut output: W,
     qp: u8,
-) -> Result<EncodeSummary, StreamEncodeError> {
+    mut progress: F,
+) -> Result<EncodeSummary, StreamEncodeError>
+where
+    R: std::io::BufRead,
+    W: std::io::Write + std::io::Seek,
+    F: FnMut(u32),
+{
     use std::io::SeekFrom;
     if qp > 51 {
         return Err(StreamEncodeError::Invalid("Invalid QP."));
@@ -1012,6 +1030,7 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         lengths.push_back(len);
         sum += len;
         frames += 1;
+        progress(frames);
     }
     if frames == 0 {
         return Err(StreamEncodeError::Invalid("Y4M stream has no frames."));

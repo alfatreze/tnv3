@@ -200,3 +200,9 @@ TNV3 checker and FFprobe accepted the pair. macOS helper bundling includes
 source and license materials. Windows/Linux source builds passed the earlier
 CI run, but bundled helpers and audio/video hardware validation remain open;
 see `docs/issues/002-desktop-pair-platform-gates.md`.
+
+The desktop preview now reports estimated video progress and remaining time
+from actual encoded frames and recent speed; audio and saving are separate
+indeterminate stages. **Host:** an isolated macOS app run showed changing
+progress and ETA on a generated input. Duration estimates may differ from the
+actual video, and no Pocket or new cross-platform packaging claim is made.
