@@ -53,3 +53,22 @@ failure. This supplies an MVP path but final files can be visible while
 copying and persist partially after errors or crashes. It assumes trusted
 temp/output directories; ACL behavior, Windows runtime and FAT/exFAT have
 not been verified. Manual inspection/removal may be needed after failure.
+
+## ENOTSUP exFAT fallback and TauV verification
+
+**Isolated implementation + host/card test, 2026-11-01:** an updated `tau-video-cli` source copy handles `ENOTSUP`/`EOPNOTSUPP` from directory-relative no-replace rename by exclusively creating the final file and copying/syncing from the private staged source. Ordinary rename is never used as a fallback. On errors, final paths are not unlinked; the CLI reports any partial final path and, for a pair, identifies when TNV3 remains after MP3 publication fails. Existing names remain protected by exclusive create. Copied final names are visible during transfer, so this path is explicitly non-atomic and can leave partial output after I/O failure or process/power loss.
+
+Four new isolated tests passed for simulated unsupported rename, existing destination preservation, audio-name collision, and injected copy failure/partial-output reporting; the full isolated CLI suite passed 19/19. A real generated-media run on `/Volumes/TauV` (mounted exFAT, `noowners`) confirmed the filesystem returns unsupported for no-replace rename. The isolated CLI then wrote a generated 24-frame TNV3 (55,680 bytes, level 2) and matching MP3 (16,940 bytes) into a uniquely created test directory using the fallback. The same C reference toolchain checker, `tools/tnv3_ref/tnv3 check`, returned `valid` (a reference check, not an independent implementation); FFprobe reported MP3, 48 kHz stereo, 1.000-second duration. A generated collision case preserved pre-existing test audio and reported the remaining TNV3. Only generated test artifacts were removed; a read-only scan found no test/staging leftovers.
+
+The filesystem test proves the tested macOS/exFAT create-new/copy/sync path for this CLI prototype; it does not prove other exFAT implementations, Windows/FAT behavior, crash durability, pair atomicity, independent full-container conformance, or Pocket playback/A/V synchronization. The fallback is now integrated into the CLI implementation. It remains an experimental prototype, not a release-qualified cross-platform path.
+
+**Safe workaround:** use a trusted output directory; inspect the exact paths named by any failure and remove incomplete outputs manually before retrying. Do not treat a video-only remainder as a completed TNV3+MP3 pair.
+
+**Next gate:** retain the no-unlink and no-replace guarantees, rerun the failure tests and generated TauV test against the integrated source, and keep Windows/FAT and Pocket playback gates separately open.
+
+**Integrated host/card check:** the release CLI encoded a generated 24-frame
+TNV3/MP3 pair on TauV exFAT using the fallback. The reference checker returned
+valid, FFprobe reported 48 kHz stereo MP3, and a repeat attempt refused to
+overwrite either output. The generated files and empty test directory were
+removed. This confirms this workflow on the tested card, not Pocket playback
+or general crash consistency.

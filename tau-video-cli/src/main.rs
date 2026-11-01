@@ -22,11 +22,11 @@ mod publication {
     const AUDIO_PAYLOAD: &str = "payload.mp3";
 
     pub struct ProtectedStage {
+        parent: PathBuf,
         parent_fd: OwnedFd,
         stage_fd: OwnedFd,
         stage_name: OsString,
         payload: Option<fs::File>,
-        published: bool,
     }
 
     impl ProtectedStage {
@@ -100,11 +100,11 @@ mod publication {
                             }
                         };
                         return Ok(Self {
+                            parent: parent.to_path_buf(),
                             parent_fd,
                             stage_fd,
                             stage_name,
                             payload: Some(fs::File::from(payload_fd)),
-                            published: false,
                         });
                     }
                     Err(error) if error == rustix::io::Errno::EXIST => continue,
@@ -159,51 +159,52 @@ mod publication {
             let audio_len = rfs::fstat(&audio)
                 .map_err(|e| format!("Could not inspect staged MP3: {e}"))?
                 .st_size as u64;
-            rfs::renameat_with(
+
+            let video_path = self.parent_path(video_name);
+            let audio_path = self.parent_path(audio_name);
+            let (published_video_len, video_copied) = publish_one(
+                &self.parent_fd,
                 &self.stage_fd,
                 PAYLOAD,
-                &self.parent_fd,
                 video_name,
-                RenameFlags::NOREPLACE,
-            )
-            .map_err(|e| {
-                format!("Could not publish TNV3 without replacing an existing path: {e}")
-            })?;
-            self.published = true;
-            if let Err(error) = rfs::renameat_with(
+                &video_path,
+                "TNV3",
+                video_len,
+            )?;
+            let (published_audio_len, audio_copied) = match publish_one(
+                &self.parent_fd,
                 &self.stage_fd,
                 AUDIO_PAYLOAD,
-                &self.parent_fd,
                 audio_name,
-                RenameFlags::NOREPLACE,
+                &audio_path,
+                "MP3",
+                audio_len,
             ) {
-                // Best-effort rollback. The output directory is protected from other users;
-                // a concurrent process running as this same user can still race this unlink.
-                let rollback = (|| {
-                    let own = rfs::fstat(self.payload.as_ref().expect("staged payload exists"))?;
-                    let current =
-                        rfs::statat(&self.parent_fd, video_name, AtFlags::SYMLINK_NOFOLLOW)?;
-                    if own.st_dev != current.st_dev || own.st_ino != current.st_ino {
-                        return Err(rustix::io::Errno::BUSY);
-                    }
-                    rfs::unlinkat(&self.parent_fd, video_name, AtFlags::empty())
-                })();
-                let suffix = rollback
-                    .err()
-                    .map(|e| format!("; rollback also failed: {e}; TNV3 may remain"))
-                    .unwrap_or_default();
-                return Err(format!(
-                    "Audio publish failed after TNV3 was visible (pair publication is not atomic): {error}{suffix}"
-                ));
-            }
-            self.published = false;
-            let warning = rfs::fsync(&self.parent_fd)
+                Ok(result) => result,
+                Err(error) => {
+                    return Err(format!(
+                        "Audio publish failed after TNV3 was visible at '{}'; pair publication is not atomic. {error}",
+                        video_path.display()
+                    ));
+                }
+            };
+            let warning = if video_copied || audio_copied {
+                Some("This filesystem does not support no-replace rename; outputs were copied into exclusively created final files. Final names may be visible while bytes are being copied, and a failure may leave a partial output. Inspect the named outputs before retrying.".into())
+            } else {
+                None
+            };
+            let sync_warning = rfs::fsync(&self.parent_fd)
                 .err()
                 .map(|e| format!("Published pair, but output-directory sync failed: {e}"));
-            Ok((video_len, audio_len, warning))
+            let warning = match (warning, sync_warning) {
+                (Some(a), Some(b)) => Some(format!("{a} {b}")),
+                (Some(a), None) | (None, Some(a)) => Some(a),
+                (None, None) => None,
+            };
+            Ok((published_video_len, published_audio_len, warning))
         }
 
-        pub fn publish(mut self, output_name: &OsStr) -> Result<(u64, Option<String>), String> {
+        pub fn publish(&mut self, output_name: &OsStr) -> Result<(u64, Option<String>), String> {
             let file = self.payload.as_mut().expect("staged payload exists");
             file.sync_all()
                 .map_err(|e| format!("Could not sync staged TNV3: {e}"))?;
@@ -211,29 +212,261 @@ mod publication {
                 .metadata()
                 .map_err(|e| format!("Could not inspect staged TNV3: {e}"))?
                 .len();
-            rfs::renameat_with(
+            let output_path = self.parent_path(output_name);
+            let (published_len, copied) = publish_one(
+                &self.parent_fd,
                 &self.stage_fd,
                 PAYLOAD,
-                &self.parent_fd,
                 output_name,
-                RenameFlags::NOREPLACE,
-            )
-            .map_err(|e| {
-                format!("Atomic no-replace publish failed; no output was replaced: {e}")
-            })?;
-            self.published = true;
-            let warning = rfs::fsync(&self.parent_fd)
+                &output_path,
+                "TNV3",
+                length,
+            )?;
+            let sync_warning = rfs::fsync(&self.parent_fd)
                 .err()
                 .map(|e| format!("Published, but output-directory sync failed: {e}"));
-            Ok((length, warning))
+            let warning = if copied {
+                let fallback = "This filesystem does not support no-replace rename; output was copied into an exclusively created final file. The final name may be visible while bytes are being copied, and a failure may leave a partial output. Inspect it before retrying.";
+                Some(
+                    sync_warning.map_or_else(|| fallback.to_owned(), |w| format!("{fallback} {w}")),
+                )
+            } else {
+                sync_warning
+            };
+            Ok((published_len, warning))
+        }
+
+        fn parent_path(&self, name: &OsStr) -> PathBuf {
+            // This path is diagnostic only; actual publication remains dirfd-relative.
+            self.parent.join(name)
+        }
+    }
+
+    fn unsupported_rename(error: rustix::io::Errno) -> bool {
+        error == rustix::io::Errno::NOTSUP || error == rustix::io::Errno::OPNOTSUPP
+    }
+
+    fn rename_or_copy<T>(
+        rename: impl FnOnce() -> Result<(), rustix::io::Errno>,
+        fallback: impl FnOnce() -> Result<T, String>,
+        label: &str,
+    ) -> Result<(Option<T>, bool), String> {
+        match rename() {
+            Ok(()) => Ok((None, false)),
+            Err(error) if unsupported_rename(error) => fallback().map(|value| (Some(value), true)),
+            Err(error) => Err(format!(
+                "Could not publish {label} without replacing an existing path: {error}"
+            )),
+        }
+    }
+
+    fn copy_staged(
+        parent_fd: &OwnedFd,
+        stage_fd: &OwnedFd,
+        stage_name: &str,
+        output_name: &OsStr,
+        output_path: &Path,
+        label: &str,
+    ) -> Result<u64, String> {
+        let source_fd = rfs::openat(
+            stage_fd,
+            stage_name,
+            OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+            Mode::empty(),
+        )
+        .map_err(|e| format!("Could not open staged {label}: {e}"))?;
+        let output_fd = rfs::openat(
+            parent_fd,
+            output_name,
+            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+            Mode::from_bits_retain(0o666),
+        )
+        .map_err(|e| {
+            format!(
+                "Could not create {label} output '{}': {e}",
+                output_path.display()
+            )
+        })?;
+        let source = fs::File::from(source_fd);
+        copy_to_new(source, output_fd, output_path, label)
+    }
+
+    fn copy_to_new(
+        mut source: impl std::io::Read,
+        output_fd: OwnedFd,
+        output_path: &Path,
+        label: &str,
+    ) -> Result<u64, String> {
+        use std::io;
+        let mut output = fs::File::from(output_fd);
+        let result = io::copy(&mut source, &mut output)
+            .map_err(|e| format!("Could not copy {label} output: {e}"))
+            .and_then(|n| {
+                output
+                    .sync_all()
+                    .map(|_| n)
+                    .map_err(|e| format!("Could not sync {label} output: {e}"))
+            });
+        result.map_err(|error| format!(
+            "{error}. Partial {label} output may remain at '{}'; inspect it before retrying. Final outputs are never removed on error.",
+            output_path.display()
+        ))
+    }
+
+    fn publish_one(
+        parent_fd: &OwnedFd,
+        stage_fd: &OwnedFd,
+        stage_name: &str,
+        output_name: &OsStr,
+        output_path: &Path,
+        label: &str,
+        expected_len: u64,
+    ) -> Result<(u64, bool), String> {
+        publish_one_with_rename(
+            parent_fd,
+            stage_fd,
+            stage_name,
+            output_name,
+            output_path,
+            label,
+            expected_len,
+            || {
+                rfs::renameat_with(
+                    stage_fd,
+                    stage_name,
+                    parent_fd,
+                    output_name,
+                    RenameFlags::NOREPLACE,
+                )
+            },
+        )
+    }
+
+    fn publish_one_with_rename(
+        parent_fd: &OwnedFd,
+        stage_fd: &OwnedFd,
+        stage_name: &str,
+        output_name: &OsStr,
+        output_path: &Path,
+        label: &str,
+        expected_len: u64,
+        rename: impl FnOnce() -> Result<(), rustix::io::Errno>,
+    ) -> Result<(u64, bool), String> {
+        let (copied_len, copied) = rename_or_copy(
+            rename,
+            || {
+                copy_staged(
+                    parent_fd,
+                    stage_fd,
+                    stage_name,
+                    output_name,
+                    output_path,
+                    label,
+                )
+            },
+            label,
+        )?;
+        Ok((copied_len.unwrap_or(expected_len), copied))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::{
+            fs,
+            io::Write,
+            time::{SystemTime, UNIX_EPOCH},
+        };
+        fn temp_dir() -> PathBuf {
+            let stamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let path = env::temp_dir().join(format!("tau-cli-pub-{}-{stamp}", std::process::id()));
+            fs::create_dir(&path).unwrap();
+            path
+        }
+        #[test]
+        fn enotsup_uses_create_new_copy_and_preserves_existing_target() {
+            let dir = temp_dir();
+            let mut stage = ProtectedStage::create(&dir).unwrap();
+            stage.writer().write_all(b"staged bytes").unwrap();
+            let existing = dir.join("existing.tnv3");
+            fs::write(&existing, b"keep me").unwrap();
+            let existing_name = existing.file_name().unwrap();
+            let error = publish_one_with_rename(
+                &stage.parent_fd,
+                &stage.stage_fd,
+                PAYLOAD,
+                existing_name,
+                &existing,
+                "TNV3",
+                12,
+                || Err(rustix::io::Errno::NOTSUP),
+            )
+            .unwrap_err();
+            assert!(error.contains("Could not create TNV3 output"));
+            assert_eq!(fs::read(&existing).unwrap(), b"keep me");
+            let target = dir.join("copied.tnv3");
+            let (_, copied) = publish_one_with_rename(
+                &stage.parent_fd,
+                &stage.stage_fd,
+                PAYLOAD,
+                target.file_name().unwrap(),
+                &target,
+                "TNV3",
+                12,
+                || Err(rustix::io::Errno::OPNOTSUPP),
+            )
+            .unwrap();
+            assert!(copied);
+            assert_eq!(fs::read(&target).unwrap(), b"staged bytes");
+            drop(stage);
+            fs::remove_dir_all(dir).unwrap();
+        }
+        struct FaultReader {
+            first: bool,
+        }
+        impl std::io::Read for FaultReader {
+            fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+                if self.first {
+                    self.first = false;
+                    out[0] = b'x';
+                    Ok(1)
+                } else {
+                    Err(std::io::Error::other("injected read failure"))
+                }
+            }
+        }
+        #[test]
+        fn failed_copy_reports_partial_and_does_not_unlink_final_path() {
+            let dir = temp_dir();
+            let parent = rfs::open(
+                &dir,
+                OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+            .unwrap();
+            let dest = dir.join("partial.tnv3");
+            let fd = rfs::openat(
+                &parent,
+                "partial.tnv3",
+                OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC,
+                Mode::from_bits_retain(0o600),
+            )
+            .unwrap();
+            let error = copy_to_new(FaultReader { first: true }, fd, &dest, "TNV3").unwrap_err();
+            assert!(error.contains("Partial TNV3 output may remain"));
+            assert_eq!(fs::read(&dest).unwrap(), b"x");
+            fs::remove_dir_all(dir).unwrap();
         }
     }
 
     impl Drop for ProtectedStage {
         fn drop(&mut self) {
-            if !self.published {
-                let _ = rfs::unlinkat(&self.stage_fd, PAYLOAD, AtFlags::empty());
-            }
+            // Only remove private staging entries. Final paths are never unlinked,
+            // including after a partial pair publish or copy failure.
+            let _ = rfs::unlinkat(&self.stage_fd, PAYLOAD, AtFlags::empty());
             let _ = rfs::unlinkat(&self.stage_fd, AUDIO_PAYLOAD, AtFlags::empty());
             let _ = rfs::unlinkat(&self.parent_fd, &self.stage_name, AtFlags::REMOVEDIR);
         }
@@ -1047,6 +1280,89 @@ mod tests {
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
+    fn tauv_mount_publication_probe_when_requested() {
+        use std::io::Write;
+        let Some(root) = env::var_os("TAU_CARD_TEST_ROOT").map(PathBuf::from) else {
+            return;
+        };
+        let dir = root.join(format!(
+            ".tau-cli-card-test-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&dir).unwrap();
+        let result = (|| {
+            let mut video_stage = publication::ProtectedStage::create(&dir).unwrap();
+            video_stage
+                .writer()
+                .write_all(b"generated video-only TNV3")
+                .unwrap();
+            let (n, warning) = video_stage
+                .publish(OsStr::new("generated-video-only.tnv3"))
+                .unwrap();
+            assert_eq!(n, b"generated video-only TNV3".len() as u64);
+            assert_eq!(
+                fs::read(dir.join("generated-video-only.tnv3")).unwrap(),
+                b"generated video-only TNV3"
+            );
+            if let Some(w) = warning {
+                println!("video-only warning: {w}");
+            }
+
+            let mut pair_stage = publication::ProtectedStage::create(&dir).unwrap();
+            pair_stage
+                .writer()
+                .write_all(b"generated paired TNV3")
+                .unwrap();
+            fs::write(pair_stage.audio_path(&dir), b"generated paired MP3").unwrap();
+            let (vlen, alen, warning) = pair_stage
+                .publish_pair(
+                    OsStr::new("generated-pair.tnv3"),
+                    OsStr::new("generated-pair.mp3"),
+                )
+                .unwrap();
+            assert_eq!(vlen, b"generated paired TNV3".len() as u64);
+            assert_eq!(alen, b"generated paired MP3".len() as u64);
+            assert_eq!(
+                fs::read(dir.join("generated-pair.tnv3")).unwrap(),
+                b"generated paired TNV3"
+            );
+            assert_eq!(
+                fs::read(dir.join("generated-pair.mp3")).unwrap(),
+                b"generated paired MP3"
+            );
+            if let Some(w) = warning {
+                println!("pair warning: {w}");
+            }
+
+            let existing = dir.join("preserve.mp3");
+            fs::write(&existing, b"preexisting bytes").unwrap();
+            let mut fail_stage = publication::ProtectedStage::create(&dir).unwrap();
+            fail_stage.writer().write_all(b"owned video").unwrap();
+            fs::write(fail_stage.audio_path(&dir), b"staged audio").unwrap();
+            let err = fail_stage
+                .publish_pair(OsStr::new("partial-video.tnv3"), OsStr::new("preserve.mp3"))
+                .unwrap_err();
+            assert!(err.contains("partial-video.tnv3"));
+            assert_eq!(
+                fs::read(dir.join("partial-video.tnv3")).unwrap(),
+                b"owned video"
+            );
+            assert_eq!(fs::read(existing).unwrap(), b"preexisting bytes");
+            println!("pair collision result: {err}");
+            Ok::<(), String>(())
+        })();
+        let cleanup = fs::remove_dir_all(&dir);
+        println!(
+            "TauV generated-output test cleanup: {}",
+            if cleanup.is_ok() { "ok" } else { "failed" }
+        );
+        result.unwrap();
+        cleanup.unwrap();
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
     fn parent_directory_must_not_be_group_or_world_writable_even_with_sticky_bit() {
         use std::os::unix::fs::PermissionsExt;
 
@@ -1109,7 +1425,7 @@ mod tests {
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
-    fn pair_publish_rolls_back_video_when_audio_target_appears() {
+    fn pair_publish_reports_and_keeps_video_when_audio_target_exists() {
         use std::io::Write;
         let dir = private_test_dir();
         let video = dir.join("pair.tnv3");
@@ -1120,10 +1436,16 @@ mod tests {
         fs::write(stage.audio_path(&dir), b"staged audio").unwrap();
         let result = stage.publish_pair(OsStr::new("pair.tnv3"), OsStr::new("pair.mp3"));
         assert!(result.is_err());
-        assert!(!video.exists());
+        assert!(
+            result
+                .as_ref()
+                .unwrap_err()
+                .contains("pair publication is not atomic")
+        );
+        assert!(video.exists());
+        assert_eq!(fs::read(&video).unwrap(), b"staged video");
         assert_eq!(fs::read(&audio).unwrap(), b"pre-existing audio");
-        fs::remove_file(audio).unwrap();
-        fs::remove_dir(dir).unwrap();
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]

@@ -48,3 +48,12 @@ experimental Cargo feature is enabled. Generated media and error diagnostics
 passed backend tests in normal and experimental macOS builds. The UI and
 path persistence still require interactive inspection; Windows/Linux and
 Pocket remain unverified. See `docs/RUST_C_ENCODER_PARITY.md`.
+
+## Destination preflight
+
+**Host, 2026-11-01:** the app now rejects invalid output folders and occupied
+or dangling output paths before source probing. It does not test writability
+until final file creation; `create_new` remains the no-overwrite gate. On
+the TauV exFAT card a unique generated `create_new`/sync probe succeeded and
+was removed without touching existing media. This is not a GUI or Pocket
+playback test. The pre-existing final cleanup path remains unchanged.

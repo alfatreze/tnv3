@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "4772682203405b743ca95bdd389c998d69092bb563b128941d1c196a49b6333d"
+      "sha256": "2ca4a4575517be2f0ab3380fec8e57833f27d10b092d0820853eea4fe51094b7"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1489,7 +1489,7 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "82bbc0bf5548195a45b4e744317a45a5f75f53f7543870188504d336591665da"
+      "sha256": "0f636622f56dcd9896e8111ae82a39b68dd6b2ee0ebf3207fa7aac9d08a680a2"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
       "sha256": "009a070af9f70b40f486204bc9d2b523530c80e2f986cf374cdba34b795023ed"
@@ -1522,7 +1522,7 @@
       "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
     },
     "docs/issues/004-desktop-preview-validation.md": {
-      "sha256": "a75e206126c89bd8d49ccebc07c3aff76db8727e153550c43f34fb62b65e587c"
+      "sha256": "87b49c92127ff59c89cb646a6236a631180200afccfa650039a6c2b4772b6d3e"
     },
     "docs/issues/005-hevc-input-ingest.md": {
       "sha256": "06f9e70d9763395b9ee5ac9be5b35913f0b8d5f03b416c89740deb96bf1c89c1"
@@ -1597,7 +1597,7 @@
     },
     "docs/issues/008-staged-cli-final-output-copy.md": {
       "status": "new_release_file",
-      "sha256": "493386aaf849b357b72ed11ade0bcc2b56911c24c50a168beda4de45821a9942"
+      "sha256": "6d3c5bc1c56951d188d81d0011b43d0793101941a541c234e738851eb2d043c7"
     },
     "tau-video-cli/Cargo.toml": {
       "status": "new_release_file",
@@ -1609,11 +1609,11 @@
     },
     "tau-video-cli/README.md": {
       "status": "new_release_file",
-      "sha256": "40d390258d199e23b1c8e9d8a37fe9ef9b3a6747a1dcf6eb5f96cff530092f12"
+      "sha256": "a2a026ae071af834d280a99c4b3981decf3672957925546e6bb4aa4d1d456a31"
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "85c21ae844257013fcbc265471364302211b09d5b6858ffa90333b22f36a5dc9"
+      "sha256": "fe18698729c90354a2a363ee51290a576dc1bdfec933e595d0baa9fa5424028b"
     },
     "tau-video-cli/smoke.py": {
       "status": "new_release_file",

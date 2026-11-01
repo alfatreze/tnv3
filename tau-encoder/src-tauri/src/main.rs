@@ -46,6 +46,29 @@ fn temporary_file(ext: &str) -> Result<(Temporary, File), String> {
     }
     Err("Could not reserve a temporary file.".into())
 }
+
+/// Reject occupied destinations and invalid folders before probing or encoding.
+/// This metadata-only check does not prove writability; final output creation
+/// later still uses `create_new`, which closes the race before publication.
+fn preflight_output_directory(
+    folder: &Path,
+    video_path: &Path,
+    audio_path: &Path,
+) -> Result<(), String> {
+    for path in [video_path, audio_path] {
+        match std::fs::symlink_metadata(path) {
+            Ok(_) => {
+                return Err("An output file already exists. Choose a different name.".into());
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("Could not inspect output path: {error}")),
+        }
+    }
+    if !folder.is_dir() {
+        return Err("Choose an existing output folder.".into());
+    }
+    Ok(())
+}
 #[derive(Serialize)]
 struct ResultInfo {
     frames: u32,
@@ -263,9 +286,7 @@ fn encode_pair(
     }
     let video_path = folder.join(format!("{name}.tnv3"));
     let audio_path = folder.join(format!("{name}.mp3"));
-    if video_path.exists() || audio_path.exists() {
-        return Err("An output file already exists. Choose a different name.".into());
-    }
+    preflight_output_directory(folder, &video_path, &audio_path)?;
     progress(Progress {
         phase: "probing",
         frames: 0,
@@ -719,6 +740,120 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn test_output_dir(label: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "tau-output-preflight-{label}-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn preflight_rejects_nonexistent_folder_without_creating_residue() {
+        let root = test_output_dir("invalid");
+        let missing = root.join("missing");
+        let result = preflight_output_directory(
+            &missing,
+            &missing.join("movie.tnv3"),
+            &missing.join("movie.mp3"),
+        );
+        assert!(matches!(result, Err(error) if error.contains("existing output folder")));
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+        std::fs::remove_dir(root).unwrap();
+    }
+
+    #[test]
+    fn encode_rejects_invalid_folder_before_starting_probe() {
+        let root = test_output_dir("early");
+        let missing = root.join("missing");
+        let result = encode_pair(
+            Path::new("/missing/ffmpeg"),
+            Path::new("/missing/input.mp4"),
+            &missing,
+            "movie",
+            30,
+            None,
+            AdvancedSettings::default(),
+            &Dependencies::default(),
+            |_| {},
+        );
+        assert!(matches!(result, Err(error) if error.contains("existing output folder")));
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+        std::fs::remove_dir(root).unwrap();
+    }
+
+    #[test]
+    fn preflight_rejects_existing_output_and_preserves_it() {
+        let folder = test_output_dir("occupied");
+        let video = folder.join("movie.tnv3");
+        let audio = folder.join("movie.mp3");
+        std::fs::write(&video, b"keep video bytes").unwrap();
+        std::fs::write(&audio, b"keep audio bytes").unwrap();
+        let result = preflight_output_directory(&folder, &video, &audio);
+        assert!(matches!(result, Err(error) if error.contains("already exists")));
+        assert_eq!(std::fs::read(&video).unwrap(), b"keep video bytes");
+        assert_eq!(std::fs::read(&audio).unwrap(), b"keep audio bytes");
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 2);
+        std::fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[test]
+    fn blocked_existing_output_returns_before_ffmpeg_or_progress() {
+        use std::cell::Cell;
+        let folder = test_output_dir("early-occupied");
+        let video = folder.join("movie.tnv3");
+        std::fs::write(&video, b"do not replace").unwrap();
+        let progress_seen = Cell::new(false);
+        let result = encode_pair(
+            Path::new("/missing/ffmpeg"),
+            Path::new("/missing/input.mp4"),
+            &folder,
+            "movie",
+            30,
+            None,
+            AdvancedSettings::default(),
+            &Dependencies::default(),
+            |_| progress_seen.set(true),
+        );
+        assert!(matches!(result, Err(error) if error.contains("already exists")));
+        assert!(!progress_seen.get());
+        assert_eq!(std::fs::read(&video).unwrap(), b"do not replace");
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
+        std::fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preflight_detects_dangling_symlink_without_changing_it() {
+        use std::os::unix::fs::symlink;
+        let folder = test_output_dir("dangling");
+        let video = folder.join("movie.tnv3");
+        let missing_target = folder.join("missing-target");
+        symlink(&missing_target, &video).unwrap();
+        let result = preflight_output_directory(&folder, &video, &folder.join("movie.mp3"));
+        assert!(matches!(result, Err(error) if error.contains("already exists")));
+        let metadata = std::fs::symlink_metadata(&video).unwrap();
+        assert!(metadata.file_type().is_symlink());
+        assert!(!missing_target.exists());
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
+        std::fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[test]
+    fn preflight_accepts_existing_directory_without_creating_files() {
+        let folder = test_output_dir("valid");
+        let result = preflight_output_directory(
+            &folder,
+            &folder.join("movie.tnv3"),
+            &folder.join("movie.mp3"),
+        );
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 0);
+        std::fs::remove_dir(folder).unwrap();
+    }
+
     #[test]
     fn duration_probe_handles_valid_and_unknown_lengths() {
         assert_eq!(

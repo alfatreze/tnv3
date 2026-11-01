@@ -309,3 +309,19 @@ new files. This supersedes the earlier Windows-unsupported CLI note.
 and Linux jobs succeeded and uploaded executable-only artifacts. These are
 not installers and do not bundle dependencies. CI establishes build and test
 success, not Windows runtime or FAT/exFAT publication.
+
+The desktop encoder checks the destination folder and detects existing or
+dangling output paths before probing. **Host:** metadata checks and early
+error tests passed; this does not prove the folder is writable until the final
+files are created. A unique generated `create_new`/sync probe on the TauV
+exFAT card succeeded and was removed; no existing media was touched.
+
+The CLI falls back to exclusive create-and-copy where no-replace rename is
+unsupported. **Host/card:** a generated TNV3/MP3 pair was written and
+validated on TauV exFAT, then removed; this did not test Pocket playback.
+On fallback, failures can leave partial new files. See issue 008.
+
+**Host/card:** the integrated release CLI encoded a generated one-second
+TNV3/MP3 pair directly to TauV exFAT using the no-replace fallback; the C
+checker and MP3 probe passed, repeat encoding preserved both files, and the
+test files were removed. Pocket playback is not implied.
