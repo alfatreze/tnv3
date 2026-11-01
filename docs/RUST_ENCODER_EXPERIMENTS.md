@@ -102,3 +102,30 @@ all four; synthetic tests cover display order, fallback, 1–8 frame lengths
 and truncated input. Data: `rust_b_stream_study.json`, shared-intra section.
 Decision: retain opt-in only; no new Pocket or Quartus claim. Next: share P
 anchors and test longer diverse inputs before considering default use.
+
+## Shared P anchors for B stream — 2026-11-01
+
+The experimental B stream now chooses a future I or P anchor using the
+existing static, whole-frame motion and residual candidates, and reuses it
+for subsequent groups. Failed B groups fall back to I/P anchors in display
+order. Intra refresh is bounded to 96 display frames. This changes the opt-in
+encoder hot path; the normal stream remains unchanged. **Host:** a 100-frame
+synthetic I/P/B stream passed C/Rust pixel equality, C TNV3 checking and
+explicit key positions 0 and 96. Four local reference clips at QP 30 also
+passed C checking and Rust/C pixel equality.
+
+A short 12-case study (four clips, 6–10 frames each, QP 24/30/36, two runs)
+compared the shared-P B path with the normal P encoder. At the same nominal
+QP, dialog sizes were 2.15–6.17% smaller and action 3.77–6.04% smaller; anime
+was 11.90–12.42% larger and black-and-white ranged from 0.38% smaller to
+4.22% larger. Y-PSNR changes ranged from -0.145 to +0.301 dB. These are not
+equal-quality rate comparisons. Second-run elapsed-time ratios had a 1.055×
+median B/P, but runs were very short and not reliably interleaved; no speed
+claim is made. See `rust_b_shared_p_study.json` for measurements.
+
+At QP 30, compared with the earlier shared-intra B prototype, sizes changed
+-33.99% dialog, -14.35% anime, -24.63% black-and-white and -1.80% action.
+Decision: retain opt-in only; anime regression and limited corpus prevent a
+default change. Next gate: longer diverse rate/quality curves, reliable paired
+timing, malformed-input tests and broader B-picture search. No new Pocket or
+Quartus claim.

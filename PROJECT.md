@@ -150,3 +150,8 @@ The opt-in B stream now reuses its preceding intra anchor. On four short host
 clips this reduced size versus the prior B prototype on two clips and increased
 it on two; it remained larger than the default P encoder on three. Normal P
 anchors are not yet shared. See `docs/RUST_ENCODER_EXPERIMENTS.md`.
+
+The opt-in Rust B stream can now share P anchors, with a maximum 96-frame
+intra refresh. Four short host clips at three QPs showed mixed size/quality
+results versus the normal P path; C/Rust pixels and C container checks passed.
+It remains experimental. See `docs/RUST_ENCODER_EXPERIMENTS.md`.

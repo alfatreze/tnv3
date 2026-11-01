@@ -107,3 +107,7 @@ real clips tested and is not production-qualified; see the experiment record.
 The opt-in B stream reuses the previous intra anchor, with tested fallback
 and partial-group handling. It does not yet share P anchors with the normal
 encoder; the short-clip comparisons remain mixed.
+
+The opt-in B stream now shares I/P anchors and refreshes intra pictures at
+most 96 display frames apart. It remains experimental after mixed short-clip
+results; broader quality, throughput and robustness gates are open.

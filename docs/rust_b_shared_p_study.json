@@ -1,0 +1,463 @@
+{
+  "date": "2026-11-01",
+  "classification": "host",
+  "method": "Four local reference clips scaled to 400 pixels wide; 6\u201310 frames; QP 24/30/36; two runs each; Y-plane PSNR; short non-interleaved timing runs. Reference C decoder used for outputs.",
+  "measurements": [
+    {
+      "case": "dialog",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "seconds": 0.3413,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "seconds": 0.0385,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 70334,
+          "psnr_y": 41.6677,
+          "seconds": 0.0402,
+          "stats": "frames=10 b=4 retries=0"
+        },
+        {
+          "bytes": 70334,
+          "psnr_y": 41.6677,
+          "seconds": 0.0417,
+          "stats": "frames=10 b=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "seconds": 0.0322,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "seconds": 0.0319,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 40519,
+          "psnr_y": 36.8576,
+          "seconds": 0.0335,
+          "stats": "frames=10 b=4 retries=0"
+        },
+        {
+          "bytes": 40519,
+          "psnr_y": 36.8576,
+          "seconds": 0.0331,
+          "stats": "frames=10 b=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "seconds": 0.0273,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "seconds": 0.0266,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 21519,
+          "psnr_y": 32.5391,
+          "seconds": 0.0329,
+          "stats": "frames=10 b=4 retries=0"
+        },
+        {
+          "bytes": 21519,
+          "psnr_y": 32.5391,
+          "seconds": 0.0278,
+          "stats": "frames=10 b=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 48222,
+          "psnr_y": 44.7924,
+          "seconds": 0.0304,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "bytes": 48222,
+          "psnr_y": 44.7924,
+          "seconds": 0.0313,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 54209,
+          "psnr_y": 44.6477,
+          "seconds": 0.0333,
+          "stats": "frames=8 b=3 retries=0"
+        },
+        {
+          "bytes": 54209,
+          "psnr_y": 44.6477,
+          "seconds": 0.0329,
+          "stats": "frames=8 b=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 27439,
+          "psnr_y": 40.9028,
+          "seconds": 0.0266,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "bytes": 27439,
+          "psnr_y": 40.9028,
+          "seconds": 0.026,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 30703,
+          "psnr_y": 40.7945,
+          "seconds": 0.0299,
+          "stats": "frames=8 b=3 retries=0"
+        },
+        {
+          "bytes": 30703,
+          "psnr_y": 40.7945,
+          "seconds": 0.0301,
+          "stats": "frames=8 b=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "seconds": 0.0246,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "seconds": 0.0239,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 16975,
+          "psnr_y": 37.1375,
+          "seconds": 0.0265,
+          "stats": "frames=8 b=3 retries=0"
+        },
+        {
+          "bytes": 16975,
+          "psnr_y": 37.1375,
+          "seconds": 0.0262,
+          "stats": "frames=8 b=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "seconds": 0.0305,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "seconds": 0.0305,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 48732,
+          "psnr_y": 43.6231,
+          "seconds": 0.0329,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 48732,
+          "psnr_y": 43.6231,
+          "seconds": 0.0345,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "seconds": 0.027,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "seconds": 0.027,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 28545,
+          "psnr_y": 39.317,
+          "seconds": 0.0292,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 28545,
+          "psnr_y": 39.317,
+          "seconds": 0.0286,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "seconds": 0.0242,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "seconds": 0.0242,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 15905,
+          "psnr_y": 35.2678,
+          "seconds": 0.0266,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 15905,
+          "psnr_y": 35.2678,
+          "seconds": 0.0319,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 79322,
+          "psnr_y": 41.0644,
+          "seconds": 0.0227,
+          "stats": "frames=6 predicted=2 retries=0"
+        },
+        {
+          "bytes": 79322,
+          "psnr_y": 41.0644,
+          "seconds": 0.0229,
+          "stats": "frames=6 predicted=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 76335,
+          "psnr_y": 41.1904,
+          "seconds": 0.0241,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 76335,
+          "psnr_y": 41.1904,
+          "seconds": 0.0239,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 46292,
+          "psnr_y": 36.585,
+          "seconds": 0.0202,
+          "stats": "frames=6 predicted=4 retries=0"
+        },
+        {
+          "bytes": 46292,
+          "psnr_y": 36.585,
+          "seconds": 0.0199,
+          "stats": "frames=6 predicted=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 44343,
+          "psnr_y": 36.7183,
+          "seconds": 0.0196,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 44343,
+          "psnr_y": 36.7183,
+          "seconds": 0.0197,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 24869,
+          "psnr_y": 32.7456,
+          "seconds": 0.0183,
+          "stats": "frames=6 predicted=3 retries=0"
+        },
+        {
+          "bytes": 24869,
+          "psnr_y": 32.7456,
+          "seconds": 0.0179,
+          "stats": "frames=6 predicted=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 23366,
+          "psnr_y": 32.7666,
+          "seconds": 0.0178,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 23366,
+          "psnr_y": 32.7666,
+          "seconds": 0.017,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    }
+  ]
+}

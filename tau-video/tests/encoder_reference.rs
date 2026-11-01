@@ -808,3 +808,77 @@ fn shared_b_stream_rejects_empty_and_truncated_inputs() {
     truncated.extend_from_slice(&[0; 20]);
     assert!(encode_y4m_b(Cursor::new(truncated), Cursor::new(Vec::new()), 20).is_err());
 }
+
+#[cfg(feature = "b-pictures")]
+#[test]
+fn b_stream_shares_predictive_anchors_and_refreshes_keys() {
+    use std::io::Cursor;
+    use tau_video::{
+        container::mux_tvc,
+        tvc::{encoder::encode_y4m_b, stream::decode_y4m},
+    };
+    let mut input = b"YUV4MPEG2 W16 H16 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+    for _ in 0..100 {
+        input.extend_from_slice(b"FRAME\n");
+        input.extend(vec![128u8; 384]);
+    }
+    let mut out = Cursor::new(Vec::new());
+    let summary = encode_y4m_b(Cursor::new(input), &mut out, 20).unwrap();
+    assert_eq!(summary.frames, 100);
+    assert!(summary.b_pictures > 40);
+    let bytes = out.into_inner();
+    let mut at = 20;
+    let mut kinds = Vec::new();
+    for _ in 0..100 {
+        let n = u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
+        at += 4;
+        kinds.push(bytes[at]);
+        at += n;
+    }
+    assert_eq!(&kinds[..3], [0, 1, 2]);
+    assert!(kinds.iter().filter(|&&x| x == 0).count() >= 2);
+    let mut rust = Vec::new();
+    decode_y4m(&bytes[..], &mut rust).unwrap();
+    let mut container = Cursor::new(Vec::new());
+    mux_tvc(&bytes[..], &mut container).unwrap();
+    let mut index = tau_video::Tnv3Reader::open(Cursor::new(container.get_ref())).unwrap();
+    let mut keys = Vec::new();
+    for n in 0..summary.frames {
+        let e = index.index_entry(n).unwrap();
+        if e.flags_and_seek & 1 != 0 {
+            keys.push(e.presentation_sample / 2000);
+        }
+    }
+    keys.sort_unstable();
+    assert_eq!(keys, [0, 96]);
+    if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+        let base = std::env::temp_dir().join(format!("tau-bp-{}", std::process::id()));
+        let tvc = base.with_extension("tvc");
+        let y4m = base.with_extension("y4m");
+        fs::write(&tvc, &bytes).unwrap();
+        assert!(
+            Command::new(tool)
+                .arg(&tvc)
+                .arg(&y4m)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert_eq!(rust, fs::read(&y4m).unwrap());
+        if let Some(checker) = std::env::var_os("TAU_TNV3_TOOL") {
+            let tnv = base.with_extension("tnv3");
+            fs::write(&tnv, container.into_inner()).unwrap();
+            assert!(
+                Command::new(checker)
+                    .arg("check")
+                    .arg(&tnv)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+            let _ = fs::remove_file(tnv);
+        }
+        let _ = fs::remove_file(tvc);
+        let _ = fs::remove_file(y4m);
+    }
+}

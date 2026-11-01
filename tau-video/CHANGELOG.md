@@ -29,3 +29,4 @@
 - Add opt-in three-frame B-picture group encoding for bounded zero-motion experiments.
 - Add an opt-in three-frame B stream mode with residual coding and rate-aware intra fallback.
 - Reuse the preceding intra anchor across experimental B-stream groups.
+- Share predictive anchors in the opt-in B stream, with periodic intra refresh.
