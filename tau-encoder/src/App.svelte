@@ -5,7 +5,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
-  let mode: 'rust' | 'c' = 'rust', suffix = '_R';
+  let mode: 'rust' | 'c' = 'c', suffix = '_C', rustAvailable = false;
   let roundDown = false, eofPass = false, trimMp3Delay = false;
   type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool';
   let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '' };
@@ -43,7 +43,7 @@
     return `${count}${total}. ${estimate}`;
   }
   type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[] };
-  onMount(() => { try {
+  onMount(() => { void invoke<boolean>('experimental_rust_encoder_available').then(value => { rustAvailable = value; }).catch(() => { rustAvailable = false; }); try {
     folder = localStorage.getItem('tau-encoder-output-folder') || '';
     const saved = JSON.parse(localStorage.getItem('tau-encoder-dependencies') || '{}');
     for (const field of dependencyFields) if (typeof saved?.[field.key] === 'string') dependencies[field.key] = saved[field.key];
@@ -85,7 +85,7 @@
     <div class="field"><label for="input">Source video <small>MP4, MKV, MOV and more</small></label><div class="pick"><input id="input" value={input} readonly placeholder="Choose a video file" /><button type="button" onclick={chooseInput} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="folder">Output folder <small>Choose a folder or card</small></label><div class="pick"><input id="folder" value={folder} readonly placeholder="Choose where to save" /><button type="button" onclick={chooseFolder} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="name">File name <small>Creates matching .tnv3 and .mp3 files</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
-    <div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="rust">Rust encoder</option><option value="c">C encoder</option></select></div>
+    {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
     <div class="field"><label for="suffix">Output suffix <small>Added to both file names</small></label><input class="name" id="suffix" bind:value={suffix} disabled={busy} /></div>
     <div class="field quality"><div><label for="qp">Quality <small>QP</small></label><p>Lower values use more space. Default: 30.</p></div><input id="qp" type="number" min="0" max="51" step="1" bind:value={qp} disabled={busy} /></div>
     <details class="advanced dependency-settings">

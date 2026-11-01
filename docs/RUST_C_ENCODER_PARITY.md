@@ -60,3 +60,23 @@ media is committed.
 3. Test encoder/player combinations on Pocket with frame, decoder and audio
    counters; diagnose the observed freeze separately from compression parity.
 4. Package and validate both paths on Windows/Linux and validate the desktop UI.
+
+## C workflow as the default Rust API
+
+**Decision, 2026-11-01:** the default `tau-video::c_encoder` API safely
+orchestrates the existing Python/C film workflow as subprocesses, and the
+desktop app uses it for C encoding. The experimental pure Rust TVC encoder is
+behind the `experimental-rust-encoder` Cargo feature; the ordinary desktop
+build defaults to C and does not offer the experimental choice. The app's
+experimental feature restores that choice. A process adapter was chosen over
+in-process FFI because it preserves the already-tested segmented workflow,
+contains native process faults, and avoids unsafe Rust. It still requires
+matching Python, FFmpeg/FFprobe and C programs and is not an embedded C
+library; MP3 sidecar generation remains in the app. Direct FFI or a native
+Rust port can be reconsidered after packaging and comparative evidence.
+
+**Host:** the app used the new API to encode generated media with separately
+configured tool paths; mock subprocess tests exercised progress, diagnostics,
+report validation and failure before output. Default and experimental builds
+and existing generated corruption tests passed on macOS. The user interface,
+Windows/Linux runtime and Pocket playback remain unverified for this change.

@@ -7,12 +7,17 @@ license = "MIT"
 description = "Portable tools for the Tau TNV3 media format"
 
 [features]
-default = []
+default = ["c-encoder"]
 cli = []
+c-encoder = ["dep:serde_json"]
+experimental-rust-encoder = []
 mp3-cli = []
-block-motion = []
-b-pictures = []
-safe-rate = []
+block-motion = ["experimental-rust-encoder"]
+b-pictures = ["experimental-rust-encoder"]
+safe-rate = ["experimental-rust-encoder"]
+
+[dependencies]
+serde_json = { version = "1", optional = true }
 
 [[bin]]
 name = "tau-video"

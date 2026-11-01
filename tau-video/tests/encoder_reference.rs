@@ -1,3 +1,4 @@
+#![cfg(feature = "experimental-rust-encoder")]
 //! Optional independent C-decoder comparison for generated encoder output.
 use std::{fs, process::Command};
 use tau_video::tvc::{

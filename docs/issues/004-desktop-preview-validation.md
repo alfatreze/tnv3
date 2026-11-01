@@ -39,3 +39,12 @@ path on Windows and Linux but neither bundles their dependencies nor proves
 that the packaged app or executable permissions work on those systems.
 Next: native Windows/Linux packaged UI, path persistence, and real-media
 encoding tests with matching dependencies.
+
+## C adapter and experimental encoder flag
+
+**Host, 2026-11-01:** the desktop app now uses the crate's safe process-based
+C workflow, defaults to C with `_C`, and only displays Rust when the app's
+experimental Cargo feature is enabled. Generated media and error diagnostics
+passed backend tests in normal and experimental macOS builds. The UI and
+path persistence still require interactive inspection; Windows/Linux and
+Pocket remain unverified. See `docs/RUST_C_ENCODER_PARITY.md`.

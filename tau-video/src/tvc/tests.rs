@@ -561,6 +561,7 @@ fn elementary_stream_decodes_synthetic_sequence() {
     assert!(decode_y4m(&b"bad"[..], Vec::new()).is_err());
 }
 
+#[cfg(feature = "experimental-rust-encoder")]
 #[test]
 fn baseline_intra_encoder_round_trip() {
     use super::{
@@ -593,6 +594,7 @@ fn baseline_intra_encoder_round_trip() {
     assert!(encode_intra_picture(&frame, 52).is_err());
 }
 
+#[cfg(feature = "experimental-rust-encoder")]
 #[test]
 fn separable_forward_transform_preserves_baseline_picture() {
     use super::{encoder::encode_intra_picture, frame::Frame420};

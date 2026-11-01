@@ -6,8 +6,12 @@ license = "MIT"
 
 [workspace]
 
+[features]
+default = []
+experimental-rust-encoder = ["tau-video/experimental-rust-encoder", "tau-video/safe-rate"]
+
 [dependencies]
-tau-video = { path = "../../tau-video", features = ["safe-rate"] }
+tau-video = { path = "../../tau-video", features = ["c-encoder"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

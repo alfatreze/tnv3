@@ -121,6 +121,7 @@ pub struct CodedPicture {
     cr: Vec<u8>,
 }
 impl CodedPicture {
+    #[cfg(feature = "experimental-rust-encoder")]
     pub(crate) fn from_aligned_frame(frame: &Frame420) -> Result<Self, IntraPictureError> {
         let (w, h) = (usize::from(frame.width), usize::from(frame.height));
         if w == 0
@@ -145,6 +146,7 @@ impl CodedPicture {
     }
 
     /// Copy the actual reconstructed coded edges for encoder prediction.
+    #[cfg(feature = "experimental-rust-encoder")]
     pub(crate) fn padded_frame(&self) -> Frame420 {
         Frame420 {
             width: (self.width + 15) & !15,

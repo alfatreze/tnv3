@@ -7,7 +7,7 @@ use std::{
 use tau_video::{
     Tnv3Reader,
     container::{decode_video_y4m, mux_tvc},
-    tvc::{encoder::encode_y4m, stream::decode_y4m},
+    tvc::stream::decode_y4m,
 };
 fn usage() -> ExitCode {
     eprintln!(
@@ -96,9 +96,7 @@ fn main() -> ExitCode {
     } else if mode == "mux-tvc" {
         mux_tvc(file, out).map(|_| ()).map_err(|e| e.to_string())
     } else {
-        encode_y4m(std::io::BufReader::new(file), out, 30)
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        encode_rust(file, out)
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -121,4 +119,15 @@ fn encode_b(input: File, output: File) -> Result<(), String> {
 #[cfg(not(feature = "b-pictures"))]
 fn encode_b(_input: File, _output: File) -> Result<(), String> {
     Err("This binary was built without the experimental b-pictures feature.".to_owned())
+}
+
+#[cfg(feature = "experimental-rust-encoder")]
+fn encode_rust(input: File, output: File) -> Result<(), String> {
+    tau_video::tvc::encoder::encode_y4m(std::io::BufReader::new(input), output, 30)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+#[cfg(not(feature = "experimental-rust-encoder"))]
+fn encode_rust(_input: File, _output: File) -> Result<(), String> {
+    Err("This binary was built without the experimental-rust-encoder feature.".to_owned())
 }

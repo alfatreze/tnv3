@@ -3,16 +3,21 @@ mod player;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Read, Seek, SeekFrom},
+    io::{self, Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
         Mutex,
         atomic::{AtomicU64, Ordering},
     },
+};
+#[cfg(feature = "experimental-rust-encoder")]
+use std::{
+    io::BufReader,
     time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};
+
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 struct Temporary(PathBuf);
 impl Drop for Temporary {
@@ -194,6 +199,7 @@ struct AdvancedSettings {
     trim_mp3_delay: bool,
 }
 impl AdvancedSettings {
+    #[cfg(feature = "experimental-rust-encoder")]
     fn fps_filter(self) -> &'static str {
         match (self.round_down, self.eof_pass) {
             (false, _) => "fps=24",
@@ -234,6 +240,13 @@ fn selected_file(value: &str, label: &str) -> Result<Option<PathBuf>, String> {
     Ok(Some(path))
 }
 
+struct VideoSummary {
+    frames: u32,
+    level: u8,
+    reencoded: u32,
+}
+
+#[allow(clippy::too_many_arguments)] // Preserve the explicit app-to-pipeline configuration boundary.
 fn encode_pair(
     ffmpeg: &Path,
     input: &Path,
@@ -275,19 +288,6 @@ fn encode_pair(
             total_frames_estimate: None,
             remaining_seconds: None,
         });
-        let (work_guard, work_file) = temporary_file("work")?;
-        drop(work_file);
-        std::fs::remove_file(&work_guard.0).map_err(|e| e.to_string())?;
-        std::fs::create_dir(&work_guard.0).map_err(|e| e.to_string())?;
-        struct WorkDir(PathBuf);
-        impl Drop for WorkDir {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-        let work = WorkDir(work_guard.0.clone());
-        let report_path = _video_tmp.0.with_extension("json");
-        let _report = Temporary(report_path.clone());
         let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().min(6));
         let python = selected_file(&dependencies.python, "Python")?
             .map(|p| p.into_os_string())
@@ -299,179 +299,144 @@ fn encode_pair(
                     "python3".into()
                 }
             });
-        let mut command = Command::new(python);
-        command.arg(script);
-        if let Some(path) = selected_file(&dependencies.tvc_encoder, "TVC encoder")? {
-            command.env("TAU_TVC_ENC", path);
-        }
-        if let Some(path) = selected_file(&dependencies.tnv3_tool, "TNV3 tool")? {
-            command.env("TAU_TNV3", path);
-        }
-        if advanced.round_down {
-            command.arg("--fps-round-down");
-        }
-        if advanced.round_down && advanced.eof_pass {
-            command.arg("--fps-eof-pass");
-        }
-        let mut child = command
-            .arg(input)
-            .arg(&_video_tmp.0)
-            .args(["--video-only", "--match-app", "--qp"])
-            .arg(qp.to_string())
-            .args(["--jobs"])
-            .arg(jobs.to_string())
-            .args(["--cpu-budget"])
-            .arg(jobs.to_string())
-            .args(["--work"])
-            .arg(&work.0)
-            .env("TAU_FFMPEG", ffmpeg)
-            .env("TAU_FFPROBE", ffprobe)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Could not start the C encoder (Python 3 is required): {e}"))?;
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or("Could not capture C encoder diagnostics.")?;
-        let log = capture_diagnostics(stderr);
-        if let Some(stdout) = child.stdout.take() {
-            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-                if let Some(part) = line.split("encoded ").nth(1) {
-                    let mut nums = part.split_whitespace();
-                    if let (Some(done), Some("/"), Some(all)) =
-                        (nums.next(), nums.next(), nums.next())
-                    {
-                        progress(Progress {
-                            phase: "c-video",
-                            frames: done.parse().unwrap_or(0),
-                            total_frames_estimate: all.parse().ok(),
-                            remaining_seconds: None,
-                        });
-                    }
-                }
-            }
-        }
-        let status = child
-            .wait()
-            .map_err(|e| format!("Could not wait for C encoder: {e}"))?;
-        let details = finish_diagnostics(log)?;
-        if !status.success() {
-            return Err(with_diagnostics(
-                format!("C encoder failed ({status})."),
-                &details,
-            ));
-        }
-        if !details.is_empty() {
+        let tools = tau_video::c_encoder::Tools {
+            python: python.into(),
+            script: script.to_path_buf(),
+            ffmpeg: ffmpeg.to_path_buf(),
+            ffprobe: ffprobe.to_path_buf(),
+            tvc_encoder: selected_file(&dependencies.tvc_encoder, "TVC encoder")?,
+            tnv3_tool: selected_file(&dependencies.tnv3_tool, "TNV3 tool")?,
+        };
+        let timing = match (advanced.round_down, advanced.eof_pass) {
+            (false, _) => tau_video::c_encoder::FrameTiming::Default,
+            (true, false) => tau_video::c_encoder::FrameTiming::RoundDown,
+            (true, true) => tau_video::c_encoder::FrameTiming::RoundDownEofPass,
+        };
+        let report = tau_video::c_encoder::encode_video(
+            &tools,
+            input,
+            &mut tvc,
+            tau_video::c_encoder::Options { qp, jobs, timing },
+            |done, all| {
+                progress(Progress {
+                    phase: "c-video",
+                    frames: done,
+                    total_frames_estimate: Some(all),
+                    remaining_seconds: None,
+                });
+            },
+        )?;
+        if !report.diagnostics.is_empty() {
             warnings.push(with_diagnostics(
                 "Source decoding reported errors; inspect the output.".into(),
-                &details,
+                &report.diagnostics,
             ));
         }
-        let report: serde_json::Value =
-            serde_json::from_reader(File::open(report_path).map_err(|e| e.to_string())?)
-                .map_err(|e| e.to_string())?;
-        let num = |key: &str| -> Result<u32, String> {
-            report[key]
-                .as_u64()
-                .and_then(|n| u32::try_from(n).ok())
-                .ok_or_else(|| format!("Invalid C encoder report: {key}"))
-        };
-        tau_video::tvc::encoder::EncodeSummary {
-            frames: num("frames")?,
-            level: u8::try_from(num("level")?).map_err(|_| "Invalid level")?,
-            reencoded: num("pictures_raised_for_level")?,
-            predicted: 0,
+        VideoSummary {
+            frames: report.frames,
+            level: report.level,
+            reencoded: report.reencoded,
         }
     } else {
-        let video_filter = format!(
-            "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
-            advanced.fps_filter()
-        );
-        let mut decoder = Command::new(ffmpeg)
-            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
-            .arg(input)
-            .args([
-                "-map",
-                "0:v:0",
-                "-an",
-                "-sn",
-                "-vf",
-                &video_filter,
-                "-pix_fmt",
-                "yuv420p",
-                "-f",
-                "yuv4mpegpipe",
-                "pipe:1",
-            ])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
-        let stderr = decoder
-            .stderr
-            .take()
-            .ok_or("Could not capture source diagnostics.")?;
-        let log = capture_diagnostics(stderr);
-        let stdout = decoder
-            .stdout
-            .take()
-            .ok_or("Could not read FFmpeg video output.")?;
-        let start = Instant::now();
-        let mut last_update = start;
-        let mut samples = std::collections::VecDeque::from([(start, 0u32)]);
-        let encoded = tau_video::tvc::encoder::encode_y4m_with_progress(
-            BufReader::new(stdout),
-            &mut tvc,
-            qp,
-            |frames| {
-                let now = Instant::now();
-                if frames != 1 && now.duration_since(last_update) < Duration::from_millis(500) {
-                    return;
-                }
-                samples.push_back((now, frames));
-                while samples.len() > 2
-                    && now.duration_since(samples[1].0) > Duration::from_secs(10)
-                {
-                    samples.pop_front();
-                }
-                let (first, first_frames) = samples.front().copied().unwrap_or((start, 0));
-                let seconds = now.duration_since(first).as_secs_f64();
-                let rate = f64::from(frames - first_frames) / seconds.max(0.001);
-                let remaining_seconds = total
-                    .filter(|&n| frames < n && seconds >= 2.0 && rate > 0.0)
-                    .map(|n| (f64::from(n - frames) / rate).ceil() as u64);
-                progress(Progress {
-                    phase: "video",
-                    frames,
-                    total_frames_estimate: total,
-                    remaining_seconds,
-                });
-                last_update = now;
-            },
-        );
-        if encoded.is_err() {
-            let _ = decoder.kill();
+        #[cfg(not(feature = "experimental-rust-encoder"))]
+        {
+            return Err("The experimental Rust encoder is not enabled in this build.".into());
         }
-        let status = decoder
-            .wait()
-            .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
-        let details = finish_diagnostics(log)?;
-        let stats = encoded
-            .map_err(|e| with_diagnostics(format!("Video encoding failed: {e}"), &details))?;
-        if !status.success() {
-            return Err(with_diagnostics(
-                process_failed(status, "Video conversion"),
-                &details,
-            ));
+        #[cfg(feature = "experimental-rust-encoder")]
+        {
+            let video_filter = format!(
+                "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
+                advanced.fps_filter()
+            );
+            let mut decoder = Command::new(ffmpeg)
+                .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
+                .arg(input)
+                .args([
+                    "-map",
+                    "0:v:0",
+                    "-an",
+                    "-sn",
+                    "-vf",
+                    &video_filter,
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-f",
+                    "yuv4mpegpipe",
+                    "pipe:1",
+                ])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
+            let stderr = decoder
+                .stderr
+                .take()
+                .ok_or("Could not capture source diagnostics.")?;
+            let log = capture_diagnostics(stderr);
+            let stdout = decoder
+                .stdout
+                .take()
+                .ok_or("Could not read FFmpeg video output.")?;
+            let start = Instant::now();
+            let mut last_update = start;
+            let mut samples = std::collections::VecDeque::from([(start, 0u32)]);
+            let encoded = tau_video::tvc::encoder::encode_y4m_with_progress(
+                BufReader::new(stdout),
+                &mut tvc,
+                qp,
+                |frames| {
+                    let now = Instant::now();
+                    if frames != 1 && now.duration_since(last_update) < Duration::from_millis(500) {
+                        return;
+                    }
+                    samples.push_back((now, frames));
+                    while samples.len() > 2
+                        && now.duration_since(samples[1].0) > Duration::from_secs(10)
+                    {
+                        samples.pop_front();
+                    }
+                    let (first, first_frames) = samples.front().copied().unwrap_or((start, 0));
+                    let seconds = now.duration_since(first).as_secs_f64();
+                    let rate = f64::from(frames - first_frames) / seconds.max(0.001);
+                    let remaining_seconds = total
+                        .filter(|&n| frames < n && seconds >= 2.0 && rate > 0.0)
+                        .map(|n| (f64::from(n - frames) / rate).ceil() as u64);
+                    progress(Progress {
+                        phase: "video",
+                        frames,
+                        total_frames_estimate: total,
+                        remaining_seconds,
+                    });
+                    last_update = now;
+                },
+            );
+            if encoded.is_err() {
+                let _ = decoder.kill();
+            }
+            let status = decoder
+                .wait()
+                .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
+            let details = finish_diagnostics(log)?;
+            let stats = encoded
+                .map_err(|e| with_diagnostics(format!("Video encoding failed: {e}"), &details))?;
+            if !status.success() {
+                return Err(with_diagnostics(
+                    process_failed(status, "Video conversion"),
+                    &details,
+                ));
+            }
+            if !details.is_empty() {
+                warnings.push(with_diagnostics(
+                    "Source decoding reported errors; inspect the output.".into(),
+                    &details,
+                ));
+            }
+            VideoSummary {
+                frames: stats.frames,
+                level: stats.level,
+                reencoded: stats.reencoded,
+            }
         }
-        if !details.is_empty() {
-            warnings.push(with_diagnostics(
-                "Source decoding reported errors; inspect the output.".into(),
-                &details,
-            ));
-        }
-        stats
     };
     progress(Progress {
         phase: "audio",
@@ -625,6 +590,11 @@ fn ffmpeg_path(app: &tauri::AppHandle) -> PathBuf {
     exe.into()
 }
 #[tauri::command]
+fn experimental_rust_encoder_available() -> bool {
+    cfg!(feature = "experimental-rust-encoder")
+}
+#[tauri::command]
+#[allow(clippy::too_many_arguments)] // Parameters are named Tauri command arguments.
 async fn encode(
     app: tauri::AppHandle,
     input: String,
@@ -654,7 +624,7 @@ async fn encode(
         }
         *running = true;
     }
-    if mode != "rust" && mode != "c" {
+    if mode != "c" && !(mode == "rust" && cfg!(feature = "experimental-rust-encoder")) {
         *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
         return Err("Unknown encoder.".into());
     }
@@ -736,6 +706,7 @@ fn main() {
         .manage(Mutex::new(None::<player::Player>))
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            experimental_rust_encoder_available,
             encode,
             player_open,
             player_next,
@@ -765,6 +736,7 @@ mod tests {
         assert!(result.len() < 4200);
         assert!(result.ends_with("[Further diagnostics omitted.]"));
     }
+    #[cfg(feature = "experimental-rust-encoder")]
     #[test]
     fn reported_source_corruption_is_returned_as_warning() {
         let (Some(source), Some(ffmpeg), Some(script), Some(probe)) = (
@@ -805,6 +777,7 @@ mod tests {
             assert!(result.warnings[0].contains("Source decoding reported errors"));
         }
     }
+    #[cfg(feature = "experimental-rust-encoder")]
     #[test]
     fn reported_audio_errors_are_returned_as_warning() {
         let (Some(source), Some(ffmpeg)) = (
@@ -839,6 +812,7 @@ mod tests {
                 .any(|w| w.contains("Audio decoding reported errors"))
         );
     }
+    #[cfg(feature = "experimental-rust-encoder")]
     #[test]
     fn experimental_settings_apply_to_both_encoders() {
         let (Some(source), Some(ffmpeg), Some(script), Some(probe)) = (
@@ -1036,6 +1010,7 @@ mod tests {
             assert!(!safe_name(name));
         }
     }
+    #[cfg(feature = "experimental-rust-encoder")]
     #[test]
     fn real_media_pair_and_no_overwrite() {
         let Some(ffmpeg) = std::env::var_os("TAU_TEST_FFMPEG") else {

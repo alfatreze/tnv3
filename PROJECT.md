@@ -261,3 +261,9 @@ using reconstructed padded references. **Host:** synthetic odd and 400x226
 chains match the C decoder; a short generated comparison reduced Rust output
 size but still showed a substantial C gap. Hardware playback and true encoder
 parity remain open; see `docs/RUST_C_ENCODER_PARITY.md` and issue 003.
+
+The default crate now offers a safe process adapter around the existing C
+workflow; the normal desktop build uses it and parks the pure Rust encoder
+behind an experimental feature. **Host:** generated macOS encode, failure,
+warning and feature tests pass. Windows/Linux runtime, packaged UI and Pocket
+playback remain open. See `docs/RUST_C_ENCODER_PARITY.md`.

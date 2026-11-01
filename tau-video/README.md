@@ -11,9 +11,11 @@ cargo test
 cargo run --bin tau-video --features cli -- info input.tnv3
 ```
 
-Default features have no dependencies. Rust 1.85 is the minimum, matching the
-minimum for Tau Omega's Rust 2024 edition. The library forbids unsafe code.
-The caller supplies I/O; there is no UI, filesystem assumption or subprocess.
+The default `c-encoder` feature provides a safe process-based adapter to the
+existing C/Python reference workflow and uses `serde_json`. Disable default
+features for dependency-free format parsing and decoding. Rust 1.85 is the
+minimum. The library forbids unsafe code. The C adapter requires external
+programs and temporary disk space; it is not a native C FFI binding.
 
 For local, non-redistributable reference vectors, set `TAU_VIDEO_VECTOR_DIR`
 to the local `tools/tnv3_ref/vectors` folder under `local-media` before running
@@ -26,8 +28,7 @@ See `../docs/RUST_ROADMAP.md` and the consumer requirements for remaining work.
 
 `make rust` also builds `tau-mp3`, a separate optional command-line adapter
 for Tau ν sidecars. It requires FFmpeg with `libmp3lame` on PATH (or set
-`TAU_FFMPEG` to its executable). The Rust library itself does not run external
-processes.
+`TAU_FFMPEG` to its executable). The MP3 command is separate from the library; the C encoder adapter also runs external processes.
 
 ```sh
 tau-mp3 encode input.wav audio.mp3
@@ -47,13 +48,13 @@ validation, seeking, a production-quality encoder and a complete container check
 The picture decoder has not yet passed exhaustive malformed-input or performance
 gates; do not use it as a validator.
 
-A preliminary `tvc::encoder::encode_intra_picture` encodes a single YUV420
+With `experimental-rust-encoder`, `tvc::encoder::encode_intra_picture` encodes a single YUV420
 frame as an intra-only TVC picture. It uses deterministic integer arithmetic,
 DC prediction, 8×8 transforms and one macroblock row per slice. This baseline
 is not the optimized C encoder: block-level motion search, general predictive coding, optimized rate-distortion decisions and TNV3 container
 output remain future work.
 
-The baseline CLI supports `tau-video encode-tvc input.y4m output.tvc` at QP 30.
+With `--features experimental-rust-encoder`, the baseline CLI supports `tau-video encode-tvc input.y4m output.tvc` at QP 30.
 It emits intra pictures and limited whole-frame motion P pictures,
 selects a TVC level, and retries pictures at a
 higher QP when level picture/rate limits require it. It is not yet optimized for
@@ -106,3 +107,34 @@ window budget divided by the window length and retries at higher QP. Some
 inputs may still fail at QP 51, and quality can change substantially. It is
 not look-ahead rate control; see [the issue record](../docs/issues/001-rust-rate-window-starvation.md).
 To combine it with the B prototype, build with Cargo features `cli,b-pictures,safe-rate`.
+
+## Reference encoder API
+
+`tau_video::c_encoder::encode_video` is available by default. Construct `Tools`
+with paths to Python 3, `encode_film.py`, FFmpeg and FFprobe, and optionally
+override `tvc_enc` and `tnv3` paths. Supply `Options`, a source path, an output
+writer, and a segment-progress callback. The synchronous call returns frame
+count, level, retries and bounded diagnostics. It creates a video-only TNV3;
+applications must encode the MP3 sidecar themselves. The writer is untouched
+until encoding and the report succeed; callers must handle partial output if
+writing to it fails. External dependencies are not supplied by this crate.
+
+```rust,no_run
+use std::{fs::OpenOptions, path::{Path, PathBuf}};
+use tau_video::c_encoder::{encode_video, Options, Tools};
+let tools = Tools {
+    python: PathBuf::from("python3"), script: PathBuf::from("tools/tnv3_ref/encode_film.py"),
+    ffmpeg: PathBuf::from("ffmpeg"), ffprobe: PathBuf::from("ffprobe"),
+    tvc_encoder: None, tnv3_tool: None,
+};
+let mut output = OpenOptions::new().write(true).create_new(true).open("video.tnv3")?;
+let report = encode_video(&tools, Path::new("source.mp4"), &mut output,
+    Options::default(), |done, total| eprintln!("{done}/{total} segments"))
+    .map_err(std::io::Error::other)?;
+println!("{} frames", report.frames);
+# Ok::<(), std::io::Error>(())
+```
+
+The pure Rust TVC encoder is parked behind `experimental-rust-encoder`.
+The `block-motion`, `b-pictures`, and `safe-rate` features enable it as well.
+The experimental API and its compression decisions are not at parity with C.

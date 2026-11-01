@@ -10,12 +10,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - run: cargo fmt --manifest-path tau-video/Cargo.toml --check
       - run: cargo clippy --manifest-path tau-video/Cargo.toml --all-targets --all-features -- -D warnings
       - run: cargo test --manifest-path tau-video/Cargo.toml --all-features
+        env:
+          TAU_TEST_PYTHON: python
       - run: cargo doc --manifest-path tau-video/Cargo.toml --all-features --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
