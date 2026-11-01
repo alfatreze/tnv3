@@ -185,3 +185,10 @@ issue and `docs/RUST_ENCODER_EXPERIMENTS.md`; bounded allocation remains open.
 
 A host-only predicted-picture rescue at QP 51 did not resolve the film
 rate-window failures. It was not shipped; see the experiment record.
+
+A Tauri/Svelte desktop preview in `tau-encoder/` calls the Rust crate directly
+to encode Y4M into video-only TNV3. **Host:** a macOS application bundle was
+opened and used to encode a generated frame; the C TNV3 checker accepted the
+result. The app enables conservative rate control; audio, progress and cancel
+remain separate or unavailable. Windows/Linux CI is configured but has not
+been verified; this is not yet a cross-platform release.

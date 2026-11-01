@@ -1,0 +1,33 @@
+name: Tau Encoder
+on:
+  push:
+    paths: ['tau-encoder/**', 'tau-video/**', '.github/workflows/tau-encoder.yml']
+  pull_request:
+    paths: ['tau-encoder/**', 'tau-video/**', '.github/workflows/tau-encoder.yml']
+  workflow_dispatch:
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tau-encoder/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev
+      - name: Install frontend dependencies
+        working-directory: tau-encoder
+        run: npm ci
+      - name: Check frontend
+        working-directory: tau-encoder
+        run: npm run check && npm run build
+      - name: Test and build native app
+        run: cargo test --locked --manifest-path tau-encoder/src-tauri/Cargo.toml && cargo build --locked --release --manifest-path tau-encoder/src-tauri/Cargo.toml

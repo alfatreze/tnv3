@@ -8,7 +8,7 @@
       "sha256": "db5c9a63c3e009200c81d992f26b4158edde843c96c7e23d866c6cb69ba7adc9"
     },
     ".gitignore": {
-      "sha256": "ec1b5272a16453df9535e233e705482e9390c11538481a88ba3209800d9f5863",
+      "sha256": "6d9c5a309714af0fd3aff14f1582699dd00031daae6f990046b06e2f020bb5b5",
       "status": "modified_for_release",
       "upstream_path": ".gitignore",
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
@@ -36,13 +36,13 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "dd635f721eddd18e76979fe6d932e34095ddbf9f8cc302eb63d263ca4971e417",
+      "sha256": "39070b34d8846cb2e4cf9f3c3bafe215ffedeaa27039855ae270e47af021347a",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
     },
     "README.md": {
-      "sha256": "f5991a3ec109630ffa92521641d819bc80fd5a60c085a532eb89b3231b9ae80b",
+      "sha256": "b9f3beaf4534c5328410577f9dc028002f493ee5eb91da3d2189c7340814b753",
       "status": "modified_for_release",
       "upstream_path": "README.md",
       "upstream_sha256": "5c43fc240f8973828cb354f8452106096a74d94281e7df6b3e28216e2cba1ab6"
@@ -1445,6 +1445,69 @@
       "generator": "tools/tvc_ref/enc/make_experiment.py bslice",
       "sha256": "184c32d9ad0bc7fbdef386c41cb6bb0f7a179f8554d8db5aceff02493f2c4b4c",
       "status": "generated_and_modified_for_release"
+    },
+    "tau-encoder/.gitignore": {
+      "sha256": "d3e5769245bf7a30443b95c5a6b6583426cb76a4a4403207055ab00e908fa82f"
+    },
+    "tau-encoder/README.md": {
+      "sha256": "7d5f98a187d7f260c8bc4b375901e3eb11dac81e3a7a0126c12044066827a5a6"
+    },
+    "tau-encoder/index.html": {
+      "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
+    },
+    "tau-encoder/package-lock.json": {
+      "sha256": "84126135aec46bb165891457b76f453aa1942549d5fc4e246186c1404f4aa230"
+    },
+    "tau-encoder/package.json": {
+      "sha256": "5401d78a61157220e3cb13a60c1fd6c4500c0d912580ce225a1fbd8cb818b8aa"
+    },
+    "tau-encoder/src/App.svelte": {
+      "sha256": "365343ba6e69cc2228f55518625a80e9f096735b044e0489fae6ebee4b2a3e87"
+    },
+    "tau-encoder/src/main.ts": {
+      "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
+    },
+    "tau-encoder/src/style.css": {
+      "sha256": "7596ab1da58d4b921a7bce970c58c631840c312683bb86bfd4f75c6c282e8728"
+    },
+    "tau-encoder/src-tauri/Cargo.lock": {
+      "sha256": "cf7041ac122a62c43a95117b0a5052ee39ecb95f83c2c4f7472095bdf38c41d6"
+    },
+    "tau-encoder/src-tauri/Cargo.toml": {
+      "sha256": "34598ba7eade83e1b1e350e189826fbeeb88a1de1efe5dfaa11d6ad7182bea01"
+    },
+    "tau-encoder/src-tauri/build.rs": {
+      "sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
+    },
+    "tau-encoder/src-tauri/capabilities/default.json": {
+      "sha256": "d353dff1d600b1dddf85ff6d474173084284de2449ffa1f7f8edd8022ffa6ee7"
+    },
+    "tau-encoder/src-tauri/icons/128x128.png": {
+      "sha256": "10d3ce30e0ed4c1405bb2fecaff84a2287631731d0371340b17d3f09c29db134"
+    },
+    "tau-encoder/src-tauri/icons/128x128@2x.png": {
+      "sha256": "64e151382ea666ef72b9ed518885e4d8c39ac0212b8a2545c3a0e7c43a873a02"
+    },
+    "tau-encoder/src-tauri/icons/32x32.png": {
+      "sha256": "9fab31b1ebcee4886c7aab233eba36b35284e4bc07ac27c67792e729ed9a4535"
+    },
+    "tau-encoder/src-tauri/icons/icon.icns": {
+      "sha256": "760dd564cd345211940885a407680b0ec1cc2340d563086b6feaef077754b10b"
+    },
+    "tau-encoder/src-tauri/icons/icon.ico": {
+      "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
+    },
+    "tau-encoder/src-tauri/src/main.rs": {
+      "sha256": "7bcda2faeea7879eaaad642165038b92c32e489f82ac068615063fe4ca82b06b"
+    },
+    "tau-encoder/src-tauri/tauri.conf.json": {
+      "sha256": "61342fd3f0698dea3e4d3b8e17094b9da5e05f504c3f7729bc49d8c76f58d301"
+    },
+    "tau-encoder/tsconfig.json": {
+      "sha256": "2e1e6c6ab1495e04baba2e339d1c4b2afaacbb753651b46c5786745ff4e60e60"
+    },
+    "tau-encoder/vite.config.ts": {
+      "sha256": "fa14b49798ac993ac1e3b78b6de732929a41aab8066a1365c4939a7ca82bba89"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

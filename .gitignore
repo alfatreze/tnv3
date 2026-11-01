@@ -13,3 +13,6 @@ __pycache__/
 
 # Rust crate build outputs
 /tau-video/target/
+
+# Locally packaged application builds
+/local-builds/

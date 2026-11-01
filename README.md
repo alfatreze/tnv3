@@ -96,3 +96,10 @@ the temporary MP3 audio remains a separate sidecar.
 
 `tau-video decode-tnv3 input.tnv3 output.y4m` decodes the video track; it
 does not play or extract audio or subtitles.
+
+## Desktop encoder preview
+
+[`tau-encoder/`](tau-encoder/README.md) contains a Tauri and Svelte desktop
+preview that uses the Rust crate to encode Y4M to video-only TNV3. The first
+macOS host build and a generated-frame GUI encode were tested; other platform
+builds remain to be validated. MP3 remains a separate sidecar tool.
