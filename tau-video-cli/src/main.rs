@@ -1,8 +1,9 @@
 use std::{
     env,
     ffi::{OsStr, OsString},
+    io::Read,
     path::{Path, PathBuf},
-    process::ExitCode,
+    process::{Command, ExitCode, ExitStatus, Stdio},
     sync::atomic::{AtomicU64, Ordering},
 };
 use tau_video::c_encoder::{self, Options, Tools};
@@ -18,6 +19,7 @@ mod publication {
     use std::fs;
 
     const PAYLOAD: &str = "payload.tnv3";
+    const AUDIO_PAYLOAD: &str = "payload.mp3";
 
     pub struct ProtectedStage {
         parent_fd: OwnedFd,
@@ -118,6 +120,89 @@ mod publication {
             self.payload.as_mut().expect("staged payload exists")
         }
 
+        pub fn audio_path(&self, parent: &Path) -> PathBuf {
+            parent.join(&self.stage_name).join(AUDIO_PAYLOAD)
+        }
+
+        pub fn sync_audio(&self) -> Result<(), String> {
+            let file = rfs::openat(
+                &self.stage_fd,
+                AUDIO_PAYLOAD,
+                OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+                Mode::empty(),
+            )
+            .map_err(|e| format!("Could not open staged MP3: {e}"))?;
+            rfs::fsync(&file).map_err(|e| format!("Could not sync staged MP3: {e}"))
+        }
+
+        pub fn publish_pair(
+            mut self,
+            video_name: &OsStr,
+            audio_name: &OsStr,
+        ) -> Result<(u64, u64, Option<String>), String> {
+            let video = self.payload.as_mut().expect("staged payload exists");
+            video
+                .sync_all()
+                .map_err(|e| format!("Could not sync staged TNV3: {e}"))?;
+            let video_len = video
+                .metadata()
+                .map_err(|e| format!("Could not inspect staged TNV3: {e}"))?
+                .len();
+            self.sync_audio()?;
+            let audio = rfs::openat(
+                &self.stage_fd,
+                AUDIO_PAYLOAD,
+                OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+                Mode::empty(),
+            )
+            .map_err(|e| format!("Could not inspect staged MP3: {e}"))?;
+            let audio_len = rfs::fstat(&audio)
+                .map_err(|e| format!("Could not inspect staged MP3: {e}"))?
+                .st_size as u64;
+            rfs::renameat_with(
+                &self.stage_fd,
+                PAYLOAD,
+                &self.parent_fd,
+                video_name,
+                RenameFlags::NOREPLACE,
+            )
+            .map_err(|e| {
+                format!("Could not publish TNV3 without replacing an existing path: {e}")
+            })?;
+            self.published = true;
+            if let Err(error) = rfs::renameat_with(
+                &self.stage_fd,
+                AUDIO_PAYLOAD,
+                &self.parent_fd,
+                audio_name,
+                RenameFlags::NOREPLACE,
+            ) {
+                // Best-effort rollback. The output directory is protected from other users;
+                // a concurrent process running as this same user can still race this unlink.
+                let rollback = (|| {
+                    let own = rfs::fstat(self.payload.as_ref().expect("staged payload exists"))?;
+                    let current =
+                        rfs::statat(&self.parent_fd, video_name, AtFlags::SYMLINK_NOFOLLOW)?;
+                    if own.st_dev != current.st_dev || own.st_ino != current.st_ino {
+                        return Err(rustix::io::Errno::BUSY);
+                    }
+                    rfs::unlinkat(&self.parent_fd, video_name, AtFlags::empty())
+                })();
+                let suffix = rollback
+                    .err()
+                    .map(|e| format!("; rollback also failed: {e}; TNV3 may remain"))
+                    .unwrap_or_default();
+                return Err(format!(
+                    "Audio publish failed after TNV3 was visible (pair publication is not atomic): {error}{suffix}"
+                ));
+            }
+            self.published = false;
+            let warning = rfs::fsync(&self.parent_fd)
+                .err()
+                .map(|e| format!("Published pair, but output-directory sync failed: {e}"));
+            Ok((video_len, audio_len, warning))
+        }
+
         pub fn publish(mut self, output_name: &OsStr) -> Result<(u64, Option<String>), String> {
             let file = self.payload.as_mut().expect("staged payload exists");
             file.sync_all()
@@ -149,6 +234,7 @@ mod publication {
             if !self.published {
                 let _ = rfs::unlinkat(&self.stage_fd, PAYLOAD, AtFlags::empty());
             }
+            let _ = rfs::unlinkat(&self.stage_fd, AUDIO_PAYLOAD, AtFlags::empty());
             let _ = rfs::unlinkat(&self.parent_fd, &self.stage_name, AtFlags::REMOVEDIR);
         }
     }
@@ -180,10 +266,58 @@ struct Args {
     tnv3_tool: PathBuf,
     qp: u8,
     jobs: usize,
+    pocket_sidecar: bool,
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT --python PATH --script PATH --ffmpeg PATH --ffprobe PATH --tvc-encoder PATH --tnv3-tool PATH [--qp 0..51] [--jobs N]\n\nEncodes video-only TNV3 using the existing C-reference helper pipeline. It does not create an MP3 sidecar or an audio/video pair. OUTPUT must not already exist."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT --python PATH --script PATH --ffmpeg PATH --ffprobe PATH --tvc-encoder PATH --tnv3-tool PATH [--qp 0..51] [--jobs N] [--profile pocket-sidecar]\n\nDefault: encode video-only TNV3. --profile pocket-sidecar also creates a matching 48 kHz stereo 128 kbit/s MP3 using tau-encoder's FFmpeg settings. Pair publication has a brief non-atomic window and best-effort rollback. Outputs must not already exist."
+}
+
+fn run_capturing_stderr(
+    command: &mut Command,
+    action: &str,
+) -> Result<(ExitStatus, String), String> {
+    let mut child = command
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Could not start {action}: {e}"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| format!("Could not capture {action} diagnostics."))?;
+    let diagnostics = std::thread::spawn(move || {
+        const LIMIT: usize = 4096;
+        let mut saved = Vec::new();
+        let mut buffer = [0u8; 4096];
+        let mut truncated = false;
+        let mut stderr = stderr;
+        loop {
+            let count = stderr.read(&mut buffer).map_err(|e| e.to_string())?;
+            if count == 0 {
+                break;
+            }
+            let take = count.min(LIMIT.saturating_sub(saved.len()));
+            saved.extend_from_slice(&buffer[..take]);
+            truncated |= take < count;
+        }
+        let mut message = String::from_utf8_lossy(&saved).trim().to_owned();
+        if truncated {
+            message.push_str("\n[Further diagnostics omitted.]");
+        }
+        Ok::<_, String>(message)
+    });
+    let status = child
+        .wait()
+        .map_err(|e| format!("Could not wait for {action}: {e}"))?;
+    let detail = diagnostics
+        .join()
+        .map_err(|_| format!("Could not collect {action} diagnostics."))??;
+    Ok((status, detail))
+}
+
+fn diagnostics_warning(label: &str, detail: &str) -> Option<String> {
+    (!detail.is_empty()).then(|| format!("{label} diagnostics:\n{detail}"))
 }
 
 fn parse_args<I>(iter: I) -> Result<Option<Args>, String>
@@ -210,10 +344,21 @@ where
     let mut tnv3_tool = None;
     let mut qp = 30;
     let mut jobs = 1;
+    let mut pocket_sidecar = false;
     while let Some(key) = it.next() {
         let key_text = key
             .to_str()
             .ok_or_else(|| format!("option name must be UTF-8: {}", key.to_string_lossy()))?;
+        if key_text == "--profile" {
+            let value = it
+                .next()
+                .ok_or_else(|| "missing value for --profile".to_owned())?;
+            if value != OsStr::new("pocket-sidecar") {
+                return Err("Supported profile: pocket-sidecar".into());
+            }
+            pocket_sidecar = true;
+            continue;
+        }
         let value = it
             .next()
             .ok_or_else(|| format!("missing value for {key_text}"))?;
@@ -244,6 +389,9 @@ where
     if qp > 51 || jobs == 0 {
         return Err("QP must be 0–51 and jobs must be positive".into());
     }
+    if pocket_sidecar && output.extension() != Some(OsStr::new("tnv3")) {
+        return Err("The pocket-sidecar profile requires an OUTPUT path ending in .tnv3".into());
+    }
     Ok(Some(Args {
         input,
         output,
@@ -255,6 +403,7 @@ where
         tnv3_tool: tnv3_tool.ok_or("--tnv3-tool is required")?,
         qp,
         jobs,
+        pocket_sidecar,
     }))
 }
 
@@ -288,6 +437,13 @@ fn run(args: Args) -> Result<(), String> {
     }
     if args.output.exists() {
         return Err(format!("Output already exists: {}", args.output.display()));
+    }
+    let audio_output = args.output.with_extension("mp3");
+    if args.pocket_sidecar && audio_output.exists() {
+        return Err(format!(
+            "Audio output already exists: {}",
+            audio_output.display()
+        ));
     }
     let parent = args
         .output
@@ -325,16 +481,74 @@ fn run(args: Args) -> Result<(), String> {
         },
         |done, total| eprintln!("segments: {done}/{total}"),
     )?;
-    let (byte_size, sync_warning) = staged.publish(output_name)?;
+    let (byte_size, audio_byte_size, sync_warning, audio_warning) = if args.pocket_sidecar {
+        let audio_path = staged.audio_path(parent);
+        let duration = format!("{:.9}", f64::from(report.frames) / 24.0);
+        let mut command = Command::new(&tools.ffmpeg);
+        command
+            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
+            .arg(&args.input)
+            .args([
+                "-map",
+                "0:a:0",
+                "-vn",
+                "-map_metadata",
+                "-1",
+                "-af",
+                "apad",
+                "-t",
+                &duration,
+                "-ar",
+                "48000",
+                "-ac",
+                "2",
+                "-c:a",
+                "libmp3lame",
+                "-b:a",
+                "128k",
+                "-f",
+                "mp3",
+            ])
+            .arg(&audio_path);
+        let (status, detail) = run_capturing_stderr(&mut command, "FFmpeg MP3 encoding")?;
+        if !status.success() {
+            return Err(format!("MP3 encoding failed ({}): {}", status, detail));
+        }
+        let audio_name = audio_output
+            .file_name()
+            .ok_or("Audio output path must include a file name")?;
+        let (video_len, audio_len, warning) = staged.publish_pair(output_name, audio_name)?;
+        let audio_warning = diagnostics_warning("MP3 encoder", &detail);
+        (video_len, audio_len, warning, audio_warning)
+    } else {
+        let (video_len, warning) = staged.publish(output_name)?;
+        (video_len, 0, warning, None)
+    };
     println!(
-        "Wrote video-only TNV3: {} frames, level {}, {} picture(s) raised for level limits, {} bytes",
-        report.frames, report.level, report.reencoded, byte_size
+        "Wrote {}TNV3: {} frames, level {}, {} picture(s) raised for level limits, {} bytes{}",
+        if args.pocket_sidecar {
+            "TNV3 + MP3 sidecar; "
+        } else {
+            "video-only "
+        },
+        report.frames,
+        report.level,
+        report.reencoded,
+        byte_size,
+        if args.pocket_sidecar {
+            format!("; MP3 {audio_byte_size} bytes")
+        } else {
+            String::new()
+        }
     );
     println!("Output: {}", args.output.display());
     if !report.diagnostics.is_empty() {
         eprintln!("Encoder diagnostics:\n{}", report.diagnostics);
     }
     if let Some(warning) = sync_warning {
+        eprintln!("Warning: {warning}");
+    }
+    if let Some(warning) = audio_warning {
         eprintln!("Warning: {warning}");
     }
     Ok(())
@@ -391,6 +605,7 @@ mod tests {
         let args = parse_args(argv).unwrap().unwrap();
         assert_eq!(args.qp, 30);
         assert_eq!(args.jobs, 1);
+        assert!(!args.pocket_sidecar);
         assert_eq!(args.output, PathBuf::from("out.tnv3"));
     }
 
@@ -407,6 +622,38 @@ mod tests {
     #[test]
     fn help_does_not_require_dependencies() {
         assert_eq!(parse_args([OsString::from("--help")]).unwrap(), None);
+    }
+
+    #[test]
+    fn pocket_sidecar_profile_is_opt_in() {
+        let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
+        argv.extend(required_options());
+        argv.extend(["--profile".into(), "pocket-sidecar".into()]);
+        assert!(parse_args(argv).unwrap().unwrap().pocket_sidecar);
+        let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
+        argv.extend(required_options());
+        argv.extend(["--profile".into(), "unsafe".into()]);
+        assert!(parse_args(argv).is_err());
+        let mut argv = vec!["encode".into(), "in.mp4".into(), "out.mp3".into()];
+        argv.extend(required_options());
+        argv.extend(["--profile".into(), "pocket-sidecar".into()]);
+        assert!(matches!(parse_args(argv), Err(error) if error.contains("ending in .tnv3")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn successful_child_stderr_is_retained_as_a_warning() {
+        let mut command = Command::new("/bin/sh");
+        command.args([
+            "-c",
+            "printf 'fixture warning\\n' >&2; printf ignored_stdout",
+        ]);
+        let (status, detail) = run_capturing_stderr(&mut command, "diagnostic fixture").unwrap();
+        assert!(status.success());
+        assert_eq!(
+            diagnostics_warning("MP3 encoder", &detail).as_deref(),
+            Some("MP3 encoder diagnostics:\nfixture warning")
+        );
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -490,6 +737,25 @@ mod tests {
         );
         assert_eq!(fs::read(&target).unwrap(), b"keep me");
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn pair_publish_rolls_back_video_when_audio_target_appears() {
+        use std::io::Write;
+        let dir = private_test_dir();
+        let video = dir.join("pair.tnv3");
+        let audio = dir.join("pair.mp3");
+        fs::write(&audio, b"pre-existing audio").unwrap();
+        let mut stage = publication::ProtectedStage::create(&dir).unwrap();
+        stage.writer().write_all(b"staged video").unwrap();
+        fs::write(stage.audio_path(&dir), b"staged audio").unwrap();
+        let result = stage.publish_pair(OsStr::new("pair.tnv3"), OsStr::new("pair.mp3"));
+        assert!(result.is_err());
+        assert!(!video.exists());
+        assert_eq!(fs::read(&audio).unwrap(), b"pre-existing audio");
+        fs::remove_file(audio).unwrap();
+        fs::remove_dir(dir).unwrap();
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]

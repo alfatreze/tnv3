@@ -33,3 +33,14 @@ parent-directory rename limitation described in its README. Generated macOS
 smoke and no-overwrite tests passed. Windows intentionally returns unsupported;
 Linux and FAT/exFAT runtime behavior are not yet verified. The prototype is
 video-only and is not a complete cross-platform or Pocket-pair release.
+
+## Pocket sidecar prototype
+
+**Host, 2026-11-01:** the experimental Unix CLI can stage a TNV3 and MP3 and
+publish each through exclusive no-replace rename. A generated macOS test
+produced 24 decoded frames and 48 kHz stereo MP3; missing audio left no final
+files, and existing output contents were preserved. Publication of two paths
+is not atomic. Rollback is best effort and its identity check followed by
+name-based unlink still permits a same-user race. Concurrent parent directory
+rename also affects FFmpeg's path-based audio staging; see CLI README. No
+Windows, Linux, card filesystem, or Pocket outcome is claimed.

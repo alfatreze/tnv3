@@ -282,3 +282,8 @@ An early `tau-codecs-cli` source prototype encodes video-only TNV3 through
 the C workflow. **Host:** generated macOS smoke and publication checks pass;
 Windows, MP3 pairs, FAT/exFAT and Pocket remain unverified or unsupported.
 See `tau-video-cli/README.md` and issue 008.
+
+The experimental CLI also offers an opt-in Pocket TNV3/MP3 sidecar profile.
+**Host:** generated macOS pair, decode, audio metadata, no-audio cleanup and
+no-overwrite tests passed. Pair publication is not atomic; Windows, Linux,
+card filesystem and Pocket behavior remain unverified. See issue 008.

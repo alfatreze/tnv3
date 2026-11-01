@@ -160,3 +160,8 @@ hardware. The normal desktop C path was separately host-tested.
 C-backed CLI, tested on generated media on macOS. It does not yet produce the
 Pocket pair; Windows publication is unsupported and Linux/card filesystems
 remain unverified. It is not a release gate completion. See issue 008.
+
+**Further prototype progress:** the CLI now has an opt-in `pocket-sidecar`
+profile, with generated macOS success/failure and no-overwrite smoke coverage.
+It uses best-effort pair rollback and retains the limitations in issue 008.
+This is not the complete crash-recovery or cross-platform publication gate.

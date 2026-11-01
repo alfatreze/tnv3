@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "66d600bee80c0ff718ea4eafdc0d0c473df1aca75b64452bbefe1c197f88afc0"
+      "sha256": "ff9661906145c5403637e01414e11c7669b7438ef23f38589c5e553341ab5ef0"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1584,7 +1584,7 @@
       "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
     },
     "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
-      "sha256": "4416c34f785d58b9a76838b8df37d9beb556c0b3a3e4b8d6b1fd903ffebd680a",
+      "sha256": "d325cfaee58998ee47adc1e6d65a513b377b2f358e4e4da09ec01cefc6b4b8de",
       "status": "new_release_file"
     },
     "tools/codec_study/cli_migration_smoke.py": {
@@ -1597,7 +1597,7 @@
     },
     "docs/issues/008-staged-cli-final-output-copy.md": {
       "status": "new_release_file",
-      "sha256": "466dc12565a2b2ab3245c6ea4545df45435bd8efcd2adcde10856ef7ef8fb349"
+      "sha256": "292ca580ca0a9a72e6c4437ebc1c58065b0aed79ac45b203b89d302ddb21bdd4"
     },
     "tau-video-cli/Cargo.toml": {
       "status": "new_release_file",
@@ -1609,11 +1609,11 @@
     },
     "tau-video-cli/README.md": {
       "status": "new_release_file",
-      "sha256": "50309e64a6d8cd667c12ee20fbf7fb0af6e002e627f8f5e6e033449b7d28e308"
+      "sha256": "4b0badabe1e33ddfa8528c55dc93dc68c0231f91f0f34c9500b1b86d9f563078"
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "83aa9d56d60ca97a7661b878a99556115657b6a73f21dd9fbb8984e9e7affb3d"
+      "sha256": "e17d4a0e69b89f4883aba868f71e29c9b99f7c4771cd874b8c85ceb27ab6d581"
     },
     "tau-video-cli/smoke.py": {
       "status": "new_release_file",
@@ -1622,6 +1622,10 @@
     ".github/workflows/experimental-tau-codecs-cli.yml": {
       "status": "new_release_file",
       "sha256": "43f7c39254162067c86feea4f277e90f045ca5619a63ea2523bacc6025c16031"
+    },
+    "tau-video-cli/pocket_sidecar_smoke.py": {
+      "status": "new_release_file",
+      "sha256": "f2fcea16ac30ec487212b3034de95bedd4d3c91f6be3904d6db4a8e1bf61c897"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",
