@@ -27,3 +27,7 @@ recovered quality for the 400-pixel QP 30 B case, but reproduced all three
 previous failure combinations in both P and B modes. The relaxed cap was
 rejected; see `docs/RUST_ENCODER_EXPERIMENTS.md` and
 `docs/rust_long_rate_study.json` for the measurements.
+
+2026-11-01 follow-up (**host**): trying a rate-compliant predicted picture
+after an oversized QP-51 intra candidate did not rescue the failing film cases.
+The scratch-only approach was not shipped; see the experiment record.

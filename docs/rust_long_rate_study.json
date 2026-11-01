@@ -655,5 +655,211 @@
         }
       ]
     }
+  ],
+  "qp51_predictive_rescue": [
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 334499,
+          "psnr_y": 36.1649,
+          "seconds": 0.1656,
+          "stats": "frames=48 predicted=27 retries=4"
+        },
+        {
+          "bytes": 334499,
+          "psnr_y": 36.1649,
+          "seconds": 0.1638,
+          "stats": "frames=48 predicted=27 retries=4"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 333623,
+          "psnr_y": 37.3135,
+          "seconds": 0.2777,
+          "stats": "frames=48 b=9 retries=0"
+        },
+        {
+          "bytes": 333623,
+          "psnr_y": 37.3135,
+          "seconds": 0.2781,
+          "stats": "frames=48 b=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 183993,
+          "psnr_y": 33.3689,
+          "seconds": 0.1299,
+          "stats": "frames=48 predicted=25 retries=0"
+        },
+        {
+          "bytes": 183993,
+          "psnr_y": 33.3689,
+          "seconds": 0.1285,
+          "stats": "frames=48 predicted=25 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 176307,
+          "psnr_y": 33.4137,
+          "seconds": 0.241,
+          "stats": "frames=48 b=11 retries=0"
+        },
+        {
+          "bytes": 176307,
+          "psnr_y": 33.4137,
+          "seconds": 0.248,
+          "stats": "frames=48 b=11 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 456736,
+          "psnr_y": 35.9597,
+          "seconds": 0.4306,
+          "stats": "frames=48 predicted=16 retries=0"
+        },
+        {
+          "bytes": 456736,
+          "psnr_y": 35.9597,
+          "seconds": 0.4364,
+          "stats": "frames=48 predicted=16 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 444459,
+          "psnr_y": 35.972,
+          "seconds": 0.7926,
+          "stats": "frames=48 b=9 retries=0"
+        },
+        {
+          "bytes": 444459,
+          "psnr_y": 35.972,
+          "seconds": 0.8124,
+          "stats": "frames=48 b=9 retries=0"
+        }
+      ]
+    }
   ]
 }

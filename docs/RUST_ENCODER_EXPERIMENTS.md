@@ -226,3 +226,21 @@ and timings are in `rust_long_rate_study.json`; film inputs remain local.
 The experiment changed the encoder hot path in scratch only and was rejected,
 not shipped. The next gate remains bounded look-ahead or segment-aware rate
 allocation with tests across window boundaries; no hardware claim is made.
+
+## QP-51 predicted-picture rescue — 2026-11-01
+
+The current P and B-anchor encoders first require an intra picture to fit the
+remaining rate window before trying residual prediction. A scratch-only
+variant instead allowed an oversized QP-51 intra candidate to establish the
+existing reconstruction-error bound, then tried a smaller predicted picture
+that still had to fit the window and quality bound. It returned an error if no
+candidate fit. This affects the encoder hot path only on the failed-intra
+path. It does not introduce look-ahead or alter rate-window accounting.
+
+**Host:** on both 48-frame film segments and QP 24, 30, 36 with P and B,
+two runs each, the same three size/QP combinations failed in both modes as
+the original; successful combinations had the same output sizes and Y-PSNR.
+This does not rule out usefulness on other inputs and does not prove the
+successful bitstreams identical. Raw results: `rust_long_rate_study.json`.
+Decision: do not ship the fallback without evidence of benefit. Earlier window
+allocation remains the next investigation; no Pocket or Quartus claim.

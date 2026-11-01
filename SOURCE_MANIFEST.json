@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "d0fc596323bad4f85f8968be5415a0d498d096ea51d096ec565a82c9a3e81b37",
+      "sha256": "dd635f721eddd18e76979fe6d932e34095ddbf9f8cc302eb63d263ca4971e417",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
@@ -137,7 +137,7 @@
       "sha256": "8a60c50fd3fc6f95ab4d44990153482128498bee817f866b4755ddeb66c4842c"
     },
     "docs/RUST_ENCODER_EXPERIMENTS.md": {
-      "sha256": "dc9c47189da7dd36a7274c20246040a35b52c7a3e4311fd548167eefc0d90e2b"
+      "sha256": "08658e9f7d7428ab413d3239d8f7ce6ec4d10332a9efbe06923d2ad2ff50986d"
     },
     "docs/RUST_ROADMAP.md": {
       "sha256": "ab3db7597ef0ab80798e11c590d3def8cb120b4ecb938b9904d998a7a4020473",
@@ -929,7 +929,7 @@
       "sha256": "d50e9093da7c925b8fcc949c1b83ec43ca0f98be1ceca8a3db6d3999857206ce"
     },
     "docs/issues/001-rust-rate-window-starvation.md": {
-      "sha256": "b03357ab84099d955f0db2f6f6d6fb59733486aa59ac4b45d56308ace411bd01"
+      "sha256": "c4cfb232a730318f1329c063cc6dddcebf6f34f16c3d6a0bae6410872785553f"
     },
     "docs/research/DECODE_QUALITY_RESEARCH.md": {
       "sha256": "3da9ca782ff5e1090ffd50c056bb38a5a144209e6cb96e225c2fb331d2979ed8"
@@ -953,7 +953,7 @@
       "sha256": "76db3ffeea025c1dc1093dcbb4444bcb60e3c90f5b7271bd5016e321f43a91b8"
     },
     "docs/rust_long_rate_study.json": {
-      "sha256": "62f2d2eebb17d051a57929fd2a02bc9b9a102d7b8d21513cde0419f45cc07285"
+      "sha256": "2ed2ba071b4e7d73efba082b137b1b36b50405471c4cfe8fdfa0122919036767"
     },
     "tau-video/CHANGELOG.md": {
       "sha256": "04dc1286df6daf0d3f257e66140ded95f511b86df1398ddfefd7ff620587fdcd"
