@@ -272,3 +272,8 @@ The `tau-video` default build is dependency-free and no longer enables the
 process-based C adapter. Applications that use it must explicitly enable
 `c-encoder`; Tau Encoder already does. **Host:** core feature combinations
 and the desktop C path passed generated-media tests.
+
+The C adapter creates private Unix work directories. **Host:** permission
+and adapter tests passed; Windows ACL validation is open (issue 007). A
+video-only CLI prototype remains staged after review identified output
+publication races and crash limitations; see issue 008.

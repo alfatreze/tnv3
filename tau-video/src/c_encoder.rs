@@ -83,7 +83,7 @@ fn temp_dir() -> io::Result<TempDir> {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        match fs::create_dir(&p) {
+        match create_private_dir(&p) {
             Ok(()) => return Ok(TempDir(p)),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
@@ -93,6 +93,20 @@ fn temp_dir() -> io::Result<TempDir> {
         io::ErrorKind::AlreadyExists,
         "Could not reserve encoder work directory",
     ))
+}
+
+#[cfg(unix)]
+fn create_private_dir(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    let mut builder = fs::DirBuilder::new();
+    builder.mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_dir(path: &Path) -> io::Result<()> {
+    // Windows keeps the parent directory's inherited ACL; no explicit ACL
+    // hardening is performed here yet.
+    fs::create_dir(path)
 }
 fn capture(mut input: impl Read) -> io::Result<String> {
     let mut saved = Vec::new();
@@ -220,4 +234,21 @@ pub fn encode_video<W: Write>(
         reencoded,
         diagnostics,
     })
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn encoder_temp_directory_has_no_group_or_other_permissions() {
+        let temp = temp_dir().unwrap();
+        let mode = fs::metadata(&temp.0).unwrap().permissions().mode() & 0o777;
+        assert_eq!(
+            mode & 0o077,
+            0,
+            "encoder temp directory exposes group/other permissions: {mode:o}"
+        );
+    }
 }

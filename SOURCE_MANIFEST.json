@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "38c87c166b0c478b3c391f06a44922c1a7a70ec79d79f20434cafb9b149a5b0a"
+      "sha256": "9f8d9f71686248182f29fe8529ff278baa302901cb908fe1f81dcd8d2c1a395e"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1577,7 +1577,7 @@
     },
     "tau-video/src/c_encoder.rs": {
       "status": "new_release_file",
-      "sha256": "db0ea53e05a7175577f14f98b6720cccbcf681482bdc90f4eaf3e5eab7b330a5"
+      "sha256": "6bf57ba91c1da16f09fb9d06df3356f91d01a87487ec868b35e775315bbc4abc"
     },
     "tau-video/tests/c_encoder_adapter.rs": {
       "status": "new_release_file",
@@ -1590,6 +1590,14 @@
     "tools/codec_study/cli_migration_smoke.py": {
       "sha256": "e5cdc195575d086162fb147c00648a6ad67e70b00c747c410b28c4c0f8adf5f6",
       "status": "new_release_file"
+    },
+    "docs/issues/007-c-encoder-temp-acl.md": {
+      "status": "new_release_file",
+      "sha256": "8b44ec618762e679028b30061c40c4f46a0d150d4b49d229e8d5d36c090c8fe2"
+    },
+    "docs/issues/008-staged-cli-final-output-copy.md": {
+      "status": "new_release_file",
+      "sha256": "157350e80a6fcccb0a38f9e6c9ead0672edda0bfa33dd05ac3f0fc2cdcf2974b"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",
