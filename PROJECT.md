@@ -161,3 +161,8 @@ alternative. On 12 short host cases it removed the earlier anime size/PSNR
 regression but added considerable encoding time; the default remains unchanged.
 C container checks and Rust/C decoded-pixel comparisons passed. See
 `docs/RUST_ENCODER_EXPERIMENTS.md`; longer quality and speed gates remain open.
+
+The opt-in B encoder now skips an exact redundant static-pair comparison. On
+12 short host cases outputs were unchanged; a generated 2,400-frame static
+case improved median time in 12 alternating runs. This does not establish a
+general speed result. See `docs/RUST_ENCODER_EXPERIMENTS.md`.

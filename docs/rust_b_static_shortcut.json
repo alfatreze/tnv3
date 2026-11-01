@@ -1,0 +1,178 @@
+{
+  "date": "2026-11-01",
+  "classification": "host",
+  "method": "12 alternating process runs per mode on one generated 2400-frame static 160x96 clip; 12 separate short real-clip outputs compared byte-for-byte.",
+  "measurements": {
+    "real_cases_equal": 12,
+    "runs": [
+      {
+        "mode": "base",
+        "seconds": 0.07069,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.05064,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.04954,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.06923,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.07206,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.04995,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.0507,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.0707,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.06959,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.05089,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.04999,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.07011,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.07326,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.05015,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.04991,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.07099,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.07189,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.0499,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.04958,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.06998,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.07076,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.04932,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "fast",
+        "seconds": 0.05006,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      },
+      {
+        "mode": "base",
+        "seconds": 0.07063,
+        "bytes": 188970,
+        "sha256": "3ae5973ec1106917beb0eb568709ad3a6e3060812ead8e9c2111fe6508eeecb7",
+        "stats": "frames=2400 b=0 retries=0"
+      }
+    ]
+  }
+}

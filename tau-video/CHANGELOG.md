@@ -31,3 +31,4 @@
 - Reuse the preceding intra anchor across experimental B-stream groups.
 - Share predictive anchors in the opt-in B stream, with periodic intra refresh.
 - Compare experimental B groups against I/P alternatives for size and decoded error.
+- Skip redundant B-candidate work when two identical skip pictures cannot lose the size comparison.

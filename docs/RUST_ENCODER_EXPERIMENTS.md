@@ -153,3 +153,19 @@ tests cover I/P/B order, fallback, truncation and key refresh. Raw data is in
 Decision: keep opt-in only. Next gate: reduce duplicated candidate work and
 measure longer interleaved rate/quality and throughput tests; check whether
 local choices improve whole-film behavior. No new Pocket or Quartus claim.
+
+## Exact static-pair shortcut — 2026-11-01
+
+The opt-in B encoder skips the B trial when both I/P alternatives are exactly
+the same zero-motion skip payload. Their references are unchanged and the B
+skip payload cannot be smaller under the existing strict size comparison. This
+affects the experimental encoder hot path only; normal P encoding is unchanged.
+**Host:** output was byte-identical on all 12 earlier short real-clip cases. On
+a generated 160×96, 2,400-frame static clip at QP 30, 12 alternating runs had
+median wall times 0.070695 s before and 0.049970 s after (0.707×); all outputs
+had the same SHA-256. This is a static-scene result, not a general throughput
+claim. Input generator: `tau-video/tests/reference/static-bench.py`, SHA-256 of
+generated Y4M `230fdd4ec0ba23e4556e463dd89835ec4b16168322fc0314131261dd8f822dc8`.
+Raw timings: `rust_b_static_shortcut.json`. Synthetic B fallback and C decoder
+tests passed. The B path remains opt-in; wider quality and throughput testing
+and a full malformed-input audit remain open. No new Pocket or Quartus claim.

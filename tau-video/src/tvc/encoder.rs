@@ -1365,7 +1365,12 @@ pub fn encode_y4m_b<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         let baseline_error = squared_error(&middle, &middle_anchor.reconstructed)
             + squared_error(&future, &next_anchor.reconstructed);
         let mut group = None;
-        if usize::from(w) % 16 == 0 && usize::from(h) % 16 == 0 {
+        // If both display-order pictures are exactly the standard skip coding,
+        // their reconstructed anchors are identical. The corresponding B skip
+        // has the same payload length, so it cannot beat the strict size guard.
+        let skip = encode_skip_picture(usize::from(w), usize::from(h), qp);
+        let identical_skip_pair = middle_anchor.picture == skip && next_anchor.picture == skip;
+        if !identical_skip_pair && usize::from(w) % 16 == 0 && usize::from(h) % 16 == 0 {
             if let Ok(anchor) = choose_b_anchor(
                 &future,
                 Some(&previous),
