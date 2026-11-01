@@ -1,0 +1,396 @@
+{
+  "fps": [
+    {
+      "name": "hevc8",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "repeats": 24,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc10",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "repeats": 24,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "avc8",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "repeats": 24,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc_24000_1001",
+      "reference_count": 71,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "repeats": 2,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 71,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 72,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 71,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc_25",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 73,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc_30",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 73,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc_12",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 73,
+          "repeats": 37,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 36,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 37,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 36,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc_15",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "repeats": 27,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 27,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 28,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 27,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc_60",
+      "reference_count": 72,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 73,
+          "repeats": 0,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "hevc_30000_1001",
+      "reference_count": 71,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 71,
+          "repeats": 0,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 72,
+          "repeats": 1,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 71,
+          "repeats": 0,
+          "equals_reference": true
+        }
+      }
+    },
+    {
+      "name": "offset",
+      "reference_count": 78,
+      "policies": {
+        "current": {
+          "frames": 78,
+          "repeats": 30,
+          "equals_reference": false
+        },
+        "down": {
+          "frames": 78,
+          "repeats": 6,
+          "equals_reference": true
+        },
+        "down_pass": {
+          "frames": 79,
+          "repeats": 7,
+          "equals_reference": false
+        },
+        "reset": {
+          "frames": 72,
+          "repeats": 0,
+          "equals_reference": false
+        }
+      }
+    }
+  ],
+  "sync": [
+    {
+      "name": "zero",
+      "audio_marker": 1.0,
+      "policies": {
+        "current": {
+          "frames": 72,
+          "video_marker": 1.0,
+          "difference": 0.0
+        },
+        "down": {
+          "frames": 71,
+          "video_marker": 1.0,
+          "difference": 0.0
+        },
+        "down_pass": {
+          "frames": 72,
+          "video_marker": 1.0,
+          "difference": 0.0
+        },
+        "reset": {
+          "frames": 72,
+          "video_marker": 1.0,
+          "difference": 0.0
+        }
+      }
+    },
+    {
+      "name": "video_late",
+      "audio_marker": 1.0,
+      "policies": {
+        "current": {
+          "frames": 78,
+          "video_marker": 1.25,
+          "difference": 0.25
+        },
+        "down": {
+          "frames": 77,
+          "video_marker": 1.25,
+          "difference": 0.25
+        },
+        "down_pass": {
+          "frames": 78,
+          "video_marker": 1.25,
+          "difference": 0.25
+        },
+        "reset": {
+          "frames": 72,
+          "video_marker": 1.0,
+          "difference": 0.0
+        }
+      }
+    },
+    {
+      "name": "video_early",
+      "audio_marker": 1.0,
+      "policies": {
+        "current": {
+          "frames": 67,
+          "video_marker": 0.7916666666666666,
+          "difference": -0.208333
+        },
+        "down": {
+          "frames": 66,
+          "video_marker": 0.7916666666666666,
+          "difference": -0.208333
+        },
+        "down_pass": {
+          "frames": 67,
+          "video_marker": 0.7916666666666666,
+          "difference": -0.208333
+        },
+        "reset": {
+          "frames": 67,
+          "video_marker": 0.7916666666666666,
+          "difference": -0.208333
+        }
+      }
+    },
+    {
+      "name": "variable_rate",
+      "audio_marker": 1.0,
+      "policies": {
+        "current": {
+          "frames": 71,
+          "video_marker": 0.9583333333333334,
+          "difference": -0.041667
+        },
+        "down": {
+          "frames": 70,
+          "video_marker": 0.9166666666666666,
+          "difference": -0.083333
+        },
+        "down_pass": {
+          "frames": 71,
+          "video_marker": 0.9166666666666666,
+          "difference": -0.083333
+        },
+        "reset": {
+          "frames": 71,
+          "video_marker": 0.9583333333333334,
+          "difference": -0.041667
+        }
+      }
+    }
+  ]
+}

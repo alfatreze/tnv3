@@ -1,0 +1,43 @@
+{
+  "cases": [
+    {
+      "name": "zero",
+      "video_marker_seconds": 1.0,
+      "normal": {
+        "first_pulse_sample": 48001,
+        "decoded_sample_pairs": 144000
+      },
+      "skip_manual": {
+        "first_pulse_sample": 49106,
+        "decoded_sample_pairs": 145152
+      },
+      "pulse_difference_samples": 1105
+    },
+    {
+      "name": "video_late",
+      "video_marker_seconds": 1.25,
+      "normal": {
+        "first_pulse_sample": 48001,
+        "decoded_sample_pairs": 156000
+      },
+      "skip_manual": {
+        "first_pulse_sample": 49106,
+        "decoded_sample_pairs": 157824
+      },
+      "pulse_difference_samples": 1105
+    },
+    {
+      "name": "video_early",
+      "video_marker_seconds": 0.7916666666666666,
+      "normal": {
+        "first_pulse_sample": 48001,
+        "decoded_sample_pairs": 134000
+      },
+      "skip_manual": {
+        "first_pulse_sample": 49106,
+        "decoded_sample_pairs": 135936
+      },
+      "pulse_difference_samples": 1105
+    }
+  ]
+}

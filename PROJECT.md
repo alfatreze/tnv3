@@ -238,3 +238,9 @@ video and audio damage exercised the warning path; undetected corruption and
 interactive UI checks remain open. Additional synthetic timing tests found
 trade-offs in the frame-rate candidate, so its default remains unchanged;
 see `docs/issues/005-hevc-input-ingest.md`.
+
+Further host timing tests rejected another end-of-stream candidate: it
+added a frame in all 11 generated reference comparisons. A separate MP3
+gapless-delay model suggests a possible audio-clock offset, but the actual
+Helix decoder and Pocket timing remain unmeasured. See
+`docs/issues/005-hevc-input-ingest.md` and `docs/issues/006-mp3-gapless-timing.md`.

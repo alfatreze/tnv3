@@ -69,3 +69,14 @@ A/V timeline policy before changing the default. Reproduce with
 `tools/codec_study/ingest_sync_probe.py`; the companion `ingest_probe.py`
 can generate non-overwriting video/audio damaged test fixtures for the Rust
 integration tests.
+
+## Follow-up: end-of-stream policy
+
+**Host, 2026-11-01:** adding `eof_action=pass` to the `round=down`
+candidate avoids a missing final frame in some marker inputs, but produced
+one extra frame compared with the FFmpeg 9 reference in all 11 generated
+frame-rate cases. The variable-rate flash marker still moved one frame
+earlier compared with the current policy. The candidate was not enabled.
+See `docs/hevc_ingest_eof_2026-11-01.json` and reproduce with
+`tools/codec_study/ingest_eof_probe.py`. These synthetic host results do
+not establish the behavior of the original source or Pocket playback.

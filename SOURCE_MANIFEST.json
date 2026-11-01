@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "58650344e551a5ed88bdcedae57f316f4f6bfdda1a97053155c48b3fb71e7149"
+      "sha256": "a6ecdb5a66a5d153cdf8c084ff769f4ed2129916faea65082fce5c338bf14742"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1525,7 +1525,7 @@
       "sha256": "9b9d63446014c0ee6dadba5332059c475ccd8d7d139c2b65fc037ca20c152cc9"
     },
     "docs/issues/005-hevc-input-ingest.md": {
-      "sha256": "bb955306ddda173373d1bf8c638b4cf8abfc7de0b492eb98c17184bf40193359"
+      "sha256": "5a6f276156450697c807797fab0cbb84da89e61ab6a360a4017fceddab872d46"
     },
     "docs/hevc_ingest_probe_2026-11-01.json": {
       "sha256": "d7814e059f3bc1d7b8b4c9cd167fcb334a84a844a1767e6f51861c0e113057f8"
@@ -1538,6 +1538,26 @@
     },
     "tools/codec_study/ingest_sync_probe.py": {
       "sha256": "1e4794b3da03ec0a71d362b0df14d1041a4322267857a5ce8b5df797c9d7e727"
+    },
+    "docs/issues/006-mp3-gapless-timing.md": {
+      "status": "new_release_file",
+      "sha256": "695fdcc65717a866ebaea41a45f7eb6e7cbaa90d8c416a1fe0c0549e686edbfa"
+    },
+    "tools/codec_study/ingest_eof_probe.py": {
+      "status": "new_release_file",
+      "sha256": "78621dd5d69e35cd815078add72f70d27e8959e65e6358f11f62f20a8b13c412"
+    },
+    "tools/codec_study/mp3_delay_probe.py": {
+      "status": "new_release_file",
+      "sha256": "284505287a42ece72a590ce81e09c5c690b1f192d0eb4fb6607a3f64ddc413df"
+    },
+    "docs/hevc_ingest_eof_2026-11-01.json": {
+      "status": "new_release_file",
+      "sha256": "4893d369f7b0a31c94eab36e71dd633406cb3f34a3d9517af20614dc128a0584"
+    },
+    "docs/mp3_delay_probe_2026-11-01.json": {
+      "status": "new_release_file",
+      "sha256": "ca42364d51a849e77de16f5f134baec5b3f9d7fd0d514262241a41bac6be916b"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",
