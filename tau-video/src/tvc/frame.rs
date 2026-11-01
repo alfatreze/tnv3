@@ -144,6 +144,17 @@ impl CodedPicture {
         })
     }
 
+    /// Copy the actual reconstructed coded edges for encoder prediction.
+    pub(crate) fn padded_frame(&self) -> Frame420 {
+        Frame420 {
+            width: (self.width + 15) & !15,
+            height: (self.height + 15) & !15,
+            y: self.y.clone(),
+            cb: self.cb.clone(),
+            cr: self.cr.clone(),
+        }
+    }
+
     /// Return a cropped picture suitable for presentation.
     pub fn display_frame(&self) -> Frame420 {
         let w = (usize::from(self.width) + 15) & !15;

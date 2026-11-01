@@ -402,6 +402,27 @@ fn block_motion_worthwhile(frame: &Frame420, reference: &Frame420) -> bool {
     }
     best * 100 < zero * 85
 }
+// Extend the source edge to macroblock boundaries without changing display size.
+fn pad_source(frame: &Frame420) -> Frame420 {
+    fn plane(src: &[u8], w: usize, h: usize, pw: usize, ph: usize) -> Vec<u8> {
+        let mut out = vec![0; pw * ph];
+        for y in 0..ph {
+            for x in 0..pw {
+                out[y * pw + x] = src[y.min(h - 1) * w + x.min(w - 1)];
+            }
+        }
+        out
+    }
+    let (w, h) = (usize::from(frame.width), usize::from(frame.height));
+    let (pw, ph) = (w.div_ceil(16) * 16, h.div_ceil(16) * 16);
+    Frame420 {
+        width: pw as u16,
+        height: ph as u16,
+        y: plane(&frame.y, w, h, pw, ph),
+        cb: plane(&frame.cb, w.div_ceil(2), h.div_ceil(2), pw / 2, ph / 2),
+        cr: plane(&frame.cr, w.div_ceil(2), h.div_ceil(2), pw / 2, ph / 2),
+    }
+}
 fn encode_residual_picture(
     frame: &Frame420,
     reference: &Frame420,
@@ -902,6 +923,8 @@ where
     let mut sum = 0usize;
     let (mut frames, mut reencoded, mut predicted) = (0u32, 0u32, 0u32);
     let mut reference: Option<Frame420> = None;
+    let unaligned = wz % 16 != 0 || hz % 16 != 0;
+    let mut coded_reference: Option<super::frame::CodedPicture> = None;
     while let Some(tag) = line(&mut input)? {
         if tag != b"FRAME\n" && !tag.starts_with(b"FRAME ") {
             return Err(StreamEncodeError::Invalid("Invalid Y4M frame marker."));
@@ -969,6 +992,40 @@ where
             })?;
             let mut chosen = p;
             let mut chosen_recon = None;
+            if frames % 96 != 0 && unaligned {
+                if let Some(anchor) = coded_reference.as_ref() {
+                    let padded = pad_source(&frame);
+                    let predictor = anchor.padded_frame();
+                    if let Ok(candidate) =
+                        encode_residual_picture(&padded, &predictor, q, (0, 0), false, false)
+                    {
+                        if candidate.len() < chosen.len()
+                            && candidate.len() <= picture_budget
+                            && sum + candidate.len() <= limits.5
+                        {
+                            let recon = super::frame::decode_picture(
+                                &candidate,
+                                w,
+                                h,
+                                [Some(anchor), None],
+                            )
+                            .map_err(|_| {
+                                StreamEncodeError::Invalid(
+                                    "Residual picture could not be reconstructed.",
+                                )
+                            })?
+                            .display_frame();
+                            let count = (frame.y.len() + frame.cb.len() + frame.cr.len()) as u64;
+                            if squared_error(&frame, &recon)
+                                <= squared_error(&frame, &intra_recon) + count
+                            {
+                                chosen_recon = Some(recon);
+                                chosen = candidate;
+                            }
+                        }
+                    }
+                }
+            }
             if frames % 96 != 0 && wz % 16 == 0 && hz % 16 == 0 {
                 if let Some(previous) = reference.as_ref() {
                     let anchor = super::frame::CodedPicture::from_aligned_frame(previous)
@@ -1021,6 +1078,15 @@ where
             }
             chosen
         };
+        if unaligned {
+            let coded =
+                super::frame::decode_picture(&picture, w, h, [coded_reference.as_ref(), None])
+                    .map_err(|_| {
+                        StreamEncodeError::Invalid("Encoded picture could not be reconstructed.")
+                    })?;
+            reference = Some(coded.display_frame());
+            coded_reference = Some(coded);
+        }
         if q != qp {
             reencoded += 1;
         }

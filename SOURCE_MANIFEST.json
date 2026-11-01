@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "f6dae09e8ddd5d8f042cd207f2278c7791e7057cdc34440350b79df9f2070524"
+      "sha256": "a7284893967aac9fe14349ab8c00f6684eeecedba9648deaa6ed4685b236b11a"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -959,7 +959,7 @@
       "sha256": "53cfe683384a592904caa3831ca2bc8b08d9ab5ff79c5b08a0e2c9bc19d86e69"
     },
     "tau-video/README.md": {
-      "sha256": "03d79f99bfb2915bccdebb0df9a36a50b7dc04c456756b6bdfd233fdb86ca346"
+      "sha256": "3a9a6c68b2409df8ed5643f28855e80bb33f9b847f69eed0fca8cbc6dfb75f46"
     },
     "tau-video/src/bin/tau-mp3.rs": {
       "sha256": "b5467b3a13bbe979ebf00f8373ab3077098b3c7072a4fc499833e5dc504047f7"
@@ -995,10 +995,10 @@
       "sha256": "72d47cbb961c3dd5e242ae7924053a6371e1ff2efafad46927ed9a7de8d87ca0"
     },
     "tau-video/src/tvc/encoder.rs": {
-      "sha256": "1523d26ec75f52eeb720fc7c83911b46a80394e7fca45378a272fcf15ffa30ff"
+      "sha256": "44e3329ee67d954154200fe4f0e2463b9015a7a98cdf79abc8cf904a0019f8cb"
     },
     "tau-video/src/tvc/frame.rs": {
-      "sha256": "68b238fef2746ad01eb28d9a6b1d681e9f07ab2a090ab5395446596590c39297"
+      "sha256": "f8ad7a9714abed1bf9fa37c1b9092a3e238e36e9b5ebff3bbe630cd30ccebae1"
     },
     "tau-video/src/tvc/inter-reference.bin": {
       "sha256": "6019c985d8d127ccd175d8a1858e12734ddf043f122f18bc95d9f65ba15c47b0"
@@ -1070,7 +1070,7 @@
       "sha256": "c682c888e9741a06fa0f090a59b59d8de56e121d9084a775b8c74ede2af6588b"
     },
     "tau-video/tests/encoder_reference.rs": {
-      "sha256": "3f71948103495251013074eb75b88ee2e9e02165a5750cce86d90ce646b6f3f8"
+      "sha256": "fe6bc14412a6680a333b3a5b932801be6e4fc304f035fc8c6c9c2942b0260bb4"
     },
     "tau-video/tests/intra_reference.rs": {
       "sha256": "254ec885c2e0bc6536bab3a80e0c93e6c2bccd2a71949d671812d9b4a7580595"
@@ -1441,7 +1441,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "215e2a4f7de48839ff947e48a06c4abcaa6d082a222732b733a4d499716569cb"
+      "sha256": "74ec14987e4b0ebb594be05c55a56c6c1fcb3d6a30d05849708527d70b5c0a82"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
@@ -1510,7 +1510,7 @@
       "sha256": "c7aa0cdece0f92f2ece22ee84744eabc74c318a33ca93b67d855a1f09e893bbf"
     },
     "docs/issues/003-rust-encoder-player-throughput.md": {
-      "sha256": "9d70317bc5aacf02d3230328517984a099181e94636915577745d7334b0bc0b3"
+      "sha256": "1cc7008efbd5cbbec9375d3cca55ece86fca423d0de61650af4d1461a2510d7b"
     },
     "tau-encoder/scripts/build-codec-tools.sh": {
       "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
@@ -1558,6 +1558,18 @@
     "docs/mp3_delay_probe_2026-11-01.json": {
       "status": "new_release_file",
       "sha256": "ca42364d51a849e77de16f5f134baec5b3f9d7fd0d514262241a41bac6be916b"
+    },
+    "tools/codec_study/rust_parity_probe.py": {
+      "status": "new_release_file",
+      "sha256": "64fc22366dc078262485670a782bd586b035c1505f77145eb5efb1b24b860031"
+    },
+    "docs/RUST_C_ENCODER_PARITY.md": {
+      "status": "new_release_file",
+      "sha256": "75659e5d924480a4164e9cdca10fdb6f8c345d4018fd33cdcff892114caa9843"
+    },
+    "docs/rust_parity_2026-11-01.json": {
+      "status": "new_release_file",
+      "sha256": "9422328469e850ba2d7a0d862a060e0542a5476227baee6ae61c5ec5a49812be"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

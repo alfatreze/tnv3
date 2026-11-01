@@ -2,10 +2,9 @@
 
 A portable Rust library for the TNV3/TVC/TAC/TST family. The current
 preliminary implementation reads and validates TNV3 headers and declared
-index layout, and reads individual index entries through `Read + Seek`. It also provides TVC coefficient entropy coding, range coding, picture-header parsing, inverse transforms
-intra prediction, motion-compensated inter prediction and picture deblocking. It does
-not validate chunks, subtitles or index consistency, and is not yet a TNV3
-checker, decoder or encoder. Do not use it to certify files.
+index layout, and reads individual index entries through `Read + Seek`. It also provides TVC entropy coding, picture decoding, a preliminary encoder,
+and video-only TNV3 muxing. It does not fully validate chunks, subtitles or
+index consistency and is not a complete TNV3 checker. Do not use it to certify files.
 
 ```sh
 cargo test
@@ -44,7 +43,7 @@ is a temporary sidecar path; TAC and subtitle support remain future work.
 The library can decode I/P/B TVC picture payloads and output cropped planar
 YUV420 in display order via `tvc::frame::PictureDecoder`. A bounded TVC elementary-stream decoder can also write Y4M via
 `tau-video decode-tvc input.tvc output.y4m`. Full TVC/TNV3 level
-validation, seeking, the encoder and a complete container checker remain unimplemented.
+validation, seeking, a production-quality encoder and a complete container checker remain unimplemented.
 The picture decoder has not yet passed exhaustive malformed-input or performance
 gates; do not use it as a validator.
 
@@ -72,8 +71,8 @@ The limited motion path searches even-pixel whole-frame translations within
 only if reconstructed YUV mean squared error is at most 4; otherwise it falls
 back to intra encoding. This does not replace general block motion search.
 
-For aligned pictures, the stream encoder also tries zero-motion residual P
-pictures. It selects one only when it is smaller than the intra candidate and
+The stream encoder also tries zero-motion residual P pictures, including
+unaligned display sizes using the reconstructed padded reference. It selects one only when it is smaller than the intra candidate and
 its reconstructed total YUV squared error is no more than the intra error plus
 one per sample. This is an initial heuristic, not a production quality gate.
 

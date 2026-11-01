@@ -953,3 +953,65 @@ fn stream_progress_reports_written_frames_without_changing_output() {
     assert_eq!(actual, expected);
     assert_eq!(output.into_inner(), baseline.into_inner());
 }
+
+#[test]
+fn unaligned_residual_frames_preserve_coded_reference_and_match_c() {
+    use std::io::Cursor;
+    use tau_video::tvc::{
+        encoder::{encode_intra_picture, encode_y4m},
+        frame::{Frame420, decode_intra_picture},
+        stream::decode_y4m,
+    };
+    for (w, h) in [(31usize, 19usize), (32, 18), (400, 226)] {
+        let first = Frame420 {
+            width: w as u16,
+            height: h as u16,
+            y: (0..w * h)
+                .map(|i| ((i * 7 + i / w * 13) % 200 + 24) as u8)
+                .collect(),
+            cb: vec![100; w.div_ceil(2) * h.div_ceil(2)],
+            cr: vec![150; w.div_ceil(2) * h.div_ceil(2)],
+        };
+        let reference = decode_intra_picture(
+            &encode_intra_picture(&first, 20).unwrap(),
+            w as u16,
+            h as u16,
+        )
+        .unwrap();
+        let mut input = format!("YUV4MPEG2 W{w} H{h} F24:1 Ip A1:1 C420jpeg\n").into_bytes();
+        for n in [0u8, 12, 24, 36] {
+            input.extend_from_slice(b"FRAME\n");
+            let f = if n == 0 { &first } else { &reference };
+            for plane in [&f.y, &f.cb, &f.cr] {
+                input.extend(plane.iter().map(|&v| v.saturating_add(n)));
+            }
+        }
+        let mut output = Cursor::new(Vec::new());
+        let summary = encode_y4m(Cursor::new(input), &mut output, 20).unwrap();
+        assert_eq!(
+            summary.predicted, 3,
+            "{w}x{h} should use predictive residuals"
+        );
+        let bytes = output.into_inner();
+        let mut rust = Vec::new();
+        decode_y4m(&bytes[..], &mut rust).unwrap();
+        if let Some(tool) = std::env::var_os("TAU_TVC_DECODER") {
+            let base =
+                std::env::temp_dir().join(format!("tau-unaligned-{}-{w}", std::process::id()));
+            let tvc = base.with_extension("tvc");
+            let y4m = base.with_extension("y4m");
+            fs::write(&tvc, bytes).unwrap();
+            assert!(
+                Command::new(tool)
+                    .arg(&tvc)
+                    .arg(&y4m)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+            assert_eq!(rust, fs::read(&y4m).unwrap());
+            let _ = fs::remove_file(tvc);
+            let _ = fs::remove_file(y4m);
+        }
+    }
+}

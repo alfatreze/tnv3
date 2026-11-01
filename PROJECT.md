@@ -255,3 +255,9 @@ FFprobe, Python, the C script and its two helper executables. **Host:** a
 macOS C encode succeeded with tools in separate locations; native Windows
 and Linux packaging and runtime checks remain open. See
 `docs/issues/004-desktop-preview-validation.md`.
+
+The Rust encoder now evaluates residual P pictures for unaligned display sizes
+using reconstructed padded references. **Host:** synthetic odd and 400x226
+chains match the C decoder; a short generated comparison reduced Rust output
+size but still showed a substantial C gap. Hardware playback and true encoder
+parity remain open; see `docs/RUST_C_ENCODER_PARITY.md` and issue 003.

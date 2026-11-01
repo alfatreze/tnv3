@@ -1,0 +1,54 @@
+{
+  "source": "generated testsrc2 400x226 24fps 1s, QP30",
+  "note": "same nominal QP, not equal quality; standalone TVC encoders, short host sample",
+  "encoders": {
+    "rust_before": {
+      "bytes": 193098,
+      "picture_types": {
+        "I": 24,
+        "P": 0,
+        "B": 0
+      },
+      "psnr_y_db": 41.053254,
+      "psnr_yuv_db": 40.057824,
+      "median_seconds": 0.0627,
+      "runs_seconds": [
+        0.0627,
+        0.0625,
+        0.0629
+      ]
+    },
+    "rust_after": {
+      "bytes": 148118,
+      "picture_types": {
+        "I": 1,
+        "P": 23,
+        "B": 0
+      },
+      "psnr_y_db": 40.980973,
+      "psnr_yuv_db": 39.85114,
+      "median_seconds": 0.1087,
+      "runs_seconds": [
+        0.11,
+        0.1087,
+        0.1079
+      ]
+    },
+    "c_reference": {
+      "bytes": 51194,
+      "picture_types": {
+        "I": 1,
+        "P": 8,
+        "B": 15
+      },
+      "psnr_y_db": 41.960918,
+      "psnr_yuv_db": 40.354036,
+      "median_seconds": 0.3318,
+      "runs_seconds": [
+        0.3276,
+        0.3406,
+        0.3318
+      ]
+    }
+  }
+}

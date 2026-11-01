@@ -77,3 +77,16 @@ frame sequences through the app's 24 fps Y4M pipeline; see issue 005. Thus
 the observed smoother C playback may reflect ingestion as well as TVC encoder
 choices or the player. The actual source was unavailable for this follow-up,
 so its frame sequence has not been compared and the cause is not established.
+
+## Rust unaligned prediction follow-up
+
+**Host, 2026-11-01:** the Rust encoder previously disabled residual P
+pictures for the 400x226 display size of the reported sample. It now
+evaluates zero-motion residual prediction using the actual coded padded
+reference; generated odd and 400x226 tests agree pixel-for-pixel with the
+independent C decoder. A short synthetic 400x226 sample became 23.3% smaller
+at nominal QP 30 while encoding more slowly, but C remains substantially
+smaller on that case. See `docs/RUST_C_ENCODER_PARITY.md`. This does not
+prove the prior playback cause, resolve the C freeze, or establish Pocket
+throughput. Next: compare the same actual source under identical ingest and
+collect hardware decoder/presentation counters.
