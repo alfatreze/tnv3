@@ -178,3 +178,7 @@ An opt-in conservative per-picture budget completed those cases but changed
 quality and often retried QPs; it is not a general fix. See
 `docs/issues/001-rust-rate-window-starvation.md` and the experiment record.
 Default behavior remains unchanged; look-ahead rate control remains open.
+
+A host-only 1.5× per-picture budget recovered quality in one case but still
+failed the same difficult film cases, so it was rejected. See the rate-window
+issue and `docs/RUST_ENCODER_EXPERIMENTS.md`; bounded allocation remains open.

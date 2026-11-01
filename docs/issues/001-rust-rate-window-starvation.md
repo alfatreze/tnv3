@@ -21,3 +21,9 @@ equal share of the rolling budget, but may lower quality or still fail at QP
 51. Next: implement bounded look-ahead or segment-aware allocation, measure
 quality and ensure windows remain valid across segment boundaries. No hardware
 validation is implied.
+
+2026-11-01 follow-up (**host**): raising the equal-share picture cap to 1.5×
+recovered quality for the 400-pixel QP 30 B case, but reproduced all three
+previous failure combinations in both P and B modes. The relaxed cap was
+rejected; see `docs/RUST_ENCODER_EXPERIMENTS.md` and
+`docs/rust_long_rate_study.json` for the measurements.

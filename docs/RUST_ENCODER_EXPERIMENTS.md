@@ -211,3 +211,18 @@ Decision: retain the conservative budget as opt-in, normal behavior unchanged.
 It is a workaround, not look-ahead rate control; test longer and more diverse
 inputs, rate/quality curves and audio headroom before any default decision.
 This affects the encoder hot path when enabled; no new Pocket/Quartus claim.
+
+## Relaxed rate budget — 2026-11-01
+
+A scratch-only experiment raised the conservative per-picture budget to 1.5
+times its equal-share value while retaining the rolling-window check. On the
+same two 48-frame film segments, **host** runs for P and B at QP 24 failed at
+both sizes, and at QP 30 failed at 800 pixels, in both repetitions. At 400/QP
+30 it recovered the original B result: 333,623 bytes and 37.3135 dB Y-PSNR,
+versus 305,611 bytes and 36.3222 dB for the conservative option. Same nominal
+QP does not establish equal-rate quality. The 1.5× budget is not a safe
+replacement: it does not reserve enough space in subsequent windows. Results
+and timings are in `rust_long_rate_study.json`; film inputs remain local.
+The experiment changed the encoder hot path in scratch only and was rejected,
+not shipped. The next gate remains bounded look-ahead or segment-aware rate
+allocation with tests across window boundaries; no hardware claim is made.
