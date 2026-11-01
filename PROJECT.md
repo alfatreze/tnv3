@@ -206,3 +206,9 @@ from actual encoded frames and recent speed; audio and saving are separate
 indeterminate stages. **Host:** an isolated macOS app run showed changing
 progress and ETA on a generated input. Duration estimates may differ from the
 actual video, and no Pocket or new cross-platform packaging claim is made.
+
+A Pocket test of a Rust-app encode reported choppy playback and pictures
+continuing while paused. The card file passes the host checker and has regular
+24 fps timestamps, but is mostly intra-coded; player pause scheduling and
+hardware throughput remain under investigation. See
+`docs/issues/003-rust-encoder-player-throughput.md`.
