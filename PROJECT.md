@@ -267,3 +267,8 @@ workflow; the normal desktop build uses it and parks the pure Rust encoder
 behind an experimental feature. **Host:** generated macOS encode, failure,
 warning and feature tests pass. Windows/Linux runtime, packaged UI and Pocket
 playback remain open. See `docs/RUST_C_ENCODER_PARITY.md`.
+
+The `tau-video` default build is dependency-free and no longer enables the
+process-based C adapter. Applications that use it must explicitly enable
+`c-encoder`; Tau Encoder already does. **Host:** core feature combinations
+and the desktop C path passed generated-media tests.

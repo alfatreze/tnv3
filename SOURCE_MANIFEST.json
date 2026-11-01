@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "80f1296bcaa4de1afa68a08964ff31e4d100f2e6fc97bf15b8451e1580712a84"
+      "sha256": "38c87c166b0c478b3c391f06a44922c1a7a70ec79d79f20434cafb9b149a5b0a"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -956,10 +956,10 @@
       "sha256": "886c51c99d384604c3c6fa62133e908087bfe12205b5750c5ab2c82b5bd7b28e"
     },
     "tau-video/Cargo.toml": {
-      "sha256": "1a27c2964f276949a6ecf574ec12f5e6c872bb7dc8327fd023364b25142066f7"
+      "sha256": "bad69e2dc6963c07704813004d9454f7fc928e8ba3c35bd487cb6310e899477f"
     },
     "tau-video/README.md": {
-      "sha256": "e3f73ec2159193f75ed59ff1f34a0f1c1ba792afe3e2476536a91c885e120f96"
+      "sha256": "5a0df6d0d4e98e73756c1456d70e4b90da9343592a592a64d416a2798b091b57"
     },
     "tau-video/src/bin/tau-mp3.rs": {
       "sha256": "b5467b3a13bbe979ebf00f8373ab3077098b3c7072a4fc499833e5dc504047f7"
@@ -1582,6 +1582,14 @@
     "tau-video/tests/c_encoder_adapter.rs": {
       "status": "new_release_file",
       "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
+    },
+    "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
+      "sha256": "6202a472fc5e3d3f605870513ea7490d40f16051253cfbca73e4045b1d2d8794",
+      "status": "new_release_file"
+    },
+    "tools/codec_study/cli_migration_smoke.py": {
+      "sha256": "e5cdc195575d086162fb147c00648a6ad67e70b00c747c410b28c4c0f8adf5f6",
+      "status": "new_release_file"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

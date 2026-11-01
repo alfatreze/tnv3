@@ -11,11 +11,11 @@ cargo test
 cargo run --bin tau-video --features cli -- info input.tnv3
 ```
 
-The default `c-encoder` feature provides a safe process-based adapter to the
-existing C/Python reference workflow and uses `serde_json`. Disable default
-features for dependency-free format parsing and decoding. Rust 1.85 is the
-minimum. The library forbids unsafe code. The C adapter requires external
-programs and temporary disk space; it is not a native C FFI binding.
+The default feature set has no dependencies and does not invoke subprocesses.
+Enable the opt-in `c-encoder` feature for the safe process-based adapter to the
+existing C/Python reference workflow; that adapter uses `serde_json`. Rust
+1.85 is the minimum. The library forbids unsafe code. The C adapter requires
+external programs and temporary disk space; it is not a native C FFI binding.
 
 For local, non-redistributable reference vectors, set `TAU_VIDEO_VECTOR_DIR`
 to the local `tools/tnv3_ref/vectors` folder under `local-media` before running
@@ -110,7 +110,9 @@ To combine it with the B prototype, build with Cargo features `cli,b-pictures,sa
 
 ## Reference encoder API
 
-`tau_video::c_encoder::encode_video` is available by default. Construct `Tools`
+The subprocess-based `tau_video::c_encoder::encode_video` adapter is opt-in;
+enable the `c-encoder` Cargo feature to use it. The core library has no default
+dependencies or subprocess behavior. Construct `Tools`
 with paths to Python 3, `encode_film.py`, FFmpeg and FFprobe, and optionally
 override `tvc_enc` and `tnv3` paths. Supply `Options`, a source path, an output
 writer, and a segment-progress callback. The synchronous call returns frame
