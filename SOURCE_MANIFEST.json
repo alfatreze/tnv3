@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "9f8d9f71686248182f29fe8529ff278baa302901cb908fe1f81dcd8d2c1a395e"
+      "sha256": "66d600bee80c0ff718ea4eafdc0d0c473df1aca75b64452bbefe1c197f88afc0"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1584,7 +1584,7 @@
       "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
     },
     "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
-      "sha256": "6202a472fc5e3d3f605870513ea7490d40f16051253cfbca73e4045b1d2d8794",
+      "sha256": "4416c34f785d58b9a76838b8df37d9beb556c0b3a3e4b8d6b1fd903ffebd680a",
       "status": "new_release_file"
     },
     "tools/codec_study/cli_migration_smoke.py": {
@@ -1597,7 +1597,31 @@
     },
     "docs/issues/008-staged-cli-final-output-copy.md": {
       "status": "new_release_file",
-      "sha256": "157350e80a6fcccb0a38f9e6c9ead0672edda0bfa33dd05ac3f0fc2cdcf2974b"
+      "sha256": "466dc12565a2b2ab3245c6ea4545df45435bd8efcd2adcde10856ef7ef8fb349"
+    },
+    "tau-video-cli/Cargo.toml": {
+      "status": "new_release_file",
+      "sha256": "0970c8ba17b815f7a3acd7232f097012caeef7c83116ceb64c179eec5cdc5a07"
+    },
+    "tau-video-cli/Cargo.lock": {
+      "status": "new_release_file",
+      "sha256": "dfa4b66cc86ec1574de13e3bda51c61da4d9bee6214db1d153dfd4e66669fdd7"
+    },
+    "tau-video-cli/README.md": {
+      "status": "new_release_file",
+      "sha256": "50309e64a6d8cd667c12ee20fbf7fb0af6e002e627f8f5e6e033449b7d28e308"
+    },
+    "tau-video-cli/src/main.rs": {
+      "status": "new_release_file",
+      "sha256": "83aa9d56d60ca97a7661b878a99556115657b6a73f21dd9fbb8984e9e7affb3d"
+    },
+    "tau-video-cli/smoke.py": {
+      "status": "new_release_file",
+      "sha256": "9cb582b8b2774be82865c566031a3d961057c25a23c1833b9efc9990de8d4d04"
+    },
+    ".github/workflows/experimental-tau-codecs-cli.yml": {
+      "status": "new_release_file",
+      "sha256": "43f7c39254162067c86feea4f277e90f045ca5619a63ea2523bacc6025c16031"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

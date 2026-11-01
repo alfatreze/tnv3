@@ -155,3 +155,8 @@ already does. Generated C helper smoke coverage is available in
 and configured/built reference tools. It covers one synthetic one-second
 segment, not app integration, segmentation, full validator coverage or Pocket
 hardware. The normal desktop C path was separately host-tested.
+
+**Prototype progress:** `tau-video-cli` contains an experimental video-only
+C-backed CLI, tested on generated media on macOS. It does not yet produce the
+Pocket pair; Windows publication is unsupported and Linux/card filesystems
+remain unverified. It is not a release gate completion. See issue 008.

@@ -22,3 +22,14 @@ no-overwrite behavior on FAT and exFAT. Then harden staging against shared
 directory replacement (for example, a private staging directory or a design
 that retains an exclusive file handle) while preserving no-hardlink
 compatibility, and rerun the platform tests before integration.
+
+## Follow-up: exclusive publication prototype
+
+**Host, 2026-11-01:** an experimental source-only `tau-codecs-cli` now uses
+a private staging directory and directory-relative exclusive rename on
+macOS/Linux, refuses group/world-writable output parents, and fails closed
+when the filesystem cannot support the operation. It retains the pinned
+parent-directory rename limitation described in its README. Generated macOS
+smoke and no-overwrite tests passed. Windows intentionally returns unsupported;
+Linux and FAT/exFAT runtime behavior are not yet verified. The prototype is
+video-only and is not a complete cross-platform or Pocket-pair release.

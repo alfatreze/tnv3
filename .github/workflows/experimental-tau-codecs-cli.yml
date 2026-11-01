@@ -1,0 +1,30 @@
+name: Experimental Tau codecs CLI
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tau-video-cli/**'
+      - 'tau-video/**'
+      - '.github/workflows/experimental-tau-codecs-cli.yml'
+  pull_request:
+    paths:
+      - 'tau-video-cli/**'
+      - 'tau-video/**'
+      - '.github/workflows/experimental-tau-codecs-cli.yml'
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path tau-video-cli/Cargo.toml --check
+      - name: Test and compile platform-specific CLI code
+        run: cargo test --locked --manifest-path tau-video-cli/Cargo.toml

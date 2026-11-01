@@ -277,3 +277,8 @@ The C adapter creates private Unix work directories. **Host:** permission
 and adapter tests passed; Windows ACL validation is open (issue 007). A
 video-only CLI prototype remains staged after review identified output
 publication races and crash limitations; see issue 008.
+
+An early `tau-codecs-cli` source prototype encodes video-only TNV3 through
+the C workflow. **Host:** generated macOS smoke and publication checks pass;
+Windows, MP3 pairs, FAT/exFAT and Pocket remain unverified or unsupported.
+See `tau-video-cli/README.md` and issue 008.
