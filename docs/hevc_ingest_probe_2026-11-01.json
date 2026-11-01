@@ -1,0 +1,267 @@
+{
+  "generator_version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "bundled_version": "ffmpeg version 6.1.1 Copyright (c) 2000-2023 the FFmpeg developers",
+  "cases": [
+    {
+      "name": "hevc8",
+      "source_rate": "24",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 72,
+        "adjacent_repeats": 24,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "hevc10",
+      "source_rate": "24",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 72,
+        "adjacent_repeats": 24,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "avc8",
+      "source_rate": "24",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 72,
+        "adjacent_repeats": 24,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "hevc10_24000_1001",
+      "source_rate": "24000/1001",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 72,
+        "adjacent_repeats": 2,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 71,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 71,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 71
+    },
+    {
+      "name": "hevc10_25",
+      "source_rate": "25",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 73,
+        "adjacent_repeats": 1,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "hevc10_30",
+      "source_rate": "30",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 73,
+        "adjacent_repeats": 1,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "hevc10_12",
+      "source_rate": "12",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 73,
+        "adjacent_repeats": 37,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 36,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 36,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "hevc10_15",
+      "source_rate": "15",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 72,
+        "adjacent_repeats": 27,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 27,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 27,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "hevc10_60",
+      "source_rate": "60",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 72,
+        "adjacent_repeats": 1,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 72
+    },
+    {
+      "name": "hevc10_30000_1001",
+      "source_rate": "30000/1001",
+      "video_offset_seconds": 0,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 72,
+        "adjacent_repeats": 1,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 71,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 71,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": true
+      },
+      "generator_frames": 71
+    },
+    {
+      "name": "hevc_offset",
+      "source_rate": "24",
+      "video_offset_seconds": 0.25,
+      "native_decode_equal": true,
+      "bundled_default": {
+        "frames": 78,
+        "adjacent_repeats": 30,
+        "same_as_generator_default": false
+      },
+      "bundled_round_down": {
+        "frames": 78,
+        "adjacent_repeats": 6,
+        "same_as_generator_default": true
+      },
+      "bundled_reset_pts": {
+        "frames": 72,
+        "adjacent_repeats": 0,
+        "same_as_generator_default": false
+      },
+      "generator_frames": 78
+    }
+  ],
+  "mutation": {
+    "silent": {
+      "bytes_changed": 64,
+      "clean_frames": 72,
+      "damaged_frames": 72,
+      "different_frames": 36,
+      "first_different_frame": 36
+    },
+    "reported_default": {
+      "exit_code": 0,
+      "stderr_nonempty": true,
+      "stderr_lines": 36
+    },
+    "reported_strict": {
+      "exit_code": 0,
+      "stderr_nonempty": true,
+      "stderr_lines": 19
+    }
+  }
+}

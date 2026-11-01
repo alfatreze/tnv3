@@ -67,3 +67,13 @@ counts, decoder status, card-cache state and audio clock at the freeze.
 Compare a local excerpt around that time in RTL replay and, if possible, use
 an instrumented Pocket build to distinguish a stuck decoder, stalled I/O,
 slot/presentation deadlock, and a clock mismatch. Keep existing card media.
+
+## Correction: C/Rust comparison did not isolate the encoder
+
+The Rust desktop output used bundled FFmpeg 6.1.1, while the manually made
+C comparison used the system FFmpeg 9.0.2 for source ingestion. Subsequent
+synthetic **host** tests found that these two versions produced different
+frame sequences through the app's 24 fps Y4M pipeline; see issue 005. Thus
+the observed smoother C playback may reflect ingestion as well as TVC encoder
+choices or the player. The actual source was unavailable for this follow-up,
+so its frame sequence has not been compared and the cause is not established.

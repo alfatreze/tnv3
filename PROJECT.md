@@ -224,3 +224,10 @@ TNV3/MP3 viewer. **Host:** both pair-generation paths and preview frame output
 passed automated tests; the packaged UI and audio playback still need an
 interactive Mac check because the machine was locked. Python 3 remains an
 external dependency for C mode; see `docs/issues/004-desktop-preview-validation.md`.
+
+Generated HEVC/H.264 ingest tests exposed a bundled-FFmpeg timestamp case
+that repeats output frames, plus source errors that can be hidden despite a
+successful encode. Earlier C/Rust Pocket comparison used different FFmpeg
+versions and does not isolate the TVC encoder. Candidate changes and the
+remaining A/V-sync and real-source gates are in
+`docs/issues/005-hevc-input-ingest.md`. No production fix is claimed.

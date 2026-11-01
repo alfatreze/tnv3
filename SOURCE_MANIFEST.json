@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "873c48703efcd2ca4e00ec5d0caad5064dfc2b2635fab886faadfa33886417b0"
+      "sha256": "d8141be6a9590be2319765d8c87f05eed369362f1e20fe8e6ca0f290e7f93e7b"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1510,7 +1510,7 @@
       "sha256": "c7aa0cdece0f92f2ece22ee84744eabc74c318a33ca93b67d855a1f09e893bbf"
     },
     "docs/issues/003-rust-encoder-player-throughput.md": {
-      "sha256": "435804e9ae696541398cb28267eb16a7b15183c5975b123523b376ea17c1daa5"
+      "sha256": "9d70317bc5aacf02d3230328517984a099181e94636915577745d7334b0bc0b3"
     },
     "tau-encoder/scripts/build-codec-tools.sh": {
       "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
@@ -1523,6 +1523,15 @@
     },
     "docs/issues/004-desktop-preview-validation.md": {
       "sha256": "1a41300dc6a34dface8a095c1b16522ddccee684e91403c2999de24b7b62eac5"
+    },
+    "docs/issues/005-hevc-input-ingest.md": {
+      "sha256": "7be51bb6caa380d78b5f2496e83d9f2e5d665e0901b76a8d03fbc0f8a2983cbe"
+    },
+    "docs/hevc_ingest_probe_2026-11-01.json": {
+      "sha256": "d7814e059f3bc1d7b8b4c9cd167fcb334a84a844a1767e6f51861c0e113057f8"
+    },
+    "tools/codec_study/ingest_probe.py": {
+      "sha256": "11fe2f2f7fb049a138257826ad20e0fa235bfc4da29afcbbd408fc1c86556ffc"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",
