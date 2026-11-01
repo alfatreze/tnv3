@@ -95,3 +95,8 @@ otherwise it falls back to I/P anchor pictures. This mode buffers at most three
 frames and is separate from the normal P-picture encoder. Short real-clip tests
 showed it can produce substantially larger files than the default; see
 [the experiment record](../docs/RUST_ENCODER_EXPERIMENTS.md).
+
+The B-stream experiment compares each two-frame B group against an I/P
+alternative using total size and reconstructed YUV error. This guard is
+experimental and adds substantial encoding work; it does not guarantee
+whole-film rate or perceptual quality improvement.

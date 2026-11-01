@@ -155,3 +155,9 @@ The opt-in Rust B stream can now share P anchors, with a maximum 96-frame
 intra refresh. Four short host clips at three QPs showed mixed size/quality
 results versus the normal P path; C/Rust pixels and C container checks passed.
 It remains experimental. See `docs/RUST_ENCODER_EXPERIMENTS.md`.
+
+An opt-in B-group guard now compares each proposed group with its I/P
+alternative. On 12 short host cases it removed the earlier anime size/PSNR
+regression but added considerable encoding time; the default remains unchanged.
+C container checks and Rust/C decoded-pixel comparisons passed. See
+`docs/RUST_ENCODER_EXPERIMENTS.md`; longer quality and speed gates remain open.

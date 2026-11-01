@@ -1,0 +1,463 @@
+{
+  "date": "2026-11-01",
+  "classification": "host",
+  "method": "Four 400-pixel local reference clips, 6\u201310 frames, QP 24/30/36; two short non-interleaved runs; C decoder; Y-plane PSNR.",
+  "measurements": [
+    {
+      "case": "dialog",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "seconds": 0.3309,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "bytes": 71880,
+          "psnr_y": 41.3966,
+          "seconds": 0.0382,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 70334,
+          "psnr_y": 41.6677,
+          "seconds": 0.0698,
+          "stats": "frames=10 b=4 retries=0"
+        },
+        {
+          "bytes": 70334,
+          "psnr_y": 41.6677,
+          "seconds": 0.0687,
+          "stats": "frames=10 b=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "seconds": 0.0322,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "bytes": 42394,
+          "psnr_y": 36.5569,
+          "seconds": 0.0318,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 40519,
+          "psnr_y": 36.8576,
+          "seconds": 0.0577,
+          "stats": "frames=10 b=4 retries=0"
+        },
+        {
+          "bytes": 40519,
+          "psnr_y": 36.8576,
+          "seconds": 0.0575,
+          "stats": "frames=10 b=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "seconds": 0.027,
+          "stats": "frames=10 predicted=9 retries=0"
+        },
+        {
+          "bytes": 22935,
+          "psnr_y": 32.2614,
+          "seconds": 0.0266,
+          "stats": "frames=10 predicted=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "dialog",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 21519,
+          "psnr_y": 32.5391,
+          "seconds": 0.0472,
+          "stats": "frames=10 b=4 retries=0"
+        },
+        {
+          "bytes": 21519,
+          "psnr_y": 32.5391,
+          "seconds": 0.0467,
+          "stats": "frames=10 b=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 48222,
+          "psnr_y": 44.7924,
+          "seconds": 0.03,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "bytes": 48222,
+          "psnr_y": 44.7924,
+          "seconds": 0.0307,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 47892,
+          "psnr_y": 44.8133,
+          "seconds": 0.053,
+          "stats": "frames=8 b=1 retries=0"
+        },
+        {
+          "bytes": 47892,
+          "psnr_y": 44.8133,
+          "seconds": 0.0526,
+          "stats": "frames=8 b=1 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 27439,
+          "psnr_y": 40.9028,
+          "seconds": 0.0261,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "bytes": 27439,
+          "psnr_y": 40.9028,
+          "seconds": 0.0263,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 27013,
+          "psnr_y": 40.9294,
+          "seconds": 0.0452,
+          "stats": "frames=8 b=1 retries=0"
+        },
+        {
+          "bytes": 27013,
+          "psnr_y": 40.9294,
+          "seconds": 0.046,
+          "stats": "frames=8 b=1 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "seconds": 0.0242,
+          "stats": "frames=8 predicted=6 retries=0"
+        },
+        {
+          "bytes": 15107,
+          "psnr_y": 37.2024,
+          "seconds": 0.0238,
+          "stats": "frames=8 predicted=6 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "anime",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 14850,
+          "psnr_y": 37.2366,
+          "seconds": 0.0412,
+          "stats": "frames=8 b=1 retries=0"
+        },
+        {
+          "bytes": 14850,
+          "psnr_y": 37.2366,
+          "seconds": 0.0407,
+          "stats": "frames=8 b=1 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "seconds": 0.0309,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "seconds": 0.0315,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "seconds": 0.0508,
+          "stats": "frames=6 b=0 retries=0"
+        },
+        {
+          "bytes": 46761,
+          "psnr_y": 43.5683,
+          "seconds": 0.0508,
+          "stats": "frames=6 b=0 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "seconds": 0.0272,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "seconds": 0.0269,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "seconds": 0.0537,
+          "stats": "frames=6 b=0 retries=0"
+        },
+        {
+          "bytes": 27933,
+          "psnr_y": 39.2573,
+          "seconds": 0.0509,
+          "stats": "frames=6 b=0 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "seconds": 0.0248,
+          "stats": "frames=6 predicted=5 retries=0"
+        },
+        {
+          "bytes": 15965,
+          "psnr_y": 35.1894,
+          "seconds": 0.0254,
+          "stats": "frames=6 predicted=5 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "bw",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 15891,
+          "psnr_y": 35.2474,
+          "seconds": 0.0431,
+          "stats": "frames=6 b=1 retries=0"
+        },
+        {
+          "bytes": 15891,
+          "psnr_y": 35.2474,
+          "seconds": 0.0404,
+          "stats": "frames=6 b=1 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 79322,
+          "psnr_y": 41.0644,
+          "seconds": 0.0245,
+          "stats": "frames=6 predicted=2 retries=0"
+        },
+        {
+          "bytes": 79322,
+          "psnr_y": 41.0644,
+          "seconds": 0.0235,
+          "stats": "frames=6 predicted=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 76335,
+          "psnr_y": 41.1904,
+          "seconds": 0.0382,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 76335,
+          "psnr_y": 41.1904,
+          "seconds": 0.0378,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 46292,
+          "psnr_y": 36.585,
+          "seconds": 0.0205,
+          "stats": "frames=6 predicted=4 retries=0"
+        },
+        {
+          "bytes": 46292,
+          "psnr_y": 36.585,
+          "seconds": 0.0205,
+          "stats": "frames=6 predicted=4 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 44343,
+          "psnr_y": 36.7183,
+          "seconds": 0.0336,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 44343,
+          "psnr_y": 36.7183,
+          "seconds": 0.0316,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 24869,
+          "psnr_y": 32.7456,
+          "seconds": 0.0174,
+          "stats": "frames=6 predicted=3 retries=0"
+        },
+        {
+          "bytes": 24869,
+          "psnr_y": 32.7456,
+          "seconds": 0.0172,
+          "stats": "frames=6 predicted=3 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "action",
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 23366,
+          "psnr_y": 32.7666,
+          "seconds": 0.0271,
+          "stats": "frames=6 b=2 retries=0"
+        },
+        {
+          "bytes": 23366,
+          "psnr_y": 32.7666,
+          "seconds": 0.0278,
+          "stats": "frames=6 b=2 retries=0"
+        }
+      ]
+    }
+  ]
+}

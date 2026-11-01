@@ -1037,6 +1037,7 @@ pub struct BStreamSummary {
     pub reencoded: u32,
 }
 #[cfg(feature = "b-pictures")]
+#[derive(Clone)]
 struct BRateWindow {
     window: usize,
     sizes: std::collections::VecDeque<usize>,
@@ -1338,20 +1339,68 @@ pub fn encode_y4m_b<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         if frames > crate::MAX_FRAMES - 2 {
             return Err(StreamEncodeError::Invalid("Too many frames."));
         }
+        // Build the display-order I/P alternative against a cloned rate window.
+        let middle_anchor = choose_b_anchor(
+            &middle,
+            Some(&previous),
+            qp,
+            &window,
+            frames - last_key >= 96,
+        )?;
+        let mut trial = window.clone();
+        trial.write(&mut std::io::sink(), &middle_anchor.picture)?;
+        let baseline_key = if middle_anchor.picture[0] == 0 {
+            frames
+        } else {
+            last_key
+        };
+        let next_anchor = choose_b_anchor(
+            &future,
+            Some(&middle_anchor.reconstructed),
+            qp,
+            &trial,
+            frames + 1 - baseline_key >= 96,
+        )?;
+        let baseline_size = middle_anchor.picture.len() + next_anchor.picture.len();
+        let baseline_error = squared_error(&middle, &middle_anchor.reconstructed)
+            + squared_error(&future, &next_anchor.reconstructed);
         let mut group = None;
-        if let (Ok(anchor), Ok(middle_intra)) = (
-            choose_b_anchor(
+        if usize::from(w) % 16 == 0 && usize::from(h) % 16 == 0 {
+            if let Ok(anchor) = choose_b_anchor(
                 &future,
                 Some(&previous),
                 qp,
                 &window,
                 frames + 1 - last_key >= 96,
-            ),
-            encode_intra_picture(&middle, qp),
-        ) {
-            if let Ok(Some(b)) = try_b_between(&previous, &middle, &anchor.reconstructed, qp) {
-                if b.len() < middle_intra.len() && window.accepts(&[&anchor.picture, &b]) {
-                    group = Some((anchor, b));
+            ) {
+                if let Ok(Some(b)) = try_b_between(&previous, &middle, &anchor.reconstructed, qp) {
+                    if anchor.picture.len() + b.len() < baseline_size
+                        && window.accepts(&[&anchor.picture, &b])
+                    {
+                        let left = super::frame::CodedPicture::from_aligned_frame(&previous)
+                            .map_err(|_| {
+                                StreamEncodeError::Invalid("Invalid previous B reference.")
+                            })?;
+                        let right =
+                            super::frame::CodedPicture::from_aligned_frame(&anchor.reconstructed)
+                                .map_err(|_| {
+                                StreamEncodeError::Invalid("Invalid future B reference.")
+                            })?;
+                        let middle_recon =
+                            super::frame::decode_picture(&b, w, h, [Some(&left), Some(&right)])
+                                .map_err(|_| {
+                                    StreamEncodeError::Invalid(
+                                        "B picture could not be reconstructed.",
+                                    )
+                                })?
+                                .display_frame();
+                        let count = (middle.y.len() + middle.cb.len() + middle.cr.len()) as u64;
+                        let group_error = squared_error(&middle, &middle_recon)
+                            + squared_error(&future, &anchor.reconstructed);
+                        if group_error <= baseline_error + count * 2 {
+                            group = Some((anchor, b));
+                        }
+                    }
                 }
             }
         }
@@ -1365,31 +1414,17 @@ pub fn encode_y4m_b<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
             previous = anchor.reconstructed;
             b_pictures += 1;
         } else {
-            let middle_anchor = choose_b_anchor(
-                &middle,
-                Some(&previous),
-                qp,
-                &window,
-                frames - last_key >= 96,
-            )?;
             window.write(&mut output, &middle_anchor.picture)?;
             if middle_anchor.picture[0] == 0 {
                 last_key = frames;
             }
             reencoded += u32::from(middle_anchor.retried);
-            let future_anchor = choose_b_anchor(
-                &future,
-                Some(&middle_anchor.reconstructed),
-                qp,
-                &window,
-                frames + 1 - last_key >= 96,
-            )?;
-            window.write(&mut output, &future_anchor.picture)?;
-            if future_anchor.picture[0] == 0 {
+            window.write(&mut output, &next_anchor.picture)?;
+            if next_anchor.picture[0] == 0 {
                 last_key = frames + 1;
             }
-            reencoded += u32::from(future_anchor.retried);
-            previous = future_anchor.reconstructed;
+            reencoded += u32::from(next_anchor.retried);
+            previous = next_anchor.reconstructed;
         }
         frames += 2;
     }

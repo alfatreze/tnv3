@@ -111,3 +111,7 @@ encoder; the short-clip comparisons remain mixed.
 The opt-in B stream now shares I/P anchors and refreshes intra pictures at
 most 96 display frames apart. It remains experimental after mixed short-clip
 results; broader quality, throughput and robustness gates are open.
+
+The opt-in B stream compares each B group against its I/P alternative for size
+and decoded error. Short host samples improved the anime trade-off but increased
+encoding work; it remains experimental pending broader tests and optimization.

@@ -129,3 +129,27 @@ Decision: retain opt-in only; anime regression and limited corpus prevent a
 default change. Next gate: longer diverse rate/quality curves, reliable paired
 timing, malformed-input tests and broader B-picture search. No new Pocket or
 Quartus claim.
+
+## B groups compared with I/P alternatives — 2026-11-01
+
+The opt-in B encoder now builds the two-frame I/P alternative and accepts a B
+group only when it is smaller and its combined decoded YUV squared error is no
+more than the alternative plus one per sample per frame. The normal P stream
+is unchanged. This adds encoder hot-path work and is a local two-frame guard,
+not a whole-film guarantee. Non-aligned dimensions currently fall back to I/P.
+
+**Host:** the same four 400-pixel reference clips, QP 24/30/36, 6–10 frames
+each, two short non-interleaved runs. Versus normal P at the same QP, dialog
+was 2.15–6.17% smaller, anime 0.68–1.70% smaller, black-and-white ranged
+from unchanged to 0.46% smaller, and action 3.77–6.04% smaller. Y-PSNR
+changes ranged from 0.000 to +0.301 dB. This removes the previous short-sample
+anime regression, but is not equal-quality BD-rate. The second-run B/P wall
+time ratios had median 1.71×; the clips are too short for a robust speed
+claim, though the extra candidate work is material. All 12 B outputs passed
+the C TNV3 checker and matched the C decoder pixel-for-pixel in Rust. Synthetic
+tests cover I/P/B order, fallback, truncation and key refresh. Raw data is in
+`rust_b_guard_study.json`.
+
+Decision: keep opt-in only. Next gate: reduce duplicated candidate work and
+measure longer interleaved rate/quality and throughput tests; check whether
+local choices improve whole-film behavior. No new Pocket or Quartus claim.
