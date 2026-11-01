@@ -17,13 +17,14 @@ ac_cv_prog_cc_c23=no CFLAGS='-O2 -Wno-implicit-function-declaration' ./configure
 make -j"$(sysctl -n hw.ncpu)"
 make install
 cd "$work/FFmpeg-n6.1.1"
-PKG_CONFIG_PATH="$work/install/lib/pkgconfig" ./configure --disable-autodetect --disable-shared --enable-static --enable-libmp3lame --disable-doc --disable-ffplay --disable-ffprobe "--extra-cflags=-I$work/install/include" "--extra-ldflags=-L$work/install/lib"
-make -j"$(sysctl -n hw.ncpu)" ffmpeg
+PKG_CONFIG_PATH="$work/install/lib/pkgconfig" ./configure --disable-autodetect --disable-shared --enable-static --enable-libmp3lame --disable-doc --disable-ffplay "--extra-cflags=-I$work/install/include" "--extra-ldflags=-L$work/install/lib"
+make -j"$(sysctl -n hw.ncpu)" ffmpeg ffprobe
 out="$appdir/src-tauri/resources/ffmpeg"
 mkdir -p "$out"
-cp ffmpeg "$out/ffmpeg"
+cp ffmpeg ffprobe "$out/"
 cp "$work/install/lib/libmp3lame.0.dylib" "$out/"
 install_name_tool -change "$work/install/lib/libmp3lame.0.dylib" '@loader_path/libmp3lame.0.dylib' "$out/ffmpeg"
+install_name_tool -change "$work/install/lib/libmp3lame.0.dylib" '@loader_path/libmp3lame.0.dylib' "$out/ffprobe"
 install_name_tool -id '@rpath/libmp3lame.0.dylib' "$out/libmp3lame.0.dylib"
 cp "$work/ffmpeg-n6.1.1.tar.gz" "$work/lame-4.0.tar.gz" "$out/"
 cp COPYING.LGPLv2.1 "$out/FFmpeg-COPYING.LGPLv2.1"

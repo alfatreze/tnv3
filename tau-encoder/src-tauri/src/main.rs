@@ -1,8 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod player;
 use serde::Serialize;
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufReader, Read, Seek, SeekFrom},
+    io::{self, BufRead, BufReader, Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
@@ -147,6 +148,7 @@ fn encode_pair(
     folder: &Path,
     name: &str,
     qp: u8,
+    c_tools: Option<(&Path, &Path)>,
     mut progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
     if qp > 51 || !safe_name(name) {
@@ -170,72 +172,173 @@ fn encode_pair(
         total_frames_estimate: total,
         remaining_seconds: None,
     });
-    let (_video_tmp, mut tvc) = temporary_file("tvc")?;
-    let mut decoder = Command::new(ffmpeg)
-        .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
-        .arg(input)
-        .args([
-            "-map",
-            "0:v:0",
-            "-an",
-            "-sn",
-            "-vf",
-            "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24",
-            "-pix_fmt",
-            "yuv420p",
-            "-f",
-            "yuv4mpegpipe",
-            "pipe:1",
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
-    let stdout = decoder
-        .stdout
-        .take()
-        .ok_or("Could not read FFmpeg video output.")?;
-    let start = Instant::now();
-    let mut last_update = start;
-    let mut samples = std::collections::VecDeque::from([(start, 0u32)]);
-    let encoded = tau_video::tvc::encoder::encode_y4m_with_progress(
-        BufReader::new(stdout),
-        &mut tvc,
-        qp,
-        |frames| {
-            let now = Instant::now();
-            if frames != 1 && now.duration_since(last_update) < Duration::from_millis(500) {
-                return;
+    let (_video_tmp, mut tvc) = temporary_file(if c_tools.is_some() { "tnv3" } else { "tvc" })?;
+    let stats = if let Some((script, ffprobe)) = c_tools {
+        progress(Progress {
+            phase: "c-video",
+            frames: 0,
+            total_frames_estimate: None,
+            remaining_seconds: None,
+        });
+        let (work_guard, work_file) = temporary_file("work")?;
+        drop(work_file);
+        std::fs::remove_file(&work_guard.0).map_err(|e| e.to_string())?;
+        std::fs::create_dir(&work_guard.0).map_err(|e| e.to_string())?;
+        struct WorkDir(PathBuf);
+        impl Drop for WorkDir {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
             }
-            samples.push_back((now, frames));
-            while samples.len() > 2 && now.duration_since(samples[1].0) > Duration::from_secs(10) {
-                samples.pop_front();
+        }
+        let work = WorkDir(work_guard.0.clone());
+        let report_path = _video_tmp.0.with_extension("json");
+        let _report = Temporary(report_path.clone());
+        let (_log_guard, log_file) = temporary_file("log")?;
+        let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().min(6));
+        let python = std::env::var_os("TAU_PYTHON").unwrap_or_else(|| {
+            if cfg!(windows) {
+                "python".into()
+            } else {
+                "python3".into()
             }
-            let (first, first_frames) = samples.front().copied().unwrap_or((start, 0));
-            let seconds = now.duration_since(first).as_secs_f64();
-            let rate = f64::from(frames - first_frames) / seconds.max(0.001);
-            let remaining_seconds = total
-                .filter(|&n| frames < n && seconds >= 2.0 && rate > 0.0)
-                .map(|n| (f64::from(n - frames) / rate).ceil() as u64);
-            progress(Progress {
-                phase: "video",
-                frames,
-                total_frames_estimate: total,
-                remaining_seconds,
-            });
-            last_update = now;
-        },
-    );
-    if encoded.is_err() {
-        let _ = decoder.kill();
-    }
-    let status = decoder
-        .wait()
-        .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
-    let stats = encoded.map_err(|e| format!("Video encoding failed: {e}"))?;
-    if !status.success() {
-        return Err(process_failed(status, "Video conversion"));
-    }
+        });
+        let mut child = Command::new(python)
+            .arg(script)
+            .arg(input)
+            .arg(&_video_tmp.0)
+            .args(["--video-only", "--match-app", "--qp"])
+            .arg(qp.to_string())
+            .args(["--jobs"])
+            .arg(jobs.to_string())
+            .args(["--cpu-budget"])
+            .arg(jobs.to_string())
+            .args(["--work"])
+            .arg(&work.0)
+            .env("TAU_FFMPEG", ffmpeg)
+            .env("TAU_FFPROBE", ffprobe)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::from(log_file))
+            .spawn()
+            .map_err(|e| format!("Could not start the C encoder (Python 3 is required): {e}"))?;
+        if let Some(stdout) = child.stdout.take() {
+            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                if let Some(part) = line.split("encoded ").nth(1) {
+                    let mut nums = part.split_whitespace();
+                    if let (Some(done), Some("/"), Some(all)) =
+                        (nums.next(), nums.next(), nums.next())
+                    {
+                        progress(Progress {
+                            phase: "c-video",
+                            frames: done.parse().unwrap_or(0),
+                            total_frames_estimate: all.parse().ok(),
+                            remaining_seconds: None,
+                        });
+                    }
+                }
+            }
+        }
+        let status = child
+            .wait()
+            .map_err(|e| format!("Could not wait for C encoder: {e}"))?;
+        if !status.success() {
+            let details = std::fs::read_to_string(&_log_guard.0).unwrap_or_default();
+            return Err(format!(
+                "C encoder failed ({status}): {}",
+                details
+                    .chars()
+                    .rev()
+                    .take(500)
+                    .collect::<String>()
+                    .chars()
+                    .rev()
+                    .collect::<String>()
+            ));
+        }
+        let report: serde_json::Value =
+            serde_json::from_reader(File::open(report_path).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+        let num = |key: &str| -> Result<u32, String> {
+            report[key]
+                .as_u64()
+                .and_then(|n| u32::try_from(n).ok())
+                .ok_or_else(|| format!("Invalid C encoder report: {key}"))
+        };
+        tau_video::tvc::encoder::EncodeSummary {
+            frames: num("frames")?,
+            level: u8::try_from(num("level")?).map_err(|_| "Invalid level")?,
+            reencoded: num("pictures_raised_for_level")?,
+            predicted: 0,
+        }
+    } else {
+        let mut decoder = Command::new(ffmpeg)
+            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
+            .arg(input)
+            .args([
+                "-map",
+                "0:v:0",
+                "-an",
+                "-sn",
+                "-vf",
+                "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24",
+                "-pix_fmt",
+                "yuv420p",
+                "-f",
+                "yuv4mpegpipe",
+                "pipe:1",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
+        let stdout = decoder
+            .stdout
+            .take()
+            .ok_or("Could not read FFmpeg video output.")?;
+        let start = Instant::now();
+        let mut last_update = start;
+        let mut samples = std::collections::VecDeque::from([(start, 0u32)]);
+        let encoded = tau_video::tvc::encoder::encode_y4m_with_progress(
+            BufReader::new(stdout),
+            &mut tvc,
+            qp,
+            |frames| {
+                let now = Instant::now();
+                if frames != 1 && now.duration_since(last_update) < Duration::from_millis(500) {
+                    return;
+                }
+                samples.push_back((now, frames));
+                while samples.len() > 2
+                    && now.duration_since(samples[1].0) > Duration::from_secs(10)
+                {
+                    samples.pop_front();
+                }
+                let (first, first_frames) = samples.front().copied().unwrap_or((start, 0));
+                let seconds = now.duration_since(first).as_secs_f64();
+                let rate = f64::from(frames - first_frames) / seconds.max(0.001);
+                let remaining_seconds = total
+                    .filter(|&n| frames < n && seconds >= 2.0 && rate > 0.0)
+                    .map(|n| (f64::from(n - frames) / rate).ceil() as u64);
+                progress(Progress {
+                    phase: "video",
+                    frames,
+                    total_frames_estimate: total,
+                    remaining_seconds,
+                });
+                last_update = now;
+            },
+        );
+        if encoded.is_err() {
+            let _ = decoder.kill();
+        }
+        let status = decoder
+            .wait()
+            .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
+        let stats = encoded.map_err(|e| format!("Video encoding failed: {e}"))?;
+        if !status.success() {
+            return Err(process_failed(status, "Video conversion"));
+        }
+        stats
+    };
     progress(Progress {
         phase: "audio",
         frames: stats.frames,
@@ -297,8 +400,12 @@ fn encode_pair(
             .open(&audio_path)
             .map_err(|e| format!("Could not create audio output: {e}"))?;
         let result = (|| {
-            tau_video::container::mux_tvc(&mut tvc, &mut video)
-                .map_err(|e| format!("Could not create TNV3: {e}"))?;
+            if c_tools.is_some() {
+                io::copy(&mut tvc, &mut video).map_err(|e| format!("Could not copy TNV3: {e}"))?;
+            } else {
+                tau_video::container::mux_tvc(&mut tvc, &mut video)
+                    .map_err(|e| format!("Could not create TNV3: {e}"))?;
+            }
             io::copy(
                 &mut File::open(&audio_tmp.0).map_err(|e| e.to_string())?,
                 &mut audio,
@@ -332,6 +439,15 @@ fn encode_pair(
         audio: audio_path.display().to_string(),
     })
 }
+fn codec_script(app: &tauri::AppHandle) -> PathBuf {
+    if let Ok(dir) = app.path().resource_dir() {
+        let p = dir.join("codec-tools/tnv3_ref/encode_film.py");
+        if p.is_file() {
+            return p;
+        }
+    }
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/tnv3_ref/encode_film.py")
+}
 fn ffmpeg_path(app: &tauri::AppHandle) -> PathBuf {
     let exe = if cfg!(windows) {
         "ffmpeg.exe"
@@ -362,6 +478,7 @@ async fn encode(
     folder: String,
     name: String,
     qp: u8,
+    mode: String,
     busy: tauri::State<'_, Mutex<bool>>,
 ) -> Result<ResultInfo, String> {
     {
@@ -371,7 +488,21 @@ async fn encode(
         }
         *running = true;
     }
+    if mode != "rust" && mode != "c" {
+        *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
+        return Err("Unknown encoder.".into());
+    }
     let ffmpeg = ffmpeg_path(&app);
+    let ffprobe = ffmpeg.with_file_name(if cfg!(windows) {
+        "ffprobe.exe"
+    } else {
+        "ffprobe"
+    });
+    let script = if mode == "c" {
+        Some(codec_script(&app))
+    } else {
+        None
+    };
     let result = tauri::async_runtime::spawn_blocking(move || {
         let reporter = app.clone();
         encode_pair(
@@ -380,6 +511,7 @@ async fn encode(
             Path::new(&folder),
             &name,
             qp,
+            script.as_deref().map(|s| (s, ffprobe.as_path())),
             move |event| {
                 let _ = reporter.emit("encode-progress", event);
             },
@@ -389,11 +521,56 @@ async fn encode(
     *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
     result.map_err(|e| format!("Encoder task stopped: {e}"))?
 }
+#[tauri::command]
+fn player_open(
+    app: tauri::AppHandle,
+    path: String,
+    state: tauri::State<'_, Mutex<Option<player::Player>>>,
+) -> Result<player::PlayerInfo, String> {
+    let (player, info) = player::Player::open(Path::new(&path))?;
+    if let Some(ref audio) = info.audio {
+        app.asset_protocol_scope()
+            .allow_file(audio)
+            .map_err(|e| e.to_string())?;
+    }
+    *state.lock().map_err(|_| "Player state unavailable.")? = Some(player);
+    Ok(info)
+}
+#[tauri::command]
+async fn player_next(app: tauri::AppHandle) -> Result<tauri::ipc::Response, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Mutex<Option<player::Player>>>();
+        let mut locked = state.lock().map_err(|_| "Player state unavailable.")?;
+        let Some(p) = locked.as_mut() else {
+            return Err("Open a video first.".to_owned());
+        };
+        let Some(frame) = p.next_frame()? else {
+            return Ok(tauri::ipc::Response::new(Vec::<u8>::new()));
+        };
+        let mut data = frame.y;
+        data.extend_from_slice(&frame.cb);
+        data.extend_from_slice(&frame.cr);
+        Ok(tauri::ipc::Response::new(data))
+    })
+    .await
+    .map_err(|e| format!("Preview stopped: {e}"))?
+}
+#[tauri::command]
+fn player_close(state: tauri::State<'_, Mutex<Option<player::Player>>>) -> Result<(), String> {
+    *state.lock().map_err(|_| "Player state unavailable.")? = None;
+    Ok(())
+}
 fn main() {
     tauri::Builder::default()
         .manage(Mutex::new(false))
+        .manage(Mutex::new(None::<player::Player>))
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![encode])
+        .invoke_handler(tauri::generate_handler![
+            encode,
+            player_open,
+            player_next,
+            player_close
+        ])
         .run(tauri::generate_context!())
         .expect("Failed to start Tau Encoder");
 }
@@ -454,7 +631,7 @@ mod tests {
         let name = reserve.0.file_stem().unwrap().to_str().unwrap();
         let folder = reserve.0.parent().unwrap();
         let mut phases = Vec::new();
-        let result = encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, |p| {
+        let result = encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, None, |p| {
             phases.push(p)
         })
         .unwrap();
@@ -511,7 +688,41 @@ mod tests {
         }
         let audio_bytes = std::fs::read(&audio_guard.0).unwrap();
         assert!(audio_bytes.len() > 1000);
-        assert!(encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, |_| {}).is_err());
+        assert!(encode_pair(Path::new(&ffmpeg), &src, folder, name, 30, None, |_| {}).is_err());
         assert_eq!(std::fs::read(&audio_guard.0).unwrap(), audio_bytes);
+        if let Some(script) = std::env::var_os("TAU_TEST_C_SCRIPT") {
+            let c_name = format!("{name}_C");
+            let probe = std::env::var_os("TAU_TEST_FFPROBE").unwrap_or_else(|| "ffprobe".into());
+            let c = encode_pair(
+                Path::new(&ffmpeg),
+                &src,
+                folder,
+                &c_name,
+                30,
+                Some((Path::new(&script), Path::new(&probe))),
+                |_| {},
+            )
+            .unwrap();
+            let c_video = Temporary(PathBuf::from(&c.video));
+            let _c_audio = Temporary(PathBuf::from(&c.audio));
+            assert_eq!(c.frames, 24);
+            let (mut player, info) = player::Player::open(&c_video.0).unwrap();
+            assert_eq!(info.frames, 24);
+            let mut actual = Vec::new();
+            let mut count = 0;
+            while let Some(f) = player.next_frame().unwrap() {
+                actual.extend_from_slice(b"FRAME\n");
+                actual.extend_from_slice(&f.y);
+                actual.extend_from_slice(&f.cb);
+                actual.extend_from_slice(&f.cr);
+                count += 1;
+            }
+            assert_eq!(count, 24);
+            let mut reference = Vec::new();
+            tau_video::container::decode_video_y4m(File::open(&c_video.0).unwrap(), &mut reference)
+                .unwrap();
+            let first_line = reference.iter().position(|&b| b == b'\n').unwrap() + 1;
+            assert_eq!(actual, reference[first_line..]);
+        }
     }
 }

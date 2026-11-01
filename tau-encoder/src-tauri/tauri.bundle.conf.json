@@ -1,1 +1,1 @@
-{"bundle":{"resources":{"resources/ffmpeg/":"ffmpeg/"}}}
+{"bundle":{"resources":{"resources/ffmpeg/":"ffmpeg/","resources/codec-tools/":"codec-tools/"}}}

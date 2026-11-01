@@ -19,10 +19,11 @@ import argparse, concurrent.futures as cf, json, math, os, re, shutil, struct, s
 from fractions import Fraction
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TVC_ENC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc')
-TVC_DEC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_dec')
-TAC = os.path.join(HERE, '..', 'tac_ref', 'tac')
-TNV3 = os.path.join(HERE, 'tnv3')
+EXE = '.exe' if os.name == 'nt' else ''
+TVC_ENC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc' + EXE)
+TVC_DEC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_dec' + EXE)
+TAC = os.path.join(HERE, '..', 'tac_ref', 'tac' + EXE)
+TNV3 = os.path.join(HERE, 'tnv3' + EXE)
 LEVELS = {1: (400, 240, 375, 11250, 200000), 2: (800, 464, 1450, 43500, 400000), 3: (800, 720, 2250, 67500, 600000)}
 STD_RATES = [Fraction(24000, 1001), Fraction(24), Fraction(25), Fraction(30000, 1001), Fraction(30)]
 
@@ -42,7 +43,7 @@ def log(*a):
 
 
 def probe(src):
-    out = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries',
+    out = subprocess.run([os.environ.get('TAU_FFPROBE', 'ffprobe'), '-v', 'error', '-select_streams', 'v:0', '-show_entries',
                           'stream=width,height,r_frame_rate:format=duration', '-of', 'json', src],
                          capture_output=True, text=True, check=True).stdout
     j = json.loads(out)
@@ -126,9 +127,11 @@ def main():
     ap.add_argument('--quality', action='store_true')
     ap.add_argument('--work', default='')
     ap.add_argument('--keep', action='store_true')
+    ap.add_argument('--video-only', action='store_true', help='create a video-only TNV3 for an MP3 sidecar')
+    ap.add_argument('--match-app', action='store_true', help='use the desktop application scaling and 24 fps')
     o = ap.parse_args()
     if o.experimental_parallel_slices:
-        TVC_ENC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc_slice_experimental')
+        TVC_ENC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc_slice_experimental' + EXE)
         if not os.path.isfile(TVC_ENC):
             ap.error('experimental slice encoder not built; run make experimental')
         if o.encoder_threads is None:
@@ -150,6 +153,14 @@ def main():
         sys.exit('frame rate %s does not fit the container' % fps)
     w = sw if o.width == 'native' else int(o.width)
     h = sh if o.width == 'native' else max(2, int(round(w * sh / sw / 2)) * 2)
+    if o.match_app:
+        probe_cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src, '-map', '0:v:0', '-an', '-vf', 'scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24', '-frames:v', '1', '-pix_fmt', 'yuv420p', '-f', 'yuv4mpegpipe', '-']
+        probe_frame = subprocess.run(probe_cmd, check=True, capture_output=True).stdout
+        fields = probe_frame.split(b'\n', 1)[0].split()
+        w = int(next(x[1:] for x in fields if x.startswith(b'W')))
+        h = int(next(x[1:] for x in fields if x.startswith(b'H')))
+        fps = Fraction(24)
+
     level = pick_level(w, h, fps)
     win = math.ceil(fps)
     limit = LEVELS[level][4]
@@ -158,8 +169,8 @@ def main():
     log('source %dx%d %s fps %.1f s -> %dx%d at %s fps, level %d, QP %d, %d jobs, work %s' % (sw, sh, sfps, dur, w, h, fps, level, o.qp, jobs, work))
 
     # 1. decode once, cut into segments
-    vf = 'fps=%s,scale=%d:%d:flags=lanczos,format=yuv420p' % (fps, w, h)
-    cmd = ['ffmpeg', '-v', 'error', '-i', o.src] + (['-t', str(o.seconds)] if o.seconds else []) + ['-vf', vf, '-f', 'yuv4mpegpipe', '-']
+    vf = ('scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24,format=yuv420p' if o.match_app else 'fps=%s,scale=%d:%d:flags=lanczos,format=yuv420p' % (fps, w, h))
+    cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src] + (['-t', str(o.seconds)] if o.seconds else []) + ['-vf', vf, '-f', 'yuv4mpegpipe', '-']
     ff = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=1 << 22)
     header = ff.stdout.readline()
     fsz = w * h + 2 * ((w + 1) // 2) * ((h + 1) // 2)
@@ -186,14 +197,17 @@ def main():
         fh.write(line); fh.write(frame); n += 1; seg_frames[-1] += 1
     if fh:
         fh.close(); futs.append(start_encode(len(segs) - 1))
-    ff.wait()
+    if ff.wait() != 0 or n == 0:
+        sys.exit('FFmpeg source decode failed')
     log('%d frames in %d segments; encoding' % (n, len(segs)))
 
-    # audio meanwhile
     secs = n * fps.denominator / fps.numerator
-    wav, tac = os.path.join(work, 'audio.wav'), os.path.join(work, 'audio.tac')
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', o.src, '-vn', '-t', '%.6f' % secs, '-ac', '2', '-ar', '48000', '-c:a', 'pcm_s16le', wav], check=True)
-    afut = pool.submit(subprocess.run, [TAC, 'enc', wav, tac, '-b', str(o.audio_kbps)], capture_output=True, text=True)
+    if not o.video_only:
+        # audio meanwhile
+        secs = n * fps.denominator / fps.numerator
+        wav, tac = os.path.join(work, 'audio.wav'), os.path.join(work, 'audio.tac')
+        subprocess.run([os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-y', '-i', o.src, '-vn', '-t', '%.6f' % secs, '-ac', '2', '-ar', '48000', '-c:a', 'pcm_s16le', wav], check=True)
+        afut = pool.submit(subprocess.run, [TAC, 'enc', wav, tac, '-b', str(o.audio_kbps)], capture_output=True, text=True)
     stats = []
     for i, f in enumerate(futs):
         r = f.result()
@@ -202,9 +216,10 @@ def main():
         stats.append(r.stderr.strip())
         if (i + 1) % 10 == 0 or i + 1 == len(futs):
             log('encoded %d / %d segments' % (i + 1, len(futs)))
-    ar = afut.result()
-    if ar.returncode:
-        sys.exit('tac enc failed: ' + ar.stderr)
+    if not o.video_only:
+        ar = afut.result()
+        if ar.returncode:
+            sys.exit('tac enc failed: ' + ar.stderr)
     raised = sum(int(re.search(r'(\d+) pictures re-encoded', s)[1]) for s in stats)
     cuts = sum(int(re.search(r'(\d+) scene-cut', s)[1]) for s in stats)
 
@@ -229,13 +244,14 @@ def main():
     log('video %d bytes; %d segment(s) re-encoded at a joint; window rule %s' % (os.path.getsize(tvc), reenc, 'ok' if window_ok(lens_all, win, limit) else 'BROKEN'))
 
     # 3. mux and check
-    subprocess.run([TNV3, 'mux', tvc, '-a', tac, '-T', '-c', '-o', o.out], check=True)
+    mux_cmd = [TNV3, 'mux', tvc] + ([] if o.video_only else ['-a', tac, '-T']) + ['-c', '-o', o.out]
+    subprocess.run(mux_cmd, check=True)
     chk = subprocess.run([TNV3, 'check', o.out], capture_output=True, text=True)
     info = subprocess.run([TNV3, 'info', o.out], capture_output=True, text=True).stdout.strip()
     log('mux: %s; %s' % (chk.stdout.strip() or chk.stderr.strip(), info.replace('\n', ' | ')))
     size = os.path.getsize(o.out)
     vbytes = sum(lens_all)
-    abytes = os.path.getsize(tac) - 20 - 2 * (struct.unpack_from('<I', open(tac, 'rb').read(20), 12)[0])
+    abytes = 0 if o.video_only else os.path.getsize(tac) - 20 - 2 * (struct.unpack_from('<I', open(tac, 'rb').read(20), 12)[0])
     rep = dict(source=o.src, width=w, height=h, fps=str(fps), level=level, qp=o.qp, frames=n, seconds=round(secs, 3),
                encoder_jobs=jobs, encoder_threads_requested=(o.encoder_threads or 1) if encoder_env is not None else None, encoder_cpu_budget=o.cpu_budget,
                segments=len(segs), seg_frames=o.seg, file_bytes=size, video_bytes=vbytes, audio_payload_bytes=abytes,

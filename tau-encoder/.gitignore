@@ -3,3 +3,5 @@
 /src-tauri/target/
 /src-tauri/gen/
 /src-tauri/resources/ffmpeg/
+
+/src-tauri/resources/codec-tools/

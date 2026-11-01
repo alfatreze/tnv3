@@ -217,3 +217,10 @@ A C-encoded comparison played more smoothly on Pocket but later froze while
 audio continued. Full host software decoding and an instantaneous-decoder
 player simulation completed; real hardware timing and the freeze cause remain
 unresolved. See `docs/issues/003-rust-encoder-player-throughput.md`.
+
+The desktop preview now offers the existing segmented Python/C film encoder
+and the Rust encoder, with editable `_C` / `_R` suffixes, plus a simple local
+TNV3/MP3 viewer. **Host:** both pair-generation paths and preview frame output
+passed automated tests; the packaged UI and audio playback still need an
+interactive Mac check because the machine was locked. Python 3 remains an
+external dependency for C mode; see `docs/issues/004-desktop-preview-validation.md`.

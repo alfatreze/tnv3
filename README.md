@@ -103,3 +103,7 @@ does not play or extract audio or subtitles.
 preview that accepts common video files and creates a video-only TNV3 and a
 matching MP3 sidecar in a chosen folder. The macOS preview includes FFmpeg;
 Windows and Linux helper bundling remains open. See the app README for limits.
+
+The desktop app also offers the segmented C encoder and an experimental local
+TNV3/MP3 viewer. See its README for Python and platform requirements and
+`docs/issues/004-desktop-preview-validation.md` for outstanding checks.
