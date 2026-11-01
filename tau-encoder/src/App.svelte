@@ -4,7 +4,7 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { invoke } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-  let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '';
+  let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
   let mode: 'rust' | 'c' = 'rust', suffix = '_R';
   type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null };
   let progress: Progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
@@ -22,7 +22,7 @@
     const estimate = p.remaining_seconds !== null ? `About ${timeLabel(p.remaining_seconds)} remaining for video.` : p.total_frames_estimate === null ? 'Video duration is unavailable.' : p.frames >= p.total_frames_estimate ? 'Continuing beyond the estimated video length.' : 'Estimating video time…';
     return `${count}${total}. ${estimate}`;
   }
-  type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string };
+  type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[] };
   onMount(() => { try { folder = localStorage.getItem('tau-encoder-output-folder') || ''; } catch { /* Storage may be unavailable. */ } });
   function changeMode(event: Event) {
     mode = (event.currentTarget as HTMLSelectElement).value as 'rust' | 'c';
@@ -31,23 +31,24 @@
   async function chooseInput() {
     try {
       const file = await open({ multiple: false, directory: false, filters: [{ name: 'Video', extensions: ['mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v', 'mpg', 'mpeg', 'y4m'] }, { name: 'All files', extensions: ['*'] }] });
-      if (file) { input = file; name = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'video'; message = ''; error = ''; }
+      if (file) { input = file; name = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'video'; message = ''; error = ''; warning = ''; }
     } catch (e) { error = String(e); }
   }
   async function chooseFolder() {
     try {
       const dir = await open({ multiple: false, directory: true, defaultPath: folder || undefined });
-      if (dir) { folder = dir; try { localStorage.setItem('tau-encoder-output-folder', folder); } catch { /* Keep the current selection. */ } message = ''; error = ''; }
+      if (dir) { folder = dir; try { localStorage.setItem('tau-encoder-output-folder', folder); } catch { /* Keep the current selection. */ } message = ''; error = ''; warning = ''; }
     } catch (e) { error = String(e); }
   }
   async function encode() {
     if (!input || !folder || !name || busy) return;
-    busy = true; error = ''; message = '';
+    busy = true; error = ''; message = ''; warning = '';
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
     let unlisten: UnlistenFn | undefined;
     try {
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
       const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode });
+      warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level} · ${result.reencoded} frames retried. Created ${result.video} and ${result.audio}.`;
     } catch (e) { error = String(e); } finally { unlisten?.(); busy = false; }
   }
@@ -78,6 +79,7 @@
       </div>
     {/if}
     {#if message}<p class="status success" role="status">{message}</p>{/if}
+    {#if warning}<p class="status warning" role="alert">{warning}</p>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
   <Player />

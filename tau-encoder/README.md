@@ -13,3 +13,5 @@ Both encoders currently require a source audio track. Output is 24 fps and 48 kH
 Install Node.js, Rust and the Tauri v2 platform prerequisites. From this directory run `npm ci`, then `cargo install tauri-cli --version '^2' --locked`, compile the C tools with `make` in the repository root, and run `cargo tauri dev`. FFmpeg and FFprobe are used by the app; set `TAU_FFMPEG` or install them on PATH if a bundled copy is absent.
 
 For a self-contained macOS helper bundle, run `scripts/build-ffmpeg-macos.sh`, then `scripts/build-codec-tools.sh`, then `cargo tauri build --config src-tauri/tauri.bundle.conf.json`. This includes the C tools and LGPL FFmpeg 6.1.1 dynamically linked to LGPL LAME 4.0, with corresponding sources, licenses and build instructions. Python remains a separate dependency. Equivalent bundled helpers and platform validation on Windows and Linux remain outstanding.
+
+When FFmpeg reports an error during video or audio ingest, the app displays a bounded diagnostic warning even if FFmpeg exits successfully. A successful encode or absence of warnings does not prove the source has no silent corruption.

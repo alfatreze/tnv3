@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "d8141be6a9590be2319765d8c87f05eed369362f1e20fe8e6ca0f290e7f93e7b"
+      "sha256": "58650344e551a5ed88bdcedae57f316f4f6bfdda1a97053155c48b3fb71e7149"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1441,7 +1441,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "79013fe9ff9ce2c3dbea9dbef8c8441d36356a75af2e9c8d246c711aa90a8d80"
+      "sha256": "2481e4429f0aa1666cfcb9ebd82226f5db4232c4607952e030ab5acfaf947bef"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
@@ -1453,13 +1453,13 @@
       "sha256": "5401d78a61157220e3cb13a60c1fd6c4500c0d912580ce225a1fbd8cb818b8aa"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "b5ae73ea623d43db0c25b3275249ea536005cab9db10e770145b52d3642bbaf3"
+      "sha256": "509c8c14c9044d9ed7d240223c0a922c310929d6b367fe4cd438c8d5d7973c5c"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "cd6add00ff2187239759f8efa27bf42ce6076d91f7289446c63680ec464a48b2"
+      "sha256": "b2e3572bf765cee24fcbd4f4e2af82afe331bf581c1ffd7349e0ed3411494845"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
       "sha256": "6db1da7e6e0217b24a32c1fec6a123f7fdf6d3ee843994adf32e71d394ba68c4"
@@ -1489,7 +1489,7 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "6ea8d3247f6e4ad5e61cc997ec5125e2486f9a9ccade8888c15ba132a061f8ce"
+      "sha256": "8fb7ddb8431e56247b660c6c2738854c14e84abb68094ec01965ba7d0d9bf2ed"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
       "sha256": "009a070af9f70b40f486204bc9d2b523530c80e2f986cf374cdba34b795023ed"
@@ -1522,16 +1522,22 @@
       "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
     },
     "docs/issues/004-desktop-preview-validation.md": {
-      "sha256": "1a41300dc6a34dface8a095c1b16522ddccee684e91403c2999de24b7b62eac5"
+      "sha256": "9b9d63446014c0ee6dadba5332059c475ccd8d7d139c2b65fc037ca20c152cc9"
     },
     "docs/issues/005-hevc-input-ingest.md": {
-      "sha256": "7be51bb6caa380d78b5f2496e83d9f2e5d665e0901b76a8d03fbc0f8a2983cbe"
+      "sha256": "bb955306ddda173373d1bf8c638b4cf8abfc7de0b492eb98c17184bf40193359"
     },
     "docs/hevc_ingest_probe_2026-11-01.json": {
       "sha256": "d7814e059f3bc1d7b8b4c9cd167fcb334a84a844a1767e6f51861c0e113057f8"
     },
     "tools/codec_study/ingest_probe.py": {
-      "sha256": "11fe2f2f7fb049a138257826ad20e0fa235bfc4da29afcbbd408fc1c86556ffc"
+      "sha256": "86211546dcafc1b7bc72986fb0980b583f9e1e5a85229ba3a5b0a62faf3466c4"
+    },
+    "docs/hevc_ingest_sync_2026-11-01.json": {
+      "sha256": "14df78a262aedc6b9bb10ba1897dea8ca722673838e6a37f36a3386d68e68bfb"
+    },
+    "tools/codec_study/ingest_sync_probe.py": {
+      "sha256": "1e4794b3da03ec0a71d362b0df14d1041a4322267857a5ce8b5df797c9d7e727"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

@@ -23,3 +23,7 @@ late-frame behavior, failure handling and appearance. Then test Windows and
 Linux and package their helper binaries. Python 3 must be installed separately
 for the C mode; the macOS bundle includes the C executables, FFmpeg and
 FFprobe.
+
+2026-11-01 follow-up: the source-diagnostics warning state was added and
+backend-tested but could not be interactively reviewed while the Mac was
+locked. Include a reported-error file and a clean file in the next UI check.

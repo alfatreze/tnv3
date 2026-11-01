@@ -5,3 +5,5 @@
 .progress-area{margin-top:18px}.progress-heading{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:#dbe7ed}.progress-heading span{color:#a4ead7}progress{display:block;width:100%;height:9px;margin:10px 0;accent-color:#8ee0cf}.progress-detail{font-size:12px;line-height:1.5;color:#b9c9d7}
 
 select{width:100%;background:#111923;border:1px solid #435267;color:#e9edf5;border-radius:8px;padding:11px;font:inherit}.preview{margin-top:24px}.preview h2{font-size:18px;margin:0 0 6px}.help{font-size:12px;line-height:1.5;color:#a9b6c6}.player-actions{display:flex;gap:8px;margin:14px 0}.filename{overflow-wrap:anywhere}.preview canvas{display:block;max-width:100%;width:100%;height:auto;background:#090d13;border-radius:8px;margin:12px 0;image-rendering:auto}.preview audio{display:none}
+
+.warning{color:#ffdb9b;white-space:pre-wrap;max-height:12rem;overflow:auto}

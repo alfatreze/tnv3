@@ -42,3 +42,30 @@ paths, and test recovery/error behavior before changing defaults. Error
 logging, strict decoding or `-xerror` cannot detect every silent corruption.
 Run `tools/codec_study/ingest_probe.py` with a libx264/libx265-capable
 generator and the bundled FFmpeg; aggregate evidence is in the JSON file.
+
+## Follow-up: bounded warnings and timestamp markers
+
+**Host, 2026-11-01:** the desktop app now drains FFmpeg/Python stderr in a
+separate thread, retains at most 4,096 bytes per process and shows a warning
+when a successful video or audio step reports an error. Failures include the
+bounded diagnostics. It does not abort or delete a completed output merely
+because a recoverable decode error was reported. Generated reported-error
+HEVC inputs produced visible warning data through both Rust and C backend
+paths; a generated audio-damage input produced an audio warning. A clean
+input produced no warning; a 100,000-byte diagnostic test verified bounded
+retention. The GUI warning itself remains unverified while the Mac is locked.
+Silent corruption without FFmpeg diagnostics remains undetectable this way.
+
+Additional generated 10-bit HEVC flash/audio-marker inputs are recorded in
+`hevc_ingest_sync_2026-11-01.json`. The `round=down` candidate retained a
+0.25-second delayed-video marker but produced 71 frames versus 72 for the
+current policy in one otherwise clean case. In a generated variable-rate
+case, the marker was one 24-fps frame earlier under `round=down` than under
+the current policy. Resetting video PTS erased the delayed marker. Audio
+markers here were read from FFmpeg-decoded PCM before MP3 sidecar encoding;
+these are not complete end-to-end synchronization or hardware measurements.
+Neither candidate is enabled. Next: real source comparisons and a precise
+A/V timeline policy before changing the default. Reproduce with
+`tools/codec_study/ingest_sync_probe.py`; the companion `ingest_probe.py`
+can generate non-overwriting video/audio damaged test fixtures for the Rust
+integration tests.

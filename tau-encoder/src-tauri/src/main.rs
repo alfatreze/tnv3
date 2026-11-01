@@ -48,6 +48,7 @@ struct ResultInfo {
     reencoded: u32,
     video: String,
     audio: String,
+    warnings: Vec<String>,
 }
 fn safe_name(name: &str) -> bool {
     !name.trim().is_empty()
@@ -92,6 +93,49 @@ fn process_failed(status: std::process::ExitStatus, action: &str) -> String {
         "{action} failed ({status}). Check that the source has a supported video and audio track."
     )
 }
+// Drain the entire pipe to avoid blocking FFmpeg, retaining a bounded excerpt.
+fn capture_diagnostics(
+    mut stderr: impl Read + Send + 'static,
+) -> std::thread::JoinHandle<io::Result<String>> {
+    std::thread::spawn(move || {
+        const LIMIT: usize = 4096;
+        let mut saved = Vec::new();
+        let mut buf = [0u8; 4096];
+        let mut truncated = false;
+        loop {
+            let n = stderr.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            let take = n.min(LIMIT.saturating_sub(saved.len()));
+            saved.extend_from_slice(&buf[..take]);
+            if take < n {
+                truncated = true;
+            }
+        }
+        let mut text = String::from_utf8_lossy(&saved).trim().to_owned();
+        if truncated {
+            text.push_str("\n[Further diagnostics omitted.]");
+        }
+        Ok(text)
+    })
+}
+fn finish_diagnostics(
+    handle: std::thread::JoinHandle<io::Result<String>>,
+) -> Result<String, String> {
+    handle
+        .join()
+        .map_err(|_| "Could not collect decoder diagnostics.".to_owned())?
+        .map_err(|e| format!("Could not read decoder diagnostics: {e}"))
+}
+fn with_diagnostics(message: String, details: &str) -> String {
+    if details.is_empty() {
+        message
+    } else {
+        format!("{message}\n{details}")
+    }
+}
+
 #[derive(Clone, Serialize, Debug)]
 struct Progress {
     phase: &'static str,
@@ -172,6 +216,7 @@ fn encode_pair(
         total_frames_estimate: total,
         remaining_seconds: None,
     });
+    let mut warnings = Vec::new();
     let (_video_tmp, mut tvc) = temporary_file(if c_tools.is_some() { "tnv3" } else { "tvc" })?;
     let stats = if let Some((script, ffprobe)) = c_tools {
         progress(Progress {
@@ -193,7 +238,6 @@ fn encode_pair(
         let work = WorkDir(work_guard.0.clone());
         let report_path = _video_tmp.0.with_extension("json");
         let _report = Temporary(report_path.clone());
-        let (_log_guard, log_file) = temporary_file("log")?;
         let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().min(6));
         let python = std::env::var_os("TAU_PYTHON").unwrap_or_else(|| {
             if cfg!(windows) {
@@ -217,9 +261,14 @@ fn encode_pair(
             .env("TAU_FFMPEG", ffmpeg)
             .env("TAU_FFPROBE", ffprobe)
             .stdout(Stdio::piped())
-            .stderr(Stdio::from(log_file))
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Could not start the C encoder (Python 3 is required): {e}"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or("Could not capture C encoder diagnostics.")?;
+        let log = capture_diagnostics(stderr);
         if let Some(stdout) = child.stdout.take() {
             for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                 if let Some(part) = line.split("encoded ").nth(1) {
@@ -240,18 +289,17 @@ fn encode_pair(
         let status = child
             .wait()
             .map_err(|e| format!("Could not wait for C encoder: {e}"))?;
+        let details = finish_diagnostics(log)?;
         if !status.success() {
-            let details = std::fs::read_to_string(&_log_guard.0).unwrap_or_default();
-            return Err(format!(
-                "C encoder failed ({status}): {}",
-                details
-                    .chars()
-                    .rev()
-                    .take(500)
-                    .collect::<String>()
-                    .chars()
-                    .rev()
-                    .collect::<String>()
+            return Err(with_diagnostics(
+                format!("C encoder failed ({status})."),
+                &details,
+            ));
+        }
+        if !details.is_empty() {
+            warnings.push(with_diagnostics(
+                "Source decoding reported errors; inspect the output.".into(),
+                &details,
             ));
         }
         let report: serde_json::Value =
@@ -287,9 +335,14 @@ fn encode_pair(
                 "pipe:1",
             ])
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
+        let stderr = decoder
+            .stderr
+            .take()
+            .ok_or("Could not capture source diagnostics.")?;
+        let log = capture_diagnostics(stderr);
         let stdout = decoder
             .stdout
             .take()
@@ -333,9 +386,20 @@ fn encode_pair(
         let status = decoder
             .wait()
             .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
-        let stats = encoded.map_err(|e| format!("Video encoding failed: {e}"))?;
+        let details = finish_diagnostics(log)?;
+        let stats = encoded
+            .map_err(|e| with_diagnostics(format!("Video encoding failed: {e}"), &details))?;
         if !status.success() {
-            return Err(process_failed(status, "Video conversion"));
+            return Err(with_diagnostics(
+                process_failed(status, "Video conversion"),
+                &details,
+            ));
+        }
+        if !details.is_empty() {
+            warnings.push(with_diagnostics(
+                "Source decoding reported errors; inspect the output.".into(),
+                &details,
+            ));
         }
         stats
     };
@@ -348,7 +412,7 @@ fn encode_pair(
     let (audio_tmp, audio_file) = temporary_file("mp3")?;
     drop(audio_file);
     let duration = format!("{:.9}", f64::from(stats.frames) / 24.0);
-    let status = Command::new(ffmpeg)
+    let mut child = Command::new(ffmpeg)
         .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
         .arg(input)
         .args([
@@ -374,11 +438,29 @@ fn encode_pair(
         ])
         .arg(&audio_tmp.0)
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or("Could not capture audio diagnostics.")?;
+    let log = capture_diagnostics(stderr);
+    let status = child
+        .wait()
+        .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
+    let details = finish_diagnostics(log)?;
     if !status.success() {
-        return Err(process_failed(status, "MP3 encoding"));
+        return Err(with_diagnostics(
+            process_failed(status, "MP3 encoding"),
+            &details,
+        ));
+    }
+    if !details.is_empty() {
+        warnings.push(with_diagnostics(
+            "Audio decoding reported errors; inspect the output.".into(),
+            &details,
+        ));
     }
     progress(Progress {
         phase: "saving",
@@ -437,6 +519,7 @@ fn encode_pair(
         reencoded: stats.reencoded,
         video: video_path.display().to_string(),
         audio: audio_path.display().to_string(),
+        warnings,
     })
 }
 fn codec_script(app: &tauri::AppHandle) -> PathBuf {
@@ -589,6 +672,83 @@ mod tests {
         assert_eq!(parse_duration("  Duration: 06:00:00.00,"), None);
     }
     #[test]
+    fn diagnostic_capture_is_bounded_and_drains_the_input() {
+        let data = vec![b'x'; 100_000];
+        let result = finish_diagnostics(capture_diagnostics(std::io::Cursor::new(data))).unwrap();
+        assert!(result.len() < 4200);
+        assert!(result.ends_with("[Further diagnostics omitted.]"));
+    }
+    #[test]
+    fn reported_source_corruption_is_returned_as_warning() {
+        let (Some(source), Some(ffmpeg), Some(script), Some(probe)) = (
+            std::env::var_os("TAU_TEST_CORRUPT_HEVC"),
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_C_SCRIPT"),
+            std::env::var_os("TAU_TEST_FFPROBE"),
+        ) else {
+            return;
+        };
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let folder = reserve.0.parent().unwrap();
+        for (suffix, c_tools) in [
+            ("_r", None),
+            ("_c", Some((Path::new(&script), Path::new(&probe)))),
+        ] {
+            let result = encode_pair(
+                Path::new(&ffmpeg),
+                Path::new(&source),
+                folder,
+                &format!("{name}{suffix}"),
+                30,
+                c_tools,
+                |_| {},
+            )
+            .unwrap();
+            let _video = Temporary(PathBuf::from(result.video));
+            let _audio = Temporary(PathBuf::from(result.audio));
+            assert!(
+                !result.warnings.is_empty(),
+                "reported corruption must not be silent: {suffix}"
+            );
+            assert!(result.warnings[0].contains("Source decoding reported errors"));
+        }
+    }
+    #[test]
+    fn reported_audio_errors_are_returned_as_warning() {
+        let (Some(source), Some(ffmpeg)) = (
+            std::env::var_os("TAU_TEST_CORRUPT_AUDIO"),
+            std::env::var_os("TAU_TEST_FFMPEG"),
+        ) else {
+            return;
+        };
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let folder = reserve.0.parent().unwrap();
+        let result = encode_pair(
+            Path::new(&ffmpeg),
+            Path::new(&source),
+            folder,
+            name,
+            30,
+            None,
+            |_| {},
+        )
+        .unwrap();
+        let _video = Temporary(PathBuf::from(result.video));
+        let _audio = Temporary(PathBuf::from(result.audio));
+        assert!(
+            result
+                .warnings
+                .iter()
+                .any(|w| w.contains("Audio decoding reported errors"))
+        );
+    }
+    #[test]
     fn names_are_safe_on_all_platforms() {
         assert!(safe_name("My film"));
         for name in ["", "..", "CON", "a/b", "bad.", "a\\b", "x:y"] {
@@ -644,6 +804,10 @@ mod tests {
         assert!(phases.iter().any(|p| p.phase == "audio"));
         assert_eq!(phases.last().unwrap().phase, "saving");
         assert_eq!(result.frames, 24);
+        assert!(
+            result.warnings.is_empty(),
+            "clean input should not produce warnings"
+        );
         let video_guard = Temporary(PathBuf::from(&result.video));
         let audio_guard = Temporary(PathBuf::from(&result.audio));
         assert_eq!(
@@ -706,6 +870,10 @@ mod tests {
             let c_video = Temporary(PathBuf::from(&c.video));
             let _c_audio = Temporary(PathBuf::from(&c.audio));
             assert_eq!(c.frames, 24);
+            assert!(
+                c.warnings.is_empty(),
+                "clean C input should not produce warnings"
+            );
             let (mut player, info) = player::Player::open(&c_video.0).unwrap();
             assert_eq!(info.frames, 24);
             let mut actual = Vec::new();

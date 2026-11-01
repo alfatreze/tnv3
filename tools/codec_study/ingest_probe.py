@@ -42,7 +42,7 @@ def describe(seq,ref):
     return {'frames':len(seq),'adjacent_repeats':sum(a==b for a,b in zip(seq,seq[1:])), 'same_as_generator_default':seq==ref}
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--bundled',required=True);ap.add_argument('--generator',required=True);ap.add_argument('--ffprobe',required=True);a=ap.parse_args()
+    ap=argparse.ArgumentParser();ap.add_argument('--bundled',required=True);ap.add_argument('--generator',required=True);ap.add_argument('--ffprobe',required=True);ap.add_argument('--write-reported-corrupt',help='write generated video-damaged sample; never overwrite');ap.add_argument('--write-audio-corrupt',help='write generated audio-damaged sample; never overwrite');a=ap.parse_args()
     results={'generator_version':run([a.generator,'-version']).stdout.decode().splitlines()[0], 'bundled_version':run([a.bundled,'-version']).stdout.decode().splitlines()[0], 'cases':[], 'mutation':{}}
     cases=[('hevc8','libx265','yuv420p','24',False),('hevc10','libx265','yuv420p10le','24',False),('avc8','libx264','yuv420p','24',False)]
     cases += [('hevc10_'+r.replace('/','_'),'libx265','yuv420p10le',r,False) for r in ('24000/1001','25','30','12','15','60','30000/1001')]
@@ -60,6 +60,12 @@ def main():
             x=raw_hashes(a.bundled,p);y=raw_hashes(a.bundled,q)
             results['mutation']['silent']={'bytes_changed':length,'clean_frames':len(x),'damaged_frames':len(y),'different_frames':sum(u!=v for u,v in zip(x,y)),'first_different_frame':next((i for i,(u,v) in enumerate(zip(x,y)) if u!=v),None)}
             pkt=next(x for x in packets[15:] if 'K' not in x['flags'] and int(x['size'])>500);pos=int(pkt['pos']);data=bytearray(p.read_bytes());data[pos+4:pos+12]=b'\xff'*8;q=root/'reported.mkv';q.write_bytes(data)
+            if a.write_reported_corrupt:
+                with open(a.write_reported_corrupt,'xb') as dst: dst.write(data)
+            if a.write_audio_corrupt:
+                audio=json.loads(run([a.ffprobe,'-v','error','-select_streams','a:0','-show_packets','-show_entries','packet=pos,size','-of','json',str(p)]).stdout)['packets']
+                packet=audio[len(audio)//2]; start=int(packet['pos']); count=min(int(packet['size']),80); damaged=bytearray(p.read_bytes()); damaged[start:start+count]=b'\xff'*count
+                with open(a.write_audio_corrupt,'xb') as dst: dst.write(damaged)
             for strict in (False,True):
                 command=[a.bundled,'-v','error']+(['-xerror'] if strict else [])+['-i',str(q),'-map','0:v:0','-f','null','-'];proc=subprocess.run(command,capture_output=True)
                 results['mutation']['reported_strict' if strict else 'reported_default']={'exit_code':proc.returncode,'stderr_nonempty':bool(proc.stderr),'stderr_lines':len(proc.stderr.splitlines())}

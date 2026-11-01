@@ -231,3 +231,10 @@ successful encode. Earlier C/Rust Pocket comparison used different FFmpeg
 versions and does not isolate the TVC encoder. Candidate changes and the
 remaining A/V-sync and real-source gates are in
 `docs/issues/005-hevc-input-ingest.md`. No production fix is claimed.
+
+The desktop app now reports bounded source-decoder diagnostics after either
+encoder, including when FFmpeg exits successfully. **Host:** generated
+video and audio damage exercised the warning path; undetected corruption and
+interactive UI checks remain open. Additional synthetic timing tests found
+trade-offs in the frame-rate candidate, so its default remains unchanged;
+see `docs/issues/005-hevc-input-ingest.md`.
