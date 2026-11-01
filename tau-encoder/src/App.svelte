@@ -7,6 +7,25 @@
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
   let mode: 'rust' | 'c' = 'rust', suffix = '_R';
   let roundDown = false, eofPass = false, trimMp3Delay = false;
+  type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool';
+  let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '' };
+  const dependencyFields: { key: DependencyKey; label: string; help: string }[] = [
+    { key: 'ffmpeg', label: 'FFmpeg', help: 'Video decoding and MP3 encoding, both encoders' },
+    { key: 'ffprobe', label: 'FFprobe', help: 'Source inspection for the C encoder' },
+    { key: 'python', label: 'Python 3', help: 'Runs the C encoder script' },
+    { key: 'script', label: 'C encoder script', help: 'Select encode_film.py' },
+    { key: 'tvcEncoder', label: 'TVC encoder', help: 'Select tvc_enc (or tvc_enc.exe)' },
+    { key: 'tnv3Tool', label: 'TNV3 tool', help: 'Select tnv3 (or tnv3.exe)' },
+  ];
+  function saveDependencies() {
+    try { localStorage.setItem('tau-encoder-dependencies', JSON.stringify(dependencies)); } catch { /* Keep settings for this session. */ }
+  }
+  async function chooseDependency(key: DependencyKey) {
+    try {
+      const file = await open({ multiple: false, directory: false, defaultPath: dependencies[key] || undefined });
+      if (file) { dependencies = { ...dependencies, [key]: file }; saveDependencies(); }
+    } catch (e) { error = String(e); }
+  }
   type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null };
   let progress: Progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
   function timeLabel(seconds: number): string {
@@ -24,7 +43,11 @@
     return `${count}${total}. ${estimate}`;
   }
   type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[] };
-  onMount(() => { try { folder = localStorage.getItem('tau-encoder-output-folder') || ''; } catch { /* Storage may be unavailable. */ } });
+  onMount(() => { try {
+    folder = localStorage.getItem('tau-encoder-output-folder') || '';
+    const saved = JSON.parse(localStorage.getItem('tau-encoder-dependencies') || '{}');
+    for (const field of dependencyFields) if (typeof saved?.[field.key] === 'string') dependencies[field.key] = saved[field.key];
+  } catch { /* Storage may be unavailable or invalid. */ } });
   function changeMode(event: Event) {
     mode = (event.currentTarget as HTMLSelectElement).value as 'rust' | 'c';
     suffix = mode === 'rust' ? '_R' : '_C';
@@ -48,7 +71,7 @@
     let unlisten: UnlistenFn | undefined;
     try {
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
-      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay } });
+      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level} · ${result.reencoded} frames retried. Created ${result.video} and ${result.audio}.`;
     } catch (e) { error = String(e); } finally { unlisten?.(); busy = false; }
@@ -65,6 +88,15 @@
     <div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="rust">Rust encoder</option><option value="c">C encoder</option></select></div>
     <div class="field"><label for="suffix">Output suffix <small>Added to both file names</small></label><input class="name" id="suffix" bind:value={suffix} disabled={busy} /></div>
     <div class="field quality"><div><label for="qp">Quality <small>QP</small></label><p>Lower values use more space. Default: 30.</p></div><input id="qp" type="number" min="0" max="51" step="1" bind:value={qp} disabled={busy} /></div>
+    <details class="advanced dependency-settings">
+      <summary>Dependency settings</summary>
+      <p>Choose installed files to override automatic discovery. Leave a path empty to use the bundled or default tool. These settings are remembered on this computer.</p>
+      {#each dependencyFields as field}
+        <div class="field"><label for={'dependency-' + field.key}>{field.label} <small>{field.help}</small></label>
+          <div class="pick"><input id={'dependency-' + field.key} bind:value={dependencies[field.key]} onchange={saveDependencies} disabled={busy} placeholder="Automatic" /><button type="button" onclick={() => chooseDependency(field.key)} disabled={busy}>Browse</button></div>
+        </div>
+      {/each}
+    </details>
     <details class="advanced">
       <summary>Advanced Pocket experiments</summary>
       <p>Optional tests for both encoders. Change one setting at a time and use a different suffix to compare files. These have not been verified on Pocket.</p>

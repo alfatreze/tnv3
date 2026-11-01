@@ -8,6 +8,12 @@ Local preview opens a TNV3 and its matching MP3 if present. It decodes the video
 
 Both encoders currently require a source audio track. Output is 24 fps and 48 kHz stereo MP3; the Rust encoder uses conservative rate control and may fail or reduce quality. The app shows an updating video estimate for Rust and segment progress for C; audio and saving are separate. Cancellation is not yet available. Pocket A/V synchronisation remains to be validated.
 
+## Dependency settings
+
+Open **Dependency settings** to browse to or enter full paths for FFmpeg, FFprobe, Python 3, `encode_film.py`, `tvc_enc` and `tnv3` (use the `.exe` programs on Windows). The C encoder needs all six; Rust encoding uses FFmpeg. Selected paths override automatic discovery and are remembered on this computer. Clear a field to return to the bundled, environment or default tool. If FFprobe is blank, the app looks beside the selected or automatically discovered FFmpeg. A selected file must exist; executable permissions and compatibility with the current platform are still required. FFmpeg must support the source formats and `libmp3lame`.
+
+These controls do not themselves bundle dependencies or establish Windows/Linux runtime compatibility. The Python script and C programs should come from a matching Tau codecs build. Test a short encode after configuring them.
+
 ## Advanced Pocket experiments
 
 Both encoder choices share these optional ingest/audio controls. Defaults remain unchanged. For a meaningful comparison, use the same source and encoder, change one option at a time, and choose a distinct suffix for each output pair. Test the full video and listen for synchronization on Pocket.

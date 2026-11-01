@@ -27,3 +27,15 @@ FFprobe.
 2026-11-01 follow-up: the source-diagnostics warning state was added and
 backend-tested but could not be interactively reviewed while the Mac was
 locked. Include a reported-error file and a clean file in the next UI check.
+
+## Dependency path settings
+
+**Host, 2026-11-01:** dependency settings can override FFmpeg, FFprobe,
+Python, the C Python script, TVC encoder and TNV3 tool with explicit files,
+and remember the paths locally. An end-to-end macOS test encoded a pair
+with a separately located script and explicitly selected executables. Blank
+settings preserve automatic discovery. This supplies a manual configuration
+path on Windows and Linux but neither bundles their dependencies nor proves
+that the packaged app or executable permissions work on those systems.
+Next: native Windows/Linux packaged UI, path persistence, and real-media
+encoding tests with matching dependencies.

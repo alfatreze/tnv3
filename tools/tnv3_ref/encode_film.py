@@ -20,10 +20,10 @@ from fractions import Fraction
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXE = '.exe' if os.name == 'nt' else ''
-TVC_ENC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc' + EXE)
+TVC_ENC = os.environ.get('TAU_TVC_ENC') or os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc' + EXE)
 TVC_DEC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_dec' + EXE)
 TAC = os.path.join(HERE, '..', 'tac_ref', 'tac' + EXE)
-TNV3 = os.path.join(HERE, 'tnv3' + EXE)
+TNV3 = os.environ.get('TAU_TNV3') or os.path.join(HERE, 'tnv3' + EXE)
 LEVELS = {1: (400, 240, 375, 11250, 200000), 2: (800, 464, 1450, 43500, 400000), 3: (800, 720, 2250, 67500, 600000)}
 STD_RATES = [Fraction(24000, 1001), Fraction(24), Fraction(25), Fraction(30000, 1001), Fraction(30)]
 

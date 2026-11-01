@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "b22faf51b32b80e1f470f2055abb035154f2bef22fe81d71f97acc5a7ebe387b"
+      "sha256": "f6dae09e8ddd5d8f042cd207f2278c7791e7057cdc34440350b79df9f2070524"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1279,7 +1279,7 @@
       "upstream_sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e"
     },
     "tools/tnv3_ref/encode_film.py": {
-      "sha256": "079a5354f89ae93a17b6dd9b0d51a57a0dfbe6215ee45f9db23a429d6ff23d24"
+      "sha256": "91ba2f7399a2dd24afae166f12f7ecedd77d6203e20c3cdfac0a30019b52ab5d"
     },
     "tools/tnv3_ref/tnv3.c": {
       "sha256": "bbf20c8f5b9de74afb97a8937519e1ea9731b237619c475829cd043cdc5cd3e0",
@@ -1441,7 +1441,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "7f169332d036c717953954e78c24bb0082a99ac5bf32ece8de47838df847bb09"
+      "sha256": "215e2a4f7de48839ff947e48a06c4abcaa6d082a222732b733a4d499716569cb"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
@@ -1453,7 +1453,7 @@
       "sha256": "5401d78a61157220e3cb13a60c1fd6c4500c0d912580ce225a1fbd8cb818b8aa"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "6ad7dbde5f3daf9ebd9a054c3652df174a3ddc24bc53ab7c47538330e83e01bb"
+      "sha256": "ba39499cd6c90083fbf793a0cd347a0f83abe22624a51153a855a19f1720ea6b"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
@@ -1489,7 +1489,7 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "ed300e22b327e956f330cc41b6934789d19810ad0a4b7afc20c7859a7527986d"
+      "sha256": "242251b5c784f2fabf6aba170efae5d09289711a64032554d49ba79aae733582"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
       "sha256": "009a070af9f70b40f486204bc9d2b523530c80e2f986cf374cdba34b795023ed"
@@ -1522,7 +1522,7 @@
       "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
     },
     "docs/issues/004-desktop-preview-validation.md": {
-      "sha256": "9b9d63446014c0ee6dadba5332059c475ccd8d7d139c2b65fc037ca20c152cc9"
+      "sha256": "f3fc468f49fe5aed2848196489a4de0a95f86a89af23b8e6bfdfc94f8db4e39a"
     },
     "docs/issues/005-hevc-input-ingest.md": {
       "sha256": "06f9e70d9763395b9ee5ac9be5b35913f0b8d5f03b416c89740deb96bf1c89c1"

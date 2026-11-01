@@ -210,6 +210,30 @@ impl AdvancedSettings {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct Dependencies {
+    ffmpeg: String,
+    ffprobe: String,
+    python: String,
+    script: String,
+    tvc_encoder: String,
+    tnv3_tool: String,
+}
+fn selected_file(value: &str, label: &str) -> Result<Option<PathBuf>, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let path = PathBuf::from(value);
+    if !path.is_absolute() || !path.is_file() {
+        return Err(format!(
+            "{label}: choose an existing file using its full path in Dependency settings."
+        ));
+    }
+    Ok(Some(path))
+}
+
 fn encode_pair(
     ffmpeg: &Path,
     input: &Path,
@@ -218,6 +242,7 @@ fn encode_pair(
     qp: u8,
     c_tools: Option<(&Path, &Path)>,
     advanced: AdvancedSettings,
+    dependencies: &Dependencies,
     mut progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
     if qp > 51 || !safe_name(name) {
@@ -264,15 +289,24 @@ fn encode_pair(
         let report_path = _video_tmp.0.with_extension("json");
         let _report = Temporary(report_path.clone());
         let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().min(6));
-        let python = std::env::var_os("TAU_PYTHON").unwrap_or_else(|| {
-            if cfg!(windows) {
-                "python".into()
-            } else {
-                "python3".into()
-            }
-        });
+        let python = selected_file(&dependencies.python, "Python")?
+            .map(|p| p.into_os_string())
+            .or_else(|| std::env::var_os("TAU_PYTHON"))
+            .unwrap_or_else(|| {
+                if cfg!(windows) {
+                    "python".into()
+                } else {
+                    "python3".into()
+                }
+            });
         let mut command = Command::new(python);
         command.arg(script);
+        if let Some(path) = selected_file(&dependencies.tvc_encoder, "TVC encoder")? {
+            command.env("TAU_TVC_ENC", path);
+        }
+        if let Some(path) = selected_file(&dependencies.tnv3_tool, "TNV3 tool")? {
+            command.env("TAU_TNV3", path);
+        }
         if advanced.round_down {
             command.arg("--fps-round-down");
         }
@@ -599,8 +633,20 @@ async fn encode(
     qp: u8,
     mode: String,
     advanced: AdvancedSettings,
+    dependencies: Dependencies,
     busy: tauri::State<'_, Mutex<bool>>,
 ) -> Result<ResultInfo, String> {
+    let chosen_ffmpeg = selected_file(&dependencies.ffmpeg, "FFmpeg")?;
+    let chosen_ffprobe = if mode == "c" {
+        selected_file(&dependencies.ffprobe, "FFprobe")?
+    } else {
+        None
+    };
+    let chosen_script = if mode == "c" {
+        selected_file(&dependencies.script, "C encoder script")?
+    } else {
+        None
+    };
     {
         let mut running = busy.lock().map_err(|_| "Encoder state unavailable.")?;
         if *running {
@@ -612,14 +658,16 @@ async fn encode(
         *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
         return Err("Unknown encoder.".into());
     }
-    let ffmpeg = ffmpeg_path(&app);
-    let ffprobe = ffmpeg.with_file_name(if cfg!(windows) {
-        "ffprobe.exe"
-    } else {
-        "ffprobe"
+    let ffmpeg = chosen_ffmpeg.unwrap_or_else(|| ffmpeg_path(&app));
+    let ffprobe = chosen_ffprobe.unwrap_or_else(|| {
+        ffmpeg.with_file_name(if cfg!(windows) {
+            "ffprobe.exe"
+        } else {
+            "ffprobe"
+        })
     });
     let script = if mode == "c" {
-        Some(codec_script(&app))
+        Some(chosen_script.unwrap_or_else(|| codec_script(&app)))
     } else {
         None
     };
@@ -633,6 +681,7 @@ async fn encode(
             qp,
             script.as_deref().map(|s| (s, ffprobe.as_path())),
             advanced,
+            &dependencies,
             move |event| {
                 let _ = reporter.emit("encode-progress", event);
             },
@@ -743,6 +792,7 @@ mod tests {
                 30,
                 c_tools,
                 AdvancedSettings::default(),
+                &Dependencies::default(),
                 |_| {},
             )
             .unwrap();
@@ -776,6 +826,7 @@ mod tests {
             30,
             None,
             AdvancedSettings::default(),
+            &Dependencies::default(),
             |_| {},
         )
         .unwrap();
@@ -841,6 +892,7 @@ mod tests {
                     30,
                     tools,
                     settings,
+                    &Dependencies::default(),
                     |_| {},
                 )
                 .unwrap();
@@ -886,6 +938,96 @@ mod tests {
                 }
             }
         }
+    }
+    #[test]
+    fn dependency_settings_validate_and_deserialize() {
+        assert!(selected_file("", "FFmpeg").unwrap().is_none());
+        assert!(
+            selected_file("relative/path", "FFmpeg")
+                .unwrap_err()
+                .contains("FFmpeg")
+        );
+        let value: Dependencies = serde_json::from_str(r#"{"ffmpeg":"a","ffprobe":"b","python":"c","script":"d","tvcEncoder":"e","tnv3Tool":"f"}"#).unwrap();
+        assert_eq!(
+            (
+                value.ffmpeg.as_str(),
+                value.ffprobe.as_str(),
+                value.python.as_str(),
+                value.script.as_str(),
+                value.tvc_encoder.as_str(),
+                value.tnv3_tool.as_str()
+            ),
+            ("a", "b", "c", "d", "e", "f")
+        );
+    }
+    #[test]
+    fn configured_dependency_paths_work_with_separate_c_tools() {
+        let (
+            Some(source),
+            Some(ffmpeg),
+            Some(ffprobe),
+            Some(script),
+            Some(python),
+            Some(tvc),
+            Some(tnv3),
+        ) = (
+            std::env::var_os("TAU_TEST_MARKER"),
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_FFPROBE"),
+            std::env::var_os("TAU_TEST_C_SCRIPT"),
+            std::env::var_os("TAU_TEST_PYTHON"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        )
+        else {
+            return;
+        };
+        assert!(selected_file("", "FFmpeg").unwrap().is_none());
+        assert!(
+            selected_file("not/a/full/path", "FFmpeg")
+                .unwrap_err()
+                .contains("FFmpeg")
+        );
+        assert!(selected_file("/does/not/exist", "Python").is_err());
+        let (script_guard, script_file) = temporary_file("py").unwrap();
+        drop(script_file);
+        std::fs::copy(script, &script_guard.0).unwrap(); // No helper binaries next to this copy.
+        let dependencies = Dependencies {
+            ffmpeg: PathBuf::from(&ffmpeg).display().to_string(),
+            ffprobe: PathBuf::from(&ffprobe).display().to_string(),
+            python: PathBuf::from(python).display().to_string(),
+            script: script_guard.0.display().to_string(),
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+        };
+        let f = selected_file(&dependencies.ffmpeg, "FFmpeg")
+            .unwrap()
+            .unwrap();
+        let probe = selected_file(&dependencies.ffprobe, "FFprobe")
+            .unwrap()
+            .unwrap();
+        let script = selected_file(&dependencies.script, "script")
+            .unwrap()
+            .unwrap();
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let result = encode_pair(
+            &f,
+            Path::new(&source),
+            reserve.0.parent().unwrap(),
+            name,
+            30,
+            Some((&script, &probe)),
+            AdvancedSettings::default(),
+            &dependencies,
+            |_| {},
+        )
+        .unwrap();
+        let _video = Temporary(PathBuf::from(result.video));
+        let _audio = Temporary(PathBuf::from(result.audio));
+        assert!(result.frames > 0);
     }
     #[test]
     fn names_are_safe_on_all_platforms() {
@@ -938,6 +1080,7 @@ mod tests {
             30,
             None,
             AdvancedSettings::default(),
+            &Dependencies::default(),
             |p| phases.push(p),
         )
         .unwrap();
@@ -1007,6 +1150,7 @@ mod tests {
                 30,
                 None,
                 AdvancedSettings::default(),
+                &Dependencies::default(),
                 |_| {}
             )
             .is_err()
@@ -1023,6 +1167,7 @@ mod tests {
                 30,
                 Some((Path::new(&script), Path::new(&probe))),
                 AdvancedSettings::default(),
+                &Dependencies::default(),
                 |_| {},
             )
             .unwrap();

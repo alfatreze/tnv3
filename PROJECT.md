@@ -249,3 +249,9 @@ The desktop encoder exposes opt-in frame-timing and MP3-delay experiments
 for both C and Rust, with existing defaults retained. **Host:** generated
 marker pairs tested each setting through both backends; Pocket playback and
 actual Helix delay remain unverified. See issues 005 and 006.
+
+Desktop dependency settings now accept remembered explicit paths for FFmpeg,
+FFprobe, Python, the C script and its two helper executables. **Host:** a
+macOS C encode succeeded with tools in separate locations; native Windows
+and Linux packaging and runtime checks remain open. See
+`docs/issues/004-desktop-preview-validation.md`.
