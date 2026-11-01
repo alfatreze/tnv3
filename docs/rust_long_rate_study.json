@@ -1,0 +1,453 @@
+{
+  "date": "2026-11-01",
+  "classification": "host",
+  "method": "First 48 frames of two local film clips padded to multiples of 16; two runs each; QP 24/30/36; C decoded; Y-plane PSNR.",
+  "default": [
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 334499,
+          "psnr_y": 36.1649,
+          "seconds": 0.1627,
+          "stats": "frames=48 predicted=27 retries=4"
+        },
+        {
+          "bytes": 334499,
+          "psnr_y": 36.1649,
+          "seconds": 0.1632,
+          "stats": "frames=48 predicted=27 retries=4"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 333623,
+          "psnr_y": 37.3135,
+          "seconds": 0.2773,
+          "stats": "frames=48 b=9 retries=0"
+        },
+        {
+          "bytes": 333623,
+          "psnr_y": 37.3135,
+          "seconds": 0.2773,
+          "stats": "frames=48 b=9 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 183993,
+          "psnr_y": 33.3689,
+          "seconds": 0.1268,
+          "stats": "frames=48 predicted=25 retries=0"
+        },
+        {
+          "bytes": 183993,
+          "psnr_y": 33.3689,
+          "seconds": 0.1276,
+          "stats": "frames=48 predicted=25 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 176307,
+          "psnr_y": 33.4137,
+          "seconds": 0.2399,
+          "stats": "frames=48 b=11 retries=0"
+        },
+        {
+          "bytes": 176307,
+          "psnr_y": 33.4137,
+          "seconds": 0.2398,
+          "stats": "frames=48 b=11 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        },
+        {
+          "error": "Picture cannot fit TVC level/rate limits."
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 456736,
+          "psnr_y": 35.9597,
+          "seconds": 0.4336,
+          "stats": "frames=48 predicted=16 retries=0"
+        },
+        {
+          "bytes": 456736,
+          "psnr_y": 35.9597,
+          "seconds": 0.4327,
+          "stats": "frames=48 predicted=16 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 444459,
+          "psnr_y": 35.972,
+          "seconds": 0.8063,
+          "stats": "frames=48 b=9 retries=0"
+        },
+        {
+          "bytes": 444459,
+          "psnr_y": 35.972,
+          "seconds": 0.7973,
+          "stats": "frames=48 b=9 retries=0"
+        }
+      ]
+    }
+  ],
+  "safe_rate": [
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 354212,
+          "psnr_y": 36.6846,
+          "seconds": 0.7208,
+          "stats": "frames=48 predicted=26 retries=43"
+        },
+        {
+          "bytes": 354212,
+          "psnr_y": 36.6846,
+          "seconds": 0.3936,
+          "stats": "frames=48 predicted=26 retries=43"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 354212,
+          "psnr_y": 36.6846,
+          "seconds": 0.644,
+          "stats": "frames=48 b=0 retries=43"
+        },
+        {
+          "bytes": 354212,
+          "psnr_y": 36.6846,
+          "seconds": 0.6409,
+          "stats": "frames=48 b=0 retries=43"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 306771,
+          "psnr_y": 36.2579,
+          "seconds": 0.1864,
+          "stats": "frames=48 predicted=25 retries=26"
+        },
+        {
+          "bytes": 306771,
+          "psnr_y": 36.2579,
+          "seconds": 0.1874,
+          "stats": "frames=48 predicted=25 retries=26"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 305611,
+          "psnr_y": 36.3222,
+          "seconds": 0.327,
+          "stats": "frames=48 b=3 retries=24"
+        },
+        {
+          "bytes": 305611,
+          "psnr_y": 36.3222,
+          "seconds": 0.3285,
+          "stats": "frames=48 b=3 retries=24"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 183993,
+          "psnr_y": 33.3689,
+          "seconds": 0.1283,
+          "stats": "frames=48 predicted=25 retries=0"
+        },
+        {
+          "bytes": 183993,
+          "psnr_y": 33.3689,
+          "seconds": 0.1268,
+          "stats": "frames=48 predicted=25 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film400",
+      "frames": 48,
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 176307,
+          "psnr_y": 33.4137,
+          "seconds": 0.2368,
+          "stats": "frames=48 b=11 retries=0"
+        },
+        {
+          "bytes": 176307,
+          "psnr_y": 33.4137,
+          "seconds": 0.2368,
+          "stats": "frames=48 b=11 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 24,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 730702,
+          "psnr_y": 38.1229,
+          "seconds": 1.4819,
+          "stats": "frames=48 predicted=19 retries=44"
+        },
+        {
+          "bytes": 730702,
+          "psnr_y": 38.1229,
+          "seconds": 1.4808,
+          "stats": "frames=48 predicted=19 retries=44"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 24,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 730702,
+          "psnr_y": 38.1229,
+          "seconds": 2.3513,
+          "stats": "frames=48 b=0 retries=44"
+        },
+        {
+          "bytes": 730702,
+          "psnr_y": 38.1229,
+          "seconds": 2.3458,
+          "stats": "frames=48 b=0 retries=44"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 30,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 653348,
+          "psnr_y": 37.8639,
+          "seconds": 0.7504,
+          "stats": "frames=48 predicted=20 retries=26"
+        },
+        {
+          "bytes": 653348,
+          "psnr_y": 37.8639,
+          "seconds": 0.7534,
+          "stats": "frames=48 predicted=20 retries=26"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 30,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 653348,
+          "psnr_y": 37.8639,
+          "seconds": 1.261,
+          "stats": "frames=48 b=0 retries=26"
+        },
+        {
+          "bytes": 653348,
+          "psnr_y": 37.8639,
+          "seconds": 1.2699,
+          "stats": "frames=48 b=0 retries=26"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 36,
+      "mode": "p",
+      "runs": [
+        {
+          "bytes": 456736,
+          "psnr_y": 35.9597,
+          "seconds": 0.4754,
+          "stats": "frames=48 predicted=16 retries=0"
+        },
+        {
+          "bytes": 456736,
+          "psnr_y": 35.9597,
+          "seconds": 0.442,
+          "stats": "frames=48 predicted=16 retries=0"
+        }
+      ]
+    },
+    {
+      "case": "film800",
+      "frames": 48,
+      "qp": 36,
+      "mode": "b",
+      "runs": [
+        {
+          "bytes": 444459,
+          "psnr_y": 35.972,
+          "seconds": 0.8081,
+          "stats": "frames=48 b=9 retries=0"
+        },
+        {
+          "bytes": 444459,
+          "psnr_y": 35.972,
+          "seconds": 0.7941,
+          "stats": "frames=48 b=9 retries=0"
+        }
+      ]
+    }
+  ]
+}

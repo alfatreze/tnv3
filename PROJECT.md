@@ -172,3 +172,9 @@ reference unchanged and rate limits cannot affect candidate choice. Output was
 identical on 12 short host cases; a generated repeat/change clip improved in
 a paired timing study. This is not a general speed claim. See
 `docs/RUST_ENCODER_EXPERIMENTS.md`.
+
+A 48-frame host film study exposed Rust rate-window starvation at some QPs.
+An opt-in conservative per-picture budget completed those cases but changed
+quality and often retried QPs; it is not a general fix. See
+`docs/issues/001-rust-rate-window-starvation.md` and the experiment record.
+Default behavior remains unchanged; look-ahead rate control remains open.

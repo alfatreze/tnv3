@@ -35,3 +35,8 @@ rust-test:
 .PHONY: rust-experimental
 rust-experimental:
 	cargo build --release --manifest-path tau-video/Cargo.toml --features cli,mp3-cli,block-motion,b-pictures
+
+# Conservative per-picture rate budget; opt-in while quality is evaluated.
+.PHONY: rust-safe-rate
+rust-safe-rate:
+	cargo build --release --manifest-path tau-video/Cargo.toml --features cli,mp3-cli,safe-rate

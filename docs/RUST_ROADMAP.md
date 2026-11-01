@@ -115,3 +115,8 @@ results; broader quality, throughput and robustness gates are open.
 The opt-in B stream compares each B group against its I/P alternative for size
 and decoded error. Short host samples improved the anime trade-off but increased
 encoding work; it remains experimental pending broader tests and optimization.
+
+An opt-in conservative `safe-rate` budget mitigates rolling-window starvation
+in tested cases but can sacrifice quality and can still fail at maximum QP.
+Implement and validate look-ahead/segment-aware rate control; see
+`issues/001-rust-rate-window-starvation.md`.

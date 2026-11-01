@@ -875,6 +875,11 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         cr: vec![0; chroma_w * chroma_h],
     };
     let window = usize::from(n).div_ceil(usize::from(d));
+    let picture_budget = if cfg!(feature = "safe-rate") {
+        limits.4.min(limits.5 / window)
+    } else {
+        limits.4
+    };
     let mut lengths = std::collections::VecDeque::new();
     let mut sum = 0usize;
     let (mut frames, mut reencoded, mut predicted) = (0u32, 0u32, 0u32);
@@ -919,7 +924,7 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                 encode_translation_picture(wz, hz, qp, dx, dy)
                     .map_err(|_| StreamEncodeError::Invalid("Could not encode motion picture."))?
             };
-            if p.len() > limits.4 || sum + p.len() > limits.5 {
+            if p.len() > picture_budget || sum + p.len() > limits.5 {
                 return Err(StreamEncodeError::Invalid(
                     "Predictive picture exceeds TVC level limits.",
                 ));
@@ -932,7 +937,7 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         } else {
             let p = loop {
                 match encode_intra_picture(&frame, q) {
-                    Ok(p) if p.len() <= limits.4 && sum + p.len() <= limits.5 => break p,
+                    Ok(p) if p.len() <= picture_budget && sum + p.len() <= limits.5 => break p,
                     _ if q < 51 => q += 1,
                     _ => {
                         return Err(StreamEncodeError::Invalid(
@@ -962,7 +967,7 @@ pub fn encode_y4m<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
                             encode_residual_picture(&frame, predictor, q, motion, per_block, false)
                         {
                             if candidate.len() >= chosen.len()
-                                || candidate.len() > limits.4
+                                || candidate.len() > picture_budget
                                 || sum + candidate.len() > limits.5
                             {
                                 continue;
@@ -1310,7 +1315,13 @@ pub fn encode_y4m_b<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         window: usize::from(n).div_ceil(usize::from(d)),
         sizes: std::collections::VecDeque::new(),
         sum: 0,
-        max_picture: limits.4,
+        max_picture: if cfg!(feature = "safe-rate") {
+            limits
+                .4
+                .min(limits.5 / usize::from(n).div_ceil(usize::from(d)))
+        } else {
+            limits.4
+        },
         max_rate: limits.5,
     };
     let first = read_b_frame(&mut input, w, h)?

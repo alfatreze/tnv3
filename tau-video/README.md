@@ -100,3 +100,10 @@ The B-stream experiment compares each two-frame B group against an I/P
 alternative using total size and reconstructed YUV error. This guard is
 experimental and adds substantial encoding work; it does not guarantee
 whole-film rate or perceptual quality improvement.
+
+For inputs that exhaust the rolling video-byte window, `make rust-safe-rate`
+builds an opt-in conservative workaround. It caps each picture to the level's
+window budget divided by the window length and retries at higher QP. Some
+inputs may still fail at QP 51, and quality can change substantially. It is
+not look-ahead rate control; see [the issue record](../docs/issues/001-rust-rate-window-starvation.md).
+To combine it with the B prototype, build with Cargo features `cli,b-pictures,safe-rate`.

@@ -905,3 +905,30 @@ fn anchor_reuse_preserves_preoptimization_stream() {
         include_bytes!("../src/tvc/b-reuse-reference.tvc")
     );
 }
+
+#[cfg(feature = "safe-rate")]
+#[test]
+fn conservative_rate_budget_retries_noisy_frames() {
+    use std::io::Cursor;
+    use tau_video::tvc::encoder::encode_y4m;
+    let mut input = b"YUV4MPEG2 W400 H176 F30:1 Ip A1:1 C420jpeg\n".to_vec();
+    let mut state = 12345u32;
+    for _ in 0..2 {
+        input.extend_from_slice(b"FRAME\n");
+        for _ in 0..400 * 176 {
+            state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+            input.push(120 + ((state >> 24) % 17) as u8);
+        }
+        input.extend(vec![128u8; 400 * 176 / 2]);
+    }
+    let mut out = Cursor::new(Vec::new());
+    let stats = encode_y4m(Cursor::new(input), &mut out, 0).unwrap();
+    assert!(stats.reencoded > 0);
+    let bytes = out.into_inner();
+    let mut pos = 20;
+    for _ in 0..stats.frames {
+        let n = u32::from_le_bytes(bytes[pos..pos + 4].try_into().unwrap()) as usize;
+        assert!(n <= 200_000 / 30);
+        pos += 4 + n;
+    }
+}

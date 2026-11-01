@@ -12,6 +12,7 @@ cli = []
 mp3-cli = []
 block-motion = []
 b-pictures = []
+safe-rate = []
 
 [[bin]]
 name = "tau-video"

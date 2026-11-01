@@ -189,3 +189,25 @@ is one generated pattern, not a general speed claim. Reproduce input with
 timings: `rust_b_anchor_reuse.json`. Default remains unchanged. Wider quality
 and throughput tests and malformed-input validation remain open; no new Pocket
 or Quartus claim.
+
+## Longer film rate-window gate — 2026-11-01
+
+A 48-frame local film segment was decoded and padded to 400×176 and 800×336,
+then encoded at nominal QP 24, 30 and 36 with the normal P and opt-in B paths,
+twice each. **Host:** without a per-picture budget, both paths failed at QP 24
+at both sizes and QP 30 at 800 pixels because the rolling video-byte window
+left too little room for a later picture. See issue 001.
+
+A `safe-rate` Cargo feature caps each picture to floor(window byte limit /
+ceil(fps)) and retries higher QPs. All 12 mode/size/QP cases completed and
+passed the C TNV3 checker; it required 43–44 retries at QP 24 and 26 retries
+at 800/QP 30. It can still fail if a QP-51 picture exceeds the cap. When the
+original mode succeeded, results were unchanged at QP 36. At 400/QP 30, the
+B result changed from 333,623 bytes / 37.3135 dB Y-PSNR to 305,611 bytes /
+36.3222 dB, demonstrating a substantial trade-off. Same-QP PSNR is not an
+equal-quality rate comparison; see `rust_long_rate_study.json`.
+
+Decision: retain the conservative budget as opt-in, normal behavior unchanged.
+It is a workaround, not look-ahead rate control; test longer and more diverse
+inputs, rate/quality curves and audio headroom before any default decision.
+This affects the encoder hot path when enabled; no new Pocket/Quartus claim.

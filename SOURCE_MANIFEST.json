@@ -24,7 +24,7 @@
       "upstream_sha256": "97f2fc7dcf1d762944a4535509d4c1535b9c17dce15258ca4acafd410c19c70d"
     },
     "Makefile": {
-      "sha256": "2ccf5fadb152f91d4baf0f6c7d90c0db9f2fa721b462e3ebc46058ae683cad37",
+      "sha256": "1cb1b52f7f2edfc94e020e9ff40f1538548e097d6e55be286fe86156131fd757",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "ce14d2e3b36cd34bdc4167ebfd3379916fa0d6d42ea730faaf50a704637f992a",
+      "sha256": "231b9b1d256f11e4eaa77ca202c148fc5ff5d0ee4cf38113a6a9d60aa785d61b",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
@@ -137,10 +137,10 @@
       "sha256": "8a60c50fd3fc6f95ab4d44990153482128498bee817f866b4755ddeb66c4842c"
     },
     "docs/RUST_ENCODER_EXPERIMENTS.md": {
-      "sha256": "fadd28c221c91c8eb62265ce3230ec5ac654d2cc88e79a69198d906b935fff0e"
+      "sha256": "b6e9e09166d7d824e875cf64e1c550f7a72b189d7750606bebbb2293152b3177"
     },
     "docs/RUST_ROADMAP.md": {
-      "sha256": "3f6afc2be6c6ed7f9ce4f4c739455353601a4dc2f1ca34150e7d10430b7daede",
+      "sha256": "ab3db7597ef0ab80798e11c590d3def8cb120b4ecb938b9904d998a7a4020473",
       "status": "new_release_file"
     },
     "docs/SDRAM_CONTROLLER_REQUIREMENTS.md": {
@@ -928,6 +928,9 @@
     "docs/handoffs/SESSION_HANDOFF_2026-10-30_TVC_PLAYER.md": {
       "sha256": "d50e9093da7c925b8fcc949c1b83ec43ca0f98be1ceca8a3db6d3999857206ce"
     },
+    "docs/issues/001-rust-rate-window-starvation.md": {
+      "sha256": "b35b8bbbb22f7d754602177aeb994d107a9c5efca1dff20cfdb7420da5d6d795"
+    },
     "docs/research/DECODE_QUALITY_RESEARCH.md": {
       "sha256": "3da9ca782ff5e1090ffd50c056bb38a5a144209e6cb96e225c2fb331d2979ed8"
     },
@@ -949,17 +952,20 @@
     "docs/rust_block_motion_study.json": {
       "sha256": "76db3ffeea025c1dc1093dcbb4444bcb60e3c90f5b7271bd5016e321f43a91b8"
     },
+    "docs/rust_long_rate_study.json": {
+      "sha256": "3262598b7b647cd913820c9f26f873c5ad0002f2a6419f77d1f6cd1a5753e12b"
+    },
     "tau-video/CHANGELOG.md": {
-      "sha256": "39b3264a7477254a9ee804f871145001b349f8d08f1f0b00a02420b4c5cc194f"
+      "sha256": "04dc1286df6daf0d3f257e66140ded95f511b86df1398ddfefd7ff620587fdcd"
     },
     "tau-video/Cargo.lock": {
       "sha256": "a70d751d12315aac2d7a9d894ef799386493662f2d8111ace4022ae1a2165180"
     },
     "tau-video/Cargo.toml": {
-      "sha256": "eac4486207557eb16cb6c9b5db7b9295755de4034159ce97d27c114dd0bed05d"
+      "sha256": "53cfe683384a592904caa3831ca2bc8b08d9ab5ff79c5b08a0e2c9bc19d86e69"
     },
     "tau-video/README.md": {
-      "sha256": "37178fd6dcf46035659f75e386194522ef5c5f2e9fd0398f44c96345caf00013"
+      "sha256": "03d79f99bfb2915bccdebb0df9a36a50b7dc04c456756b6bdfd233fdb86ca346"
     },
     "tau-video/src/bin/tau-mp3.rs": {
       "sha256": "b5467b3a13bbe979ebf00f8373ab3077098b3c7072a4fc499833e5dc504047f7"
@@ -995,7 +1001,7 @@
       "sha256": "72d47cbb961c3dd5e242ae7924053a6371e1ff2efafad46927ed9a7de8d87ca0"
     },
     "tau-video/src/tvc/encoder.rs": {
-      "sha256": "49ffa9d0cb001cb6850bf67324aab8ed94143b3bcb587fa62f993fbca467bc17"
+      "sha256": "d5607670824a4dc71a68b90f07ecdad9dd27d0067012e985b91fa105bb4e2949"
     },
     "tau-video/src/tvc/frame.rs": {
       "sha256": "68b238fef2746ad01eb28d9a6b1d681e9f07ab2a090ab5395446596590c39297"
@@ -1070,7 +1076,7 @@
       "sha256": "c682c888e9741a06fa0f090a59b59d8de56e121d9084a775b8c74ede2af6588b"
     },
     "tau-video/tests/encoder_reference.rs": {
-      "sha256": "6e0c90fb2fad1748084ddd3818c98dd0241a971d4e37481e473e3a1ddc7e3088"
+      "sha256": "78de9ad91acb2947f632ff6f92c47773706e23895e8e5af05dedd312fe5a7589"
     },
     "tau-video/tests/intra_reference.rs": {
       "sha256": "254ec885c2e0bc6536bab3a80e0c93e6c2bccd2a71949d671812d9b4a7580595"
