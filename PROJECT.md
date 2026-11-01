@@ -303,3 +303,9 @@ The MVP CLI now has a Windows direct-copy publication path with exclusive
 file creation. **Cross-compile:** Windows code and tests type-check; native
 Windows execution is unverified, and interrupted copies can leave partial
 new files. This supersedes the earlier Windows-unsupported CLI note.
+
+**CI artifact evidence:** commit `1e5bd30` passed CLI workflow run
+`41342981023` and desktop app workflow run `41342981138`; macOS, Windows
+and Linux jobs succeeded and uploaded executable-only artifacts. These are
+not installers and do not bundle dependencies. CI establishes build and test
+success, not Windows runtime or FAT/exFAT publication.
