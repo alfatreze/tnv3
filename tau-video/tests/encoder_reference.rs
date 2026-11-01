@@ -886,3 +886,22 @@ fn b_stream_shares_predictive_anchors_and_refreshes_keys() {
         let _ = fs::remove_file(y4m);
     }
 }
+
+#[cfg(feature = "b-pictures")]
+#[test]
+fn anchor_reuse_preserves_preoptimization_stream() {
+    use std::io::Cursor;
+    use tau_video::tvc::encoder::encode_y4m_b;
+    let mut src = b"YUV4MPEG2 W32 H32 F24:1 Ip A1:1 C420jpeg\n".to_vec();
+    for i in 0..10 {
+        src.extend_from_slice(b"FRAME\n");
+        src.extend(vec![80 + ((i / 2) * 5) % 80; 1024]);
+        src.extend(vec![128u8; 512]);
+    }
+    let mut out = Cursor::new(Vec::new());
+    encode_y4m_b(Cursor::new(src), &mut out, 30).unwrap();
+    assert_eq!(
+        out.into_inner(),
+        include_bytes!("../src/tvc/b-reuse-reference.tvc")
+    );
+}

@@ -74,3 +74,9 @@ cc -O2 -I tools/tvc_ref tau-video/tests/reference/inter-mb.c -lm -o /tmp/tau-int
 /tmp/tau-inter-mb 1 > tau-video/src/tvc/p-mb-reference.bin
 /tmp/tau-inter-mb 2 > tau-video/src/tvc/b-mb-reference.bin
 ```
+
+
+`b-reuse-reference.tvc` is the pre-optimization output for ten 32×32 generated
+frames: Y is `80 + ((frame_index // 2) * 5) % 80`, Cb and Cr are 128. It was
+encoded at QP 30 with the opt-in B-stream encoder. The fixture contains no
+media-derived samples.

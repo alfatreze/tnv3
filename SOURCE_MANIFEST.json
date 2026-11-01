@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "4e803cdccb646236fdc032a78c98ed813fca669a4e8d83da8dabbfd34c576d75",
+      "sha256": "ce14d2e3b36cd34bdc4167ebfd3379916fa0d6d42ea730faaf50a704637f992a",
       "status": "modified_for_release",
       "upstream_path": "PROJECT.md",
       "upstream_sha256": "baa6bad96e14405a3b5178c525b4b57363a509cb35ce69cb51aba6ecce0766c1"
@@ -137,7 +137,7 @@
       "sha256": "8a60c50fd3fc6f95ab4d44990153482128498bee817f866b4755ddeb66c4842c"
     },
     "docs/RUST_ENCODER_EXPERIMENTS.md": {
-      "sha256": "655392fc97141cc42cc51adb35f38459cc6877ac44dda3fc6152fd5e0403101c"
+      "sha256": "fadd28c221c91c8eb62265ce3230ec5ac654d2cc88e79a69198d906b935fff0e"
     },
     "docs/RUST_ROADMAP.md": {
       "sha256": "3f6afc2be6c6ed7f9ce4f4c739455353601a4dc2f1ca34150e7d10430b7daede",
@@ -931,6 +931,9 @@
     "docs/research/DECODE_QUALITY_RESEARCH.md": {
       "sha256": "3da9ca782ff5e1090ffd50c056bb38a5a144209e6cb96e225c2fb331d2979ed8"
     },
+    "docs/rust_b_anchor_reuse.json": {
+      "sha256": "73f3bfc0b2e83acf6f10f888990cfff63951a75ef76028e49ee2b08929c165b4"
+    },
     "docs/rust_b_guard_study.json": {
       "sha256": "59f9c25c7addf0fa76e5770ad2693a2775f5fb7609d0fa7a313105e35c508eac"
     },
@@ -947,7 +950,7 @@
       "sha256": "76db3ffeea025c1dc1093dcbb4444bcb60e3c90f5b7271bd5016e321f43a91b8"
     },
     "tau-video/CHANGELOG.md": {
-      "sha256": "dd09c348d56c04ace96ea99fd1d9618ba1ed9390159fe301503c456a01056998"
+      "sha256": "39b3264a7477254a9ee804f871145001b349f8d08f1f0b00a02420b4c5cc194f"
     },
     "tau-video/Cargo.lock": {
       "sha256": "a70d751d12315aac2d7a9d894ef799386493662f2d8111ace4022ae1a2165180"
@@ -973,6 +976,9 @@
     "tau-video/src/tvc/b-mb-reference.bin": {
       "sha256": "3aea379601f08f460aac1191757b167ceea554538205da30c46f7b3e5d296eb4"
     },
+    "tau-video/src/tvc/b-reuse-reference.tvc": {
+      "sha256": "011252cb92c1e58c22c9dcebc764b23aa067f42f938240cab748eeaec7b944c7"
+    },
     "tau-video/src/tvc/coeff-reference.bin": {
       "sha256": "a927b70dbbb9fecd6997bd3165afc5aee0503bf1916327b44a5b667afa19bbb9"
     },
@@ -989,7 +995,7 @@
       "sha256": "72d47cbb961c3dd5e242ae7924053a6371e1ff2efafad46927ed9a7de8d87ca0"
     },
     "tau-video/src/tvc/encoder.rs": {
-      "sha256": "6f3a5c49cb44bd77e5fe8ff13ca18b7e3af84327be32e8a46a0a949b5b01c359"
+      "sha256": "49ffa9d0cb001cb6850bf67324aab8ed94143b3bcb587fa62f993fbca467bc17"
     },
     "tau-video/src/tvc/frame.rs": {
       "sha256": "68b238fef2746ad01eb28d9a6b1d681e9f07ab2a090ab5395446596590c39297"
@@ -1064,7 +1070,7 @@
       "sha256": "c682c888e9741a06fa0f090a59b59d8de56e121d9084a775b8c74ede2af6588b"
     },
     "tau-video/tests/encoder_reference.rs": {
-      "sha256": "40bfaec9d1cbe1a5994663ba59969d0c8d925ad1824c027ac75f340329d502b0"
+      "sha256": "6e0c90fb2fad1748084ddd3818c98dd0241a971d4e37481e473e3a1ddc7e3088"
     },
     "tau-video/tests/intra_reference.rs": {
       "sha256": "254ec885c2e0bc6536bab3a80e0c93e6c2bccd2a71949d671812d9b4a7580595"
@@ -1076,7 +1082,7 @@
       "sha256": "fad504818284d7e2382d348743b814f6a96002d2837b0aa52ff367df4d3c7a9a"
     },
     "tau-video/tests/reference/README.md": {
-      "sha256": "b7e0a39559e0556a3e39e47d6d014f7323d3a553f4af1161664be27560bff458"
+      "sha256": "31d56e1d9142a3b4b2794bf5136280ff36150959fef89f6adfb548d5be437032"
     },
     "tau-video/tests/reference/block-bench.py": {
       "sha256": "59dc616f7f9f3bc8bd46add7ac56d3e71581c38bc4d7faedb73094088359ecc1"
@@ -1101,6 +1107,9 @@
     },
     "tau-video/tests/reference/prediction.c": {
       "sha256": "4e098cb4a35668bb7cfcff1ed539674b98b75291b2a59a32010f3822665d228c"
+    },
+    "tau-video/tests/reference/reuse-bench.py": {
+      "sha256": "2abe303bc1f5c5b26fa789495293cd6f8d5249af2be40dd5ae226f9dcdc63ce8"
     },
     "tau-video/tests/reference/seg.c": {
       "sha256": "26c889998296b24496e04d3b680a68a1e0348ae39b6cd9d82590455f7dc85094"

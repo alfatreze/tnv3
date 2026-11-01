@@ -169,3 +169,23 @@ generated Y4M `230fdd4ec0ba23e4556e463dd89835ec4b16168322fc0314131261dd8f822dc8`
 Raw timings: `rust_b_static_shortcut.json`. Synthetic B fallback and C decoder
 tests passed. The B path remains opt-in; wider quality and throughput testing
 and a full malformed-input audit remain open. No new Pocket or Quartus claim.
+
+## Reuse a future anchor after skip — 2026-11-01
+
+The opt-in B encoder reuses the already computed future anchor when the middle
+picture is exactly a zero-motion skip and the rate window has enough headroom
+for any legal picture. The reference and keyframe decision are then unchanged;
+otherwise it recomputes the anchor. This affects the experimental encoder hot
+path only. A pre-optimization synthetic fixture covers the shortcut.
+
+**Host:** all 12 earlier short real-clip outputs were byte-identical. On one
+generated 160×96, 2,400-frame repeat/change sequence at QP 30, eight
+alternating runs per mode had median wall times 1.11169 s before and 0.69443 s
+after (0.625×); all outputs had the same SHA-256. The C and Rust decoders
+matched pixel-for-pixel and the C TNV3 checker accepted the long output. This
+is one generated pattern, not a general speed claim. Reproduce input with
+`tau-video/tests/reference/reuse-bench.py`; generated Y4M SHA-256:
+`05ee066db9e619aaa3190fe6b85163898f86c7b7535cc5157d0788e36e0a37a0`. Raw
+timings: `rust_b_anchor_reuse.json`. Default remains unchanged. Wider quality
+and throughput tests and malformed-input validation remain open; no new Pocket
+or Quartus claim.

@@ -166,3 +166,9 @@ The opt-in B encoder now skips an exact redundant static-pair comparison. On
 12 short host cases outputs were unchanged; a generated 2,400-frame static
 case improved median time in 12 alternating runs. This does not establish a
 general speed result. See `docs/RUST_ENCODER_EXPERIMENTS.md`.
+
+The opt-in B encoder reuses a future anchor when a preceding skip leaves its
+reference unchanged and rate limits cannot affect candidate choice. Output was
+identical on 12 short host cases; a generated repeat/change clip improved in
+a paired timing study. This is not a general speed claim. See
+`docs/RUST_ENCODER_EXPERIMENTS.md`.

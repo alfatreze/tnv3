@@ -1,0 +1,120 @@
+{
+  "date": "2026-11-01",
+  "classification": "host",
+  "method": "Eight alternating runs per mode on one generated 2400-frame repeat/change clip; 12 short real-clip outputs compared byte-for-byte.",
+  "real_cases_equal": 12,
+  "runs": [
+    {
+      "mode": "base",
+      "seconds": 1.27636,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.9804,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.68928,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "base",
+      "seconds": 1.09827,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "base",
+      "seconds": 1.11182,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.70662,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.68932,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "base",
+      "seconds": 1.11156,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "base",
+      "seconds": 1.10844,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.68613,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.69643,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "base",
+      "seconds": 1.12058,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "base",
+      "seconds": 1.11467,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.69722,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "fast",
+      "seconds": 0.69243,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    },
+    {
+      "mode": "base",
+      "seconds": 1.10974,
+      "bytes": 216620,
+      "sha256": "dd2e77030197b0b1df635075d31334ab5a2d8bea3b9956fbd2de0dcf7a533595",
+      "stats": "frames=2400 b=0 retries=0"
+    }
+  ]
+}

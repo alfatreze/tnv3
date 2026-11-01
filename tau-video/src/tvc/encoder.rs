@@ -1113,6 +1113,7 @@ fn read_b_frame<R: std::io::BufRead>(
     Ok(Some(f))
 }
 #[cfg(feature = "b-pictures")]
+#[derive(Clone)]
 struct BAnchor {
     picture: Vec<u8>,
     reconstructed: Frame420,
@@ -1371,13 +1372,23 @@ pub fn encode_y4m_b<R: std::io::BufRead, W: std::io::Write + std::io::Seek>(
         let skip = encode_skip_picture(usize::from(w), usize::from(h), qp);
         let identical_skip_pair = middle_anchor.picture == skip && next_anchor.picture == skip;
         if !identical_skip_pair && usize::from(w) % 16 == 0 && usize::from(h) % 16 == 0 {
-            if let Ok(anchor) = choose_b_anchor(
-                &future,
-                Some(&previous),
-                qp,
-                &window,
-                frames + 1 - last_key >= 96,
-            ) {
+            // Reuse the already encoded future anchor only when the middle
+            // skip preserves its reference and neither window can constrain
+            // any legal picture candidate. This keeps decisions unchanged.
+            let can_reuse = middle_anchor.picture == skip
+                && window.sum + skip.len() + window.max_picture <= window.max_rate;
+            let proposed = if can_reuse {
+                Ok(next_anchor.clone())
+            } else {
+                choose_b_anchor(
+                    &future,
+                    Some(&previous),
+                    qp,
+                    &window,
+                    frames + 1 - last_key >= 96,
+                )
+            };
+            if let Ok(anchor) = proposed {
                 if let Ok(Some(b)) = try_b_between(&previous, &middle, &anchor.reconstructed, qp) {
                     if anchor.picture.len() + b.len() < baseline_size
                         && window.accepts(&[&anchor.picture, &b])
