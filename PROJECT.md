@@ -369,7 +369,7 @@ remain open. See `docs/issues/004-desktop-preview-validation.md` and
 `docs/issues/009-c-encoder-process-cancellation.md`.
 
 The desktop app uses independent semantic versions; its current preview is
-0.3.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
+0.4.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
 not change codec-format or crate versions.
 
 **Host:** Tau Encoder 0.2.0 did not report intermediate progress for the
@@ -385,3 +385,7 @@ HEVC reference pictures; output quality and Pocket playback are unverified.
 Tau Encoder 0.3.0 shows detected dependency locations and allows selecting
 an installation. Its macOS bundle uses FFmpeg 9.0.2; Windows and Linux native
 runtime and packaging validation remain open.
+
+Tau Encoder 0.4.0 offers output size and C codec level selection and local
+preview scaling. **Host:** short generated level 1–3 encodes passed in both C
+workflows; higher-level Pocket playback remains unverified; see issue 011.

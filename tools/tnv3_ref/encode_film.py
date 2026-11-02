@@ -51,13 +51,15 @@ def probe(src):
     return s['width'], s['height'], Fraction(s['r_frame_rate']), float(j['format']['duration'])
 
 
-def pick_level(w, h, fps):
+def pick_level(w, h, fps, requested=0):
     W, H = (w + 15) & ~15, (h + 15) & ~15
     mbs = W // 16 * (H // 16)
     for lv, (mw, mh, mmb, mmbps, _) in LEVELS.items():
+        if requested and lv != requested:
+            continue
         if W <= mw and H <= mh and mbs <= mmb and fps <= 30 and mbs * fps <= mmbps:
             return lv
-    sys.exit('%dx%d at %s fps fits no level' % (w, h, fps))
+    sys.exit('%dx%d at %s fps does not fit %s' % (w, h, fps, ('level %d' % requested) if requested else 'any level'))
 
 
 def tvc_lengths(path):
@@ -129,9 +131,17 @@ def main():
     ap.add_argument('--keep', action='store_true')
     ap.add_argument('--video-only', action='store_true', help='create a video-only TNV3 for an MP3 sidecar')
     ap.add_argument('--match-app', action='store_true', help='use the desktop application scaling and 24 fps')
+    ap.add_argument('--app-size', default='400x360', help='maximum dimensions for --match-app')
+    ap.add_argument('--level', type=int, choices=[0, 1, 2, 3], default=0, help='0 selects the smallest compatible level')
     ap.add_argument('--fps-round-down', action='store_true', help='experimental desktop frame timestamp rounding')
     ap.add_argument('--fps-eof-pass', action='store_true', help='experimental end-of-stream policy with round-down')
     o = ap.parse_args()
+    try:
+        app_w, app_h = map(int, o.app_size.lower().split('x'))
+        if not 2 <= app_w <= 800 or not 2 <= app_h <= 720 or app_w % 2 or app_h % 2:
+            raise ValueError()
+    except ValueError:
+        ap.error('--app-size must be even dimensions between 2x2 and 800x720')
     if o.experimental_parallel_slices:
         TVC_ENC = os.path.join(HERE, '..', 'tvc_ref', 'tvc_enc_slice_experimental' + EXE)
         if not os.path.isfile(TVC_ENC):
@@ -157,14 +167,14 @@ def main():
     h = sh if o.width == 'native' else max(2, int(round(w * sh / sw / 2)) * 2)
     fps_filter = 'fps=24' + (':round=down' if o.fps_round_down else '') + (':eof_action=pass' if o.fps_round_down and o.fps_eof_pass else '')
     if o.match_app:
-        probe_cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src, '-map', '0:v:0', '-an', '-vf', 'scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,' + fps_filter, '-frames:v', '1', '-pix_fmt', 'yuv420p', '-f', 'yuv4mpegpipe', '-']
+        probe_cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src, '-map', '0:v:0', '-an', '-vf', 'scale=%d:%d:force_original_aspect_ratio=decrease:force_divisible_by=2,' % (app_w, app_h) + fps_filter, '-frames:v', '1', '-pix_fmt', 'yuv420p', '-f', 'yuv4mpegpipe', '-']
         probe_frame = subprocess.run(probe_cmd, check=True, capture_output=True).stdout
         fields = probe_frame.split(b'\n', 1)[0].split()
         w = int(next(x[1:] for x in fields if x.startswith(b'W')))
         h = int(next(x[1:] for x in fields if x.startswith(b'H')))
         fps = Fraction(24)
 
-    level = pick_level(w, h, fps)
+    level = pick_level(w, h, fps, o.level)
     win = math.ceil(fps)
     limit = LEVELS[level][4]
     work = o.work or tempfile.mkdtemp(prefix='tnv3_film_')
@@ -172,7 +182,7 @@ def main():
     log('source %dx%d %s fps %.1f s -> %dx%d at %s fps, level %d, QP %d, %d jobs, work %s' % (sw, sh, sfps, dur, w, h, fps, level, o.qp, jobs, work))
 
     # 1. decode once, cut into segments
-    vf = ('scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,' + fps_filter + ',format=yuv420p' if o.match_app else 'fps=%s,scale=%d:%d:flags=lanczos,format=yuv420p' % (fps, w, h))
+    vf = ('scale=%d:%d:force_original_aspect_ratio=decrease:force_divisible_by=2,' % (app_w, app_h) + fps_filter + ',format=yuv420p' if o.match_app else 'fps=%s,scale=%d:%d:flags=lanczos,format=yuv420p' % (fps, w, h))
     cmd = [os.environ.get('TAU_FFMPEG', 'ffmpeg'), '-v', 'error', '-i', o.src] + (['-t', str(o.seconds)] if o.seconds else []) + ['-vf', vf, '-f', 'yuv4mpegpipe', '-']
     ff = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=1 << 22)
     header = ff.stdout.readline()

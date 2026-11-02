@@ -132,10 +132,33 @@ pub fn encode_video<W: Write>(
     input: &Path,
     output: &mut W,
     options: Options,
+    progress: impl FnMut(u32, u32),
+) -> Result<Report, String> {
+    encode_video_with_geometry(tools, input, output, options, 400, 360, 0, progress)
+}
+
+/// Encode with a maximum output size and an optional explicit TVC level (0 means automatic).
+#[allow(clippy::too_many_arguments)]
+pub fn encode_video_with_geometry<W: Write>(
+    tools: &Tools,
+    input: &Path,
+    output: &mut W,
+    options: Options,
+    width: u32,
+    height: u32,
+    level: u8,
     mut progress: impl FnMut(u32, u32),
 ) -> Result<Report, String> {
     if options.qp > 51 || options.jobs == 0 {
         return Err("QP must be 0–51 and jobs must be positive".into());
+    }
+    if !(2..=800).contains(&width)
+        || !(2..=720).contains(&height)
+        || width % 2 != 0
+        || height % 2 != 0
+        || level > 3
+    {
+        return Err("Output dimensions must be even and at most 800x720; level must be 0–3".into());
     }
     let tmp = temp_dir().map_err(|e| format!("Cannot create encoder workspace: {e}"))?;
     let video = tmp.0.join("output.tnv3");
@@ -151,6 +174,16 @@ pub fn encode_video<W: Write>(
         .arg(options.jobs.to_string())
         .args(["--cpu-budget"])
         .arg(options.jobs.to_string())
+        .arg("--app-size")
+        .arg(format!("{width}x{height}"))
+        .arg("--level")
+        .arg(level.to_string())
+        .arg("--seg")
+        .arg(
+            (480u32 * 400 * 360 / (width * height).max(1))
+                .clamp(1, 480)
+                .to_string(),
+        )
         .args(["--work"])
         .arg(work)
         .env("TAU_FFMPEG", &tools.ffmpeg)

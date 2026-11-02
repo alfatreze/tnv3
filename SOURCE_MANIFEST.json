@@ -14,7 +14,7 @@
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
     },
     "CHANGELOG.md": {
-      "sha256": "894df3d3e7c671998c539a0576e308fbbdb51c2c8ff612909dffa95b661b688b",
+      "sha256": "01281124ccc1ad7f20e51841ceeaebd3bc88bd00fcadb86556f127ac8668394d",
       "status": "new_release_file"
     },
     "LICENSE": {
@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "ad37761ba5cb0baa193cefd8f67961e6fa92352b3db82973086ef0c472a23332"
+      "sha256": "126e1560e30011aff241066551cf4c5e2ce5afd96da70d7dc8a31d388863872f"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1279,7 +1279,7 @@
       "upstream_sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e"
     },
     "tools/tnv3_ref/encode_film.py": {
-      "sha256": "91ba2f7399a2dd24afae166f12f7ecedd77d6203e20c3cdfac0a30019b52ab5d"
+      "sha256": "89faf407843275a51b927778b5a978e7745d161dc2c34d933335ab601aff2f89"
     },
     "tools/tnv3_ref/tnv3.c": {
       "sha256": "bbf20c8f5b9de74afb97a8937519e1ea9731b237619c475829cd043cdc5cd3e0",
@@ -1441,31 +1441,31 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "03a1f75ab04264ff162756807757d34637087258e85bf54aca86c743f56bc387"
+      "sha256": "7f9060285cb8ff3232a94074ac6dcd41668f06241e91983eab4ad59623422889"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
     },
     "tau-encoder/package-lock.json": {
-      "sha256": "29e1d9ae05cad68c282a51c59eee5a7cec21046bb36123ce9428768b5275d4ad"
+      "sha256": "57913f7602852f28017b240a5082b0ec8e05a5bba8b3fe1e320f3889e956060b"
     },
     "tau-encoder/package.json": {
-      "sha256": "d21b25ee94b71e3f3a283513510121cf3fbb8d827feb5cb838d8ea0cd39e6d8e"
+      "sha256": "25ceae97ee76f9685db7439df19e23aaea4b06840ddd1fffaaefa5d99b2c2837"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "024eb0b6fe2659fc887a58d0992a17d1467c1817c56ee6048790a19456d3a192"
+      "sha256": "0631f14b3ba255718f4e4bb0aa23a31bd25bdfdaf798dcd06a3d9ec13831b3aa"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "167e148bf1871ee014f0313f87e203c819998a4fa76bc20176cb6715848d3b8b"
+      "sha256": "a5abcec89a54404d0e55c9fb1a73a3c768b16e45b94db4c38beaacc622138d21"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
-      "sha256": "657f5d80339257e923341519c6655331b557a80094a36953470244db43581ba5"
+      "sha256": "b88d6b72357cae74984ec09776a914972759d23fec5f1836b5a974164b8483c6"
     },
     "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "7d000ffa51429dec18476219ed587735f91c061448fe7989aaa6093b9c4e1dc8"
+      "sha256": "52f758b162cf01a33b95053ffc6c37c4d1cfda89a19c433b96c40f5b6cebfdf7"
     },
     "tau-encoder/src-tauri/build.rs": {
       "sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
@@ -1489,10 +1489,10 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "ff1d21e26e7044eeb8dc1967646b8d952f754f399daa97a95f6925518db68471"
+      "sha256": "68e5a00af64cc614ae134bd79ce111f42b75df9305adeacac73a0e636e41eab4"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
-      "sha256": "046a0c66b6d4b078d8941efcebad0d18b89a7672e1a8a86353e1178459120a70"
+      "sha256": "a4030fbee3b2448b6e6afac5e090a1d1ef832bf58789e6856309ad576197671e"
     },
     "tau-encoder/tsconfig.json": {
       "sha256": "2e1e6c6ab1495e04baba2e339d1c4b2afaacbb753651b46c5786745ff4e60e60"
@@ -1516,7 +1516,7 @@
       "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
     },
     "tau-encoder/src/Player.svelte": {
-      "sha256": "07d48e8f815bf33566e6a9f530a5945e80a890cd986e3d9780bb552809cdcf52"
+      "sha256": "5fe8f38a2a5970c166770699ed08a1a9492e29ecb734e8ef4f1f34b69100d249"
     },
     "tau-encoder/src-tauri/src/player.rs": {
       "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
@@ -1577,7 +1577,7 @@
     },
     "tau-video/src/c_encoder.rs": {
       "status": "new_release_file",
-      "sha256": "6bf57ba91c1da16f09fb9d06df3356f91d01a87487ec868b35e775315bbc4abc"
+      "sha256": "1ac557f20f223594e8df0330da07383e91847bf664f41bf368f08570a8830ea8"
     },
     "tau-video/tests/c_encoder_adapter.rs": {
       "status": "new_release_file",
@@ -1662,6 +1662,10 @@
     "docs/issues/010-desktop-native-progress.md": {
       "status": "new_release_file",
       "sha256": "128bec9776c6c1ab58ac3971c35390a652334722ed69da4e337490f1a7a27550"
+    },
+    "docs/issues/011-desktop-resolution-level-validation.md": {
+      "status": "new_release_file",
+      "sha256": "903015d5a0583212c984c9a49fc795d0088361ce4000ffdb167e13bf33478be6"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

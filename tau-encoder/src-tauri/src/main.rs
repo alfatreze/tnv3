@@ -218,8 +218,17 @@ struct AdvancedSettings {
     round_down: bool,
     eof_pass: bool,
     trim_mp3_delay: bool,
+    width: Option<u32>,
+    height: Option<u32>,
+    level: Option<u8>,
 }
 impl AdvancedSettings {
+    fn dimensions(self) -> (u32, u32) {
+        (self.width.unwrap_or(400), self.height.unwrap_or(360))
+    }
+    fn level(self) -> u8 {
+        self.level.unwrap_or(0)
+    }
     fn fps_filter(self) -> &'static str {
         match (self.round_down, self.eof_pass) {
             (false, _) => "fps=24",
@@ -308,6 +317,23 @@ fn encode_pair_impl(
     if qp > 51 || !safe_name(name) {
         return Err("Choose a valid output name and a QP between 0 and 51.".into());
     }
+    let (width, height) = advanced.dimensions();
+    if !(2..=800).contains(&width)
+        || !(2..=720).contains(&height)
+        || width % 2 != 0
+        || height % 2 != 0
+        || advanced.level() > 3
+    {
+        return Err(
+            "Choose even output dimensions up to 800×720 and a level from 1 to 3, or automatic."
+                .into(),
+        );
+    }
+    if pure_rust && advanced.level() != 0 {
+        return Err(
+            "Manual level selection is not supported by the experimental Rust encoder.".into(),
+        );
+    }
     let video_path = folder.join(format!("{name}.tnv3"));
     let audio_path = folder.join(format!("{name}.mp3"));
     preflight_output_directory(folder, &video_path, &audio_path)?;
@@ -357,11 +383,14 @@ fn encode_pair_impl(
             (true, false) => tau_video::c_encoder::FrameTiming::RoundDown,
             (true, true) => tau_video::c_encoder::FrameTiming::RoundDownEofPass,
         };
-        let report = tau_video::c_encoder::encode_video(
+        let report = tau_video::c_encoder::encode_video_with_geometry(
             &tools,
             input,
             &mut tvc,
             tau_video::c_encoder::Options { qp, jobs, timing },
+            width,
+            height,
+            advanced.level(),
             |done, all| {
                 progress(Progress {
                     phase: "c-video",
@@ -391,7 +420,7 @@ fn encode_pair_impl(
             #[cfg(feature = "experimental-rust-encoder")]
             {
                 let video_filter = format!(
-                    "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
+                    "scale={width}:{height}:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
                     advanced.fps_filter()
                 );
                 let mut decoder = Command::new(ffmpeg)
@@ -492,7 +521,7 @@ fn encode_pair_impl(
             let tnv3_tool = selected_file(&dependencies.tnv3_tool, "TNV3 tool")?
                 .ok_or("The Rust C workflow requires tnv3; set it in Dependency settings or bundle it with the app.")?;
             let video_filter = format!(
-                "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
+                "scale={width}:{height}:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
                 advanced.fps_filter()
             );
             let mut decoder = Command::new(ffmpeg)
@@ -543,7 +572,9 @@ fn encode_pair_impl(
                 tau_video::experimental_c_orchestrator::Options {
                     qp,
                     jobs,
-                    frames_per_segment: 480,
+                    frames_per_segment: (480u32 * 400 * 360 / (width * height)).clamp(1, 480)
+                        as usize,
+                    level: advanced.level(),
                     workspace_limit_bytes,
                     ..Default::default()
                 },
@@ -1089,6 +1120,119 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn c_workflows_honor_resolution_and_levels() {
+        let (Some(ffmpeg), Some(ffprobe), Some(script), Some(tvc), Some(tnv3)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_FFPROBE"),
+            std::env::var_os("TAU_TEST_C_SCRIPT"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        ) else {
+            return;
+        };
+        let (source_guard, file) = temporary_file("mp4").unwrap();
+        drop(file);
+        assert!(
+            Command::new(&ffmpeg)
+                .args([
+                    "-y",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc2=size=320x240:rate=24:duration=0.25",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=440:sample_rate=48000:duration=0.25",
+                    "-c:v",
+                    "mpeg4",
+                    "-c:a",
+                    "aac"
+                ])
+                .arg(&source_guard.0)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            ..Default::default()
+        };
+        for backend in [false, true] {
+            for (width, height, level) in [(400, 240, 1), (800, 464, 2), (800, 720, 3)] {
+                let (reserve, file) = temporary_file("tnv3").unwrap();
+                drop(file);
+                std::fs::remove_file(&reserve.0).unwrap();
+                let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+                let settings = AdvancedSettings {
+                    width: Some(width),
+                    height: Some(height),
+                    level: Some(level),
+                    ..Default::default()
+                };
+                let tools = if backend {
+                    Some((Path::new(&script), Path::new(&ffprobe)))
+                } else {
+                    None
+                };
+                let result = encode_pair(
+                    Path::new(&ffmpeg),
+                    &source_guard.0,
+                    reserve.0.parent().unwrap(),
+                    name,
+                    30,
+                    tools,
+                    settings,
+                    &dependencies,
+                    |_| {},
+                )
+                .unwrap();
+                assert_eq!(result.level, level);
+                let video = Temporary(PathBuf::from(result.video));
+                let _audio = Temporary(PathBuf::from(result.audio));
+                let info = tau_video::Tnv3Reader::open(File::open(&video.0).unwrap())
+                    .unwrap()
+                    .info()
+                    .clone();
+                assert_eq!(info.level, level);
+                assert!(u32::from(info.width) <= width && u32::from(info.height) <= height);
+                assert!(info.width > 0 && info.height > 0);
+            }
+            let (reserve, file) = temporary_file("tnv3").unwrap();
+            drop(file);
+            std::fs::remove_file(&reserve.0).unwrap();
+            let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+            let tools = if backend {
+                Some((Path::new(&script), Path::new(&ffprobe)))
+            } else {
+                None
+            };
+            let settings = AdvancedSettings {
+                width: Some(800),
+                height: Some(720),
+                level: Some(1),
+                ..Default::default()
+            };
+            assert!(
+                encode_pair(
+                    Path::new(&ffmpeg),
+                    &source_guard.0,
+                    reserve.0.parent().unwrap(),
+                    name,
+                    30,
+                    tools,
+                    settings,
+                    &dependencies,
+                    |_| {}
+                )
+                .is_err()
+            );
+        }
+    }
     #[test]
     fn tool_discovery_lists_existing_paths_once_and_ignores_missing_files() {
         let (first, file) = temporary_file("tool").unwrap();

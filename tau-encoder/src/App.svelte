@@ -8,6 +8,9 @@
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
   let dependencyError = '';
   let mode: 'rust' | 'c' = 'c', suffix = '_C', rustAvailable = false;
+  let resolution = '400x360', customWidth = 400, customHeight = 360, selectedLevel = 0;
+  function outputDimensions(): [number, number] { return resolution === 'custom' ? [Number(customWidth), Number(customHeight)] : resolution.split('x').map(Number) as [number, number]; }
+  function validDimensions(): boolean { const [w, h] = outputDimensions(); return Number.isInteger(w) && Number.isInteger(h) && w >= 2 && w <= 800 && h >= 2 && h <= 720 && w % 2 === 0 && h % 2 === 0; }
   let workflow: 'python' | 'native' = 'python', workspaceMib = 512;
   let page: 'encoder' | 'decoder' | 'settings' = 'encoder';
   let player: { pausePlayback: () => void } | undefined;
@@ -105,15 +108,16 @@
     } catch (e) { error = String(e); }
   }
   async function encode() {
-    if (!input || !folder || !name || busy || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))) return;
+    if (!input || !folder || !name || busy || !validDimensions() || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))) return;
     busy = true; error = ''; message = ''; warning = '';
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
     let unlisten: UnlistenFn | undefined;
     try {
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
-      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay }, dependencies });
+      const [width, height] = outputDimensions();
+      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
-      message = `Finished: ${result.frames} frames · level ${result.level} · ${result.reencoded} frames retried. Created ${result.video} and ${result.audio}.`;
+      message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video} and ${result.audio}. Level limits may cause automatic quality reductions.`;
     } catch (e) { error = String(e); } finally { unlisten?.(); busy = false; }
   }
 </script>
@@ -146,8 +150,10 @@
       </div>
     {/if}
     <div class="field"><label for="suffix">Output suffix <small>Added to both file names</small></label><input class="name" id="suffix" bind:value={suffix} disabled={busy} /></div>
+    <div class="field"><label for="resolution">Output size <small>Maximum width × height</small></label><select id="resolution" bind:value={resolution} disabled={busy}><option value="400x240">400 × 240 — Level 1 size</option><option value="400x360">400 × 360 — Pocket window (default)</option><option value="800x464">800 × 464 — Level 2 size</option><option value="800x720">800 × 720 — Level 3 size</option><option value="custom">Custom</option></select>{#if resolution === 'custom'}<div class="dimensions"><label for="custom-width">Width <input id="custom-width" type="number" min="2" max="800" step="2" bind:value={customWidth} disabled={busy} /></label><label for="custom-height">Height <input id="custom-height" type="number" min="2" max="720" step="2" bind:value={customHeight} disabled={busy} /></label></div>{#if !validDimensions()}<p class="status error">Use even dimensions from 2 × 2 up to 800 × 720.</p>{/if}{/if}<p class="workflow-note">Preserves aspect ratio; actual dimensions may be smaller. Higher resolutions and levels are not confirmed on Pocket.</p></div>
+    {#if mode === 'c'}<div class="field"><label for="level">Codec level</label><select id="level" bind:value={selectedLevel} disabled={busy}><option value={0}>Automatic — lowest compatible level</option><option value={1}>Level 1</option><option value={2}>Level 2</option><option value={3}>Level 3</option></select><p class="workflow-note">The encode fails if the selected level cannot hold the output. The encoder can raise QP on individual pictures to meet the level, reducing quality in those pictures.</p></div>{/if}
     <div class="field quality"><div><label for="qp">Quality <small>QP</small></label><p>Lower values use more space. Default: 30.</p></div><input id="qp" type="number" min="0" max="51" step="1" bind:value={qp} disabled={busy} /></div>
-    <button class="primary" type="button" onclick={encode} disabled={busy || !input || !folder || !name.trim() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp) || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
+    <button class="primary" type="button" onclick={encode} disabled={busy || !input || !folder || !name.trim() || !validDimensions() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp) || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
     {#if busy}
       <div class="progress-area" aria-live="polite">
         <div class="progress-heading"><strong>{progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : 'Saving files'}</strong>
@@ -165,7 +171,7 @@
     {#if warning}<div class="status warning-summary" role="alert"><strong>Output created with source warnings</strong>{#each warningExplanations(warning) as explanation}<p>{explanation}</p>{/each}<details><summary>Show original decoder messages</summary><pre class="warning">{warning}</pre></details></div>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
-  <aside><strong>Early preview</strong><p>Output is 24 fps, up to 400 × 360, with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Cancellation is not available yet.</p></aside>
+  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Cancellation is not available yet.</p></aside>
   {:else if page === 'decoder'}
     <header><div><p class="eyebrow">LOCAL PREVIEW</p><h1>Decoder</h1></div></header>
     <p class="intro">Test player for local TNV3 video and matching audio files.</p>

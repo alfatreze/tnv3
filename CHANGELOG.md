@@ -1,5 +1,10 @@
 # Changelog
 
+## Tau Encoder 0.4.0 — desktop preview
+
+- Select output dimensions and TVC level in both C workflows.
+- Preview at native size or at 2× and 4×.
+
 ## Tau Encoder 0.3.0 — desktop preview
 
 - Show automatic and detected dependency paths in Settings and allow choosing an installation.
