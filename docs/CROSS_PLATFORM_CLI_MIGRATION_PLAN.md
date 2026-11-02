@@ -208,3 +208,15 @@ merges, then deletes each segment's raw and C output. Generated Python parity
 and stub retry checks passed on macOS. Merged and final files remain on disk;
 the projected budget is not a strict filesystem quota. Full-film and real C
 retry parity remain open before replacing Python.
+
+**Generated workspace check, 2026-11-02:** on macOS, an inline one-run
+comparison used 1,441 frames at 24 fps, scaled 400x300, QP 30, jobs 2,
+Homebrew FFmpeg 9.0.2_1 and the reference C tools. Python and the experimental
+streaming Rust workflow produced byte-identical TNV3 (387,960 bytes) and MP3
+(961,580 bytes), with four segments and zero joint retries. Reference TNV3
+checking passed. Wall times were 10.67 s and 10.45 s; periodic workspace
+sampling showed approximately 259,734,414 and 173,022,964 bytes respectively.
+These are single synthetic host runs, not a speed, equal-quality, full-film or
+Pocket claim. Sampled peaks are approximate; the inline harness/log and generated
+media were removed. The actual original source was disconnected during this
+check. The default path remains Python and the workspace budget is projected.

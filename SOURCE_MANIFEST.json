@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "a9ec12e496754bd5c835556e2ec8bc6c6f0c168f337f33e56655557e2df54255"
+      "sha256": "f28ffe8b9030db55c50a7adac761544bf60e4f037d50476396bc9239b906df5b"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1584,7 +1584,7 @@
       "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
     },
     "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
-      "sha256": "e7bb13aaf2c8f3fb0628a20a1e9ea7e9e5830d76ff7ebb8cb1a3f70d775134e7",
+      "sha256": "eac5701a7b0b1d68d67a69060965cdedd5a865df93f63a196f708ab345c274ba",
       "status": "new_release_file"
     },
     "tools/codec_study/cli_migration_smoke.py": {

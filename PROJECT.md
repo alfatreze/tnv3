@@ -353,3 +353,8 @@ removes their raw and encoded temporary files after rate checking and merge.
 **Host:** generated two-segment Python byte parity and a simulated boundary
 retry passed. The merged TVC and final TNV3 still use temporary disk, the
 budget is projected, and real C retry/full-film gates remain open.
+
+**Host:** a generated 1,441-frame, 400x300 comparison of the Python and
+experimental Rust C workflows produced byte-identical TNV3/MP3. Periodic
+temporary-workspace sampling measured about 260 MB versus 173 MB, respectively;
+one run each, not a performance benchmark. See the CLI migration plan.
