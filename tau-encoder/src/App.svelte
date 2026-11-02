@@ -14,6 +14,8 @@
   let roundDown = false, eofPass = false, trimMp3Delay = false;
   type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool';
   let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '' };
+  type ToolDiscovery = { key: DependencyKey; automatic: string; candidates: string[] };
+  let discovered: ToolDiscovery[] = [], discoveryError = '', discovering = false, discoveryRequest = 0;
   const dependencyFields: { key: DependencyKey; label: string; help: string }[] = [
     { key: 'ffmpeg', label: 'FFmpeg', help: 'Video decoding and MP3 encoding, both encoders' },
     { key: 'ffprobe', label: 'FFprobe', help: 'Source inspection for the C encoder' },
@@ -24,6 +26,20 @@
   ];
   function saveDependencies() {
     try { localStorage.setItem('tau-encoder-dependencies', JSON.stringify(dependencies)); } catch { /* Keep settings for this session. */ }
+    void refreshTools();
+  }
+  async function refreshTools() {
+    const request = ++discoveryRequest;
+    discovering = true; discoveryError = '';
+    try {
+      const result = await invoke<ToolDiscovery[]>('discover_tools', { dependencies, workflow });
+      if (request === discoveryRequest) discovered = result;
+    } catch (e) { if (request === discoveryRequest) discoveryError = `Could not find tools: ${String(e)}`; }
+    finally { if (request === discoveryRequest) discovering = false; }
+  }
+  function chooseDiscovered(key: DependencyKey, event: Event) {
+    dependencies = { ...dependencies, [key]: (event.currentTarget as HTMLSelectElement).value };
+    saveDependencies();
   }
   async function chooseDependency(key: DependencyKey) {
     dependencyError = '';
@@ -74,6 +90,7 @@
   function navigate(next: 'encoder' | 'decoder' | 'settings') {
     if (page === 'decoder' && next !== 'decoder') player?.pausePlayback();
     page = next;
+    if (next === 'settings') void refreshTools();
   }
   async function chooseInput() {
     try {
@@ -122,7 +139,7 @@
     <div class="field"><label for="name">File name <small>Creates matching .tnv3 and .mp3 files</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
     {#if mode === 'c'}
-      <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} disabled={busy}><option value="python">Python + C (default)</option><option value="native">Experimental Python-free Rust + C</option></select>
+      <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (default)</option><option value="native">Experimental Python-free Rust + C</option></select>
         {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{:else}<p class="workflow-note">Rust handles orchestration; the same C video encoder still performs compression. Python is not required. This experimental workflow tracks a projected temporary workspace budget; long films may need a higher value. Encoding stops when the projected workspace exceeds this budget, though actual disk use can vary. Video progress updates as segments finish.</p>
           <label class="workspace-label" for="workspace-mib">Projected workspace budget <small>MiB</small></label><input class="workspace-input" id="workspace-mib" type="number" min="1" max="16384" step="1" bind:value={workspaceMib} disabled={busy} />
         {/if}
@@ -157,9 +174,22 @@
     <p class="intro">Choose installed tools to override automatic discovery. Paths are remembered on this computer.</p>
     <section aria-label="Dependency settings">
       <p class="settings-copy">Leave a path empty to use the bundled or default tool. The Python path is used only by the Python + C workflow.</p>
+      <p class="settings-copy">Detected paths depend on the app's environment and the selected workflow. File detection does not verify that a tool works or supports your source.</p>
+      <button type="button" onclick={() => void refreshTools()} disabled={busy || discovering}>{discovering ? 'Scanning…' : 'Refresh detected tools'}</button>
+      {#if discoveryError}<p class="status error" role="alert">{discoveryError}</p>{/if}
       {#each dependencyFields as field}
+          {@const tool = discovered.find(item => item.key === field.key)}
           <div class="field"><label for={'dependency-' + field.key}>{field.label} <small>{field.help}</small></label>
             <div class="pick"><input id={'dependency-' + field.key} bind:value={dependencies[field.key]} onchange={saveDependencies} disabled={busy} placeholder="Automatic" /><button type="button" onclick={() => chooseDependency(field.key)} disabled={busy}>Browse</button></div>
+            <p class="detected-path">{dependencies[field.key] ? `Selected: ${dependencies[field.key]}` : tool?.automatic ? `Automatic: ${tool.automatic}` : 'Automatic: not found (or not used by this workflow)'}</p>
+            {#if tool && tool.candidates.length > 0}
+              <label class="detected-label" for={'detected-' + field.key}>Detected {field.label} locations</label>
+              <select id={'detected-' + field.key} value={dependencies[field.key]} onchange={(event) => chooseDiscovered(field.key, event)} disabled={busy}>
+                <option value="">Automatic</option>
+                {#if dependencies[field.key] && !tool.candidates.includes(dependencies[field.key])}<option value={dependencies[field.key]}>Custom: {dependencies[field.key]}</option>{/if}
+                {#each tool.candidates as path}<option value={path}>{path}</option>{/each}
+              </select>
+            {/if}
           </div>
       {/each}
       {#if dependencyError}<p class="status error" role="alert">{dependencyError}</p>{/if}

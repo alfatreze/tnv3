@@ -14,7 +14,7 @@
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
     },
     "CHANGELOG.md": {
-      "sha256": "f3d459d532e7a4825c18eb26c0269cdf5efc6c42fab8e4d7eda78a54c52147d2",
+      "sha256": "894df3d3e7c671998c539a0576e308fbbdb51c2c8ff612909dffa95b661b688b",
       "status": "new_release_file"
     },
     "LICENSE": {
@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "d25edfe4cb442f5bab6af0b1c07fadf3c14baf6ea340e578f3d76375fa001b07"
+      "sha256": "ad37761ba5cb0baa193cefd8f67961e6fa92352b3db82973086ef0c472a23332"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1441,31 +1441,31 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "b227c247c6e8851731107218034a36e999f609888607fef209b0bb6b6c7e62bb"
+      "sha256": "03a1f75ab04264ff162756807757d34637087258e85bf54aca86c743f56bc387"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
     },
     "tau-encoder/package-lock.json": {
-      "sha256": "db5d69936c88b97abbf0c08ee2db482b950778f377d02bf011339d312aba9895"
+      "sha256": "29e1d9ae05cad68c282a51c59eee5a7cec21046bb36123ce9428768b5275d4ad"
     },
     "tau-encoder/package.json": {
-      "sha256": "a8b416cb769bc4624c047e62dd25e27514fd84e65c8f1ddbd7a93e048bc24a4d"
+      "sha256": "d21b25ee94b71e3f3a283513510121cf3fbb8d827feb5cb838d8ea0cd39e6d8e"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "8f298e123a440e5b6f0b39bdc159a292105d325ee7ada2527dc7e039372ca1d7"
+      "sha256": "024eb0b6fe2659fc887a58d0992a17d1467c1817c56ee6048790a19456d3a192"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "624e504c63b603f5681f2344db342b938eb6c7c5f86f8043457b4492aa98e569"
+      "sha256": "167e148bf1871ee014f0313f87e203c819998a4fa76bc20176cb6715848d3b8b"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
-      "sha256": "7b59f0f8c929a8ebd1c466edd9a216bd843bfe39a27016e5d5908a788a6cc42a"
+      "sha256": "657f5d80339257e923341519c6655331b557a80094a36953470244db43581ba5"
     },
     "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "bb7133d30eb9d86762e583c5a36243405ab72794c73daba8b23329a6f0ed9674"
+      "sha256": "7d000ffa51429dec18476219ed587735f91c061448fe7989aaa6093b9c4e1dc8"
     },
     "tau-encoder/src-tauri/build.rs": {
       "sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
@@ -1489,10 +1489,10 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "f6019af18c610f9eb1cd80d1c8a2a373a7b18e7925dc1fa86bbbd836e507a749"
+      "sha256": "ff1d21e26e7044eeb8dc1967646b8d952f754f399daa97a95f6925518db68471"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
-      "sha256": "8e659ef5c6e76dea807c9a211beff35b17a8a1ea516d525ff6bc798cf9bcc2d2"
+      "sha256": "046a0c66b6d4b078d8941efcebad0d18b89a7672e1a8a86353e1178459120a70"
     },
     "tau-encoder/tsconfig.json": {
       "sha256": "2e1e6c6ab1495e04baba2e339d1c4b2afaacbb753651b46c5786745ff4e60e60"
@@ -1501,13 +1501,13 @@
       "sha256": "fa14b49798ac993ac1e3b78b6de732929a41aab8066a1365c4939a7ca82bba89"
     },
     "tau-encoder/scripts/build-ffmpeg-macos.sh": {
-      "sha256": "9989b8c7d54e6cca8b37716676ea2d339e6e4d3f74cb9e7d01d276dd53f4831b"
+      "sha256": "aa941eb79c5a15a9c48118f245e859858dd2dab7db9825e01718dc7ee3f5d75a"
     },
     "tau-encoder/src-tauri/tauri.bundle.conf.json": {
       "sha256": "db1e50251631d6dc32d3aaa410614a77f7b6b05e79eda090840ded5ecd3b264e"
     },
     "docs/issues/002-desktop-pair-platform-gates.md": {
-      "sha256": "c7aa0cdece0f92f2ece22ee84744eabc74c318a33ca93b67d855a1f09e893bbf"
+      "sha256": "38363479daa972a1eae277671de7eafd61d8c7da3e69ca53b84af659dc482293"
     },
     "docs/issues/003-rust-encoder-player-throughput.md": {
       "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"

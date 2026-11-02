@@ -748,6 +748,170 @@ fn ffmpeg_path(app: &tauri::AppHandle) -> PathBuf {
     }
     exe.into()
 }
+
+#[derive(Serialize)]
+struct ToolDiscovery {
+    key: &'static str,
+    automatic: String,
+    candidates: Vec<String>,
+}
+
+fn executable_name(name: &str) -> String {
+    if cfg!(windows) {
+        format!("{name}.exe")
+    } else {
+        name.to_owned()
+    }
+}
+
+fn resolve_program(path: PathBuf) -> Option<PathBuf> {
+    if path.is_file() {
+        return Some(path);
+    }
+    if path.components().count() != 1 {
+        return None;
+    }
+    std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
+        .map(|dir| dir.join(&path))
+        .find(|candidate| candidate.is_file())
+}
+
+fn discovery_entry(
+    key: &'static str,
+    automatic: Option<PathBuf>,
+    extras: Vec<PathBuf>,
+    names: &[&str],
+) -> ToolDiscovery {
+    let automatic = automatic.and_then(resolve_program);
+    let mut paths = Vec::new();
+    let mut add = |path: PathBuf| {
+        if path.is_file() {
+            let path = path.to_string_lossy().into_owned();
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    };
+    if let Some(path) = &automatic {
+        add(path.clone());
+    }
+    for path in extras {
+        add(path);
+    }
+    for dir in std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
+    {
+        for name in names {
+            add(dir.join(executable_name(name)));
+        }
+    }
+    #[cfg(target_os = "macos")]
+    for dir in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"] {
+        for name in names {
+            add(Path::new(dir).join(executable_name(name)));
+        }
+    }
+    ToolDiscovery {
+        key,
+        automatic: automatic
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        candidates: paths,
+    }
+}
+
+#[tauri::command]
+fn discover_tools(
+    app: tauri::AppHandle,
+    dependencies: Dependencies,
+    workflow: String,
+) -> Vec<ToolDiscovery> {
+    let resources = app.path().resource_dir().ok();
+    let bundled = |path: &str| resources.as_ref().map(|dir| dir.join(path));
+    let ffmpeg_auto = ffmpeg_path(&app);
+    let ffmpeg_used = if dependencies.ffmpeg.trim().is_empty() {
+        ffmpeg_auto.clone()
+    } else {
+        PathBuf::from(&dependencies.ffmpeg)
+    };
+    let ffprobe_auto = ffmpeg_used.with_file_name(executable_name("ffprobe"));
+    let script_auto = codec_script(&app);
+    let script_used = if dependencies.script.trim().is_empty() {
+        script_auto.clone()
+    } else {
+        PathBuf::from(&dependencies.script)
+    };
+    let python_auto = std::env::var_os("TAU_PYTHON")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(if cfg!(windows) {
+                "python.exe"
+            } else {
+                "python3"
+            })
+        });
+    let tool_auto = |env: &str, bundled_path: &str, script_relative: &str| {
+        if workflow == "native" {
+            bundled(bundled_path)
+        } else {
+            std::env::var_os(env)
+                .map(PathBuf::from)
+                .or_else(|| script_used.parent().map(|p| p.join(script_relative)))
+        }
+    };
+    let env_path = |name: &str| {
+        std::env::var_os(name)
+            .map(PathBuf::from)
+            .into_iter()
+            .collect::<Vec<_>>()
+    };
+    let mut ffmpeg_extra = env_path("TAU_FFMPEG");
+    if let Some(p) = bundled(&format!("ffmpeg/{}", executable_name("ffmpeg"))) {
+        ffmpeg_extra.push(p);
+    }
+    let mut ffprobe_extra = Vec::new();
+    if let Some(p) = bundled(&format!("ffmpeg/{}", executable_name("ffprobe"))) {
+        ffprobe_extra.push(p);
+    }
+    let tvc_name = executable_name("tvc_enc");
+    let tnv3_name = executable_name("tnv3");
+    let tvc_bundle = format!("codec-tools/tvc_ref/{tvc_name}");
+    let tnv3_bundle = format!("codec-tools/tnv3_ref/{tnv3_name}");
+    let mut tvc_extra = env_path("TAU_TVC_ENC");
+    tvc_extra.extend(bundled(&tvc_bundle));
+    let mut tnv3_extra = env_path("TAU_TNV3");
+    tnv3_extra.extend(bundled(&tnv3_bundle));
+    vec![
+        discovery_entry("ffmpeg", Some(ffmpeg_auto), ffmpeg_extra, &["ffmpeg"]),
+        discovery_entry("ffprobe", Some(ffprobe_auto), ffprobe_extra, &["ffprobe"]),
+        discovery_entry(
+            "python",
+            Some(python_auto),
+            env_path("TAU_PYTHON"),
+            &["python3", "python"],
+        ),
+        discovery_entry("script", Some(script_auto), Vec::new(), &[]),
+        discovery_entry(
+            "tvcEncoder",
+            tool_auto(
+                "TAU_TVC_ENC",
+                &tvc_bundle,
+                &format!("../tvc_ref/{tvc_name}"),
+            ),
+            tvc_extra,
+            &[],
+        ),
+        discovery_entry(
+            "tnv3Tool",
+            tool_auto("TAU_TNV3", &tnv3_bundle, &tnv3_name),
+            tnv3_extra,
+            &[],
+        ),
+    ]
+}
 #[tauri::command]
 fn experimental_rust_encoder_available() -> bool {
     cfg!(feature = "experimental-rust-encoder")
@@ -912,6 +1076,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
+            discover_tools,
             encode,
             player_open,
             player_next,
@@ -924,6 +1089,32 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tool_discovery_lists_existing_paths_once_and_ignores_missing_files() {
+        let (first, file) = temporary_file("tool").unwrap();
+        drop(file);
+        let (second, file) = temporary_file("tool").unwrap();
+        drop(file);
+        let missing = first.0.with_extension("missing");
+        let result = discovery_entry(
+            "example",
+            Some(first.0.clone()),
+            vec![first.0.clone(), second.0.clone(), missing],
+            &[],
+        );
+        assert_eq!(result.automatic, first.0.to_string_lossy());
+        assert_eq!(result.candidates.len(), 2);
+        assert!(
+            result
+                .candidates
+                .contains(&second.0.to_string_lossy().to_string())
+        );
+        assert!(
+            discovery_entry("example", None, vec![], &[])
+                .automatic
+                .is_empty()
+        );
+    }
     fn test_output_dir(label: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
             "tau-output-preflight-{label}-{}-{}",

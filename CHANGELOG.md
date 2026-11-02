@@ -1,5 +1,10 @@
 # Changelog
 
+## Tau Encoder 0.3.0 — desktop preview
+
+- Show automatic and detected dependency paths in Settings and allow choosing an installation.
+- Update the macOS FFmpeg helper bundle to 9.0.2.
+
 ## Tau Encoder 0.2.2 — desktop preview
 
 - Explain common Matroska and HEVC source warnings and their possible effects, with the original diagnostics available on demand.

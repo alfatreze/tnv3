@@ -21,3 +21,11 @@ Next: package and independently test redistributable FFmpeg builds on Windows
 and Linux, run a longer synchronisation test including nonzero audio offsets,
 and validate the pair on a Pocket. Do not call this a cross-platform release
 until these gates are met.
+
+## macOS helper update — 2026-11-02
+
+**Host:** Tau Encoder 0.3.0 bundles FFmpeg and FFprobe 9.0.2 with LAME 4.0,
+including the source archives and build script. A short generated-media encode
+passed with the Python and Python-free C workflows. This does not validate a
+full film, source corruption recovery, or Pocket playback. Windows and Linux
+native distribution and runtime testing remain open.

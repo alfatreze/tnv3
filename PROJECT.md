@@ -369,7 +369,7 @@ remain open. See `docs/issues/004-desktop-preview-validation.md` and
 `docs/issues/009-c-encoder-process-cancellation.md`.
 
 The desktop app uses independent semantic versions; its current preview is
-0.2.2. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
+0.3.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
 not change codec-format or crate versions.
 
 **Host:** Tau Encoder 0.2.0 did not report intermediate progress for the
@@ -381,3 +381,7 @@ Tau Encoder 0.2.2 explains common source container and HEVC decoder warnings
 and retains the original diagnostics. It does not claim to repair corrupt
 source data. **Host:** the reported file produced Matroska errors and missing
 HEVC reference pictures; output quality and Pocket playback are unverified.
+
+Tau Encoder 0.3.0 shows detected dependency locations and allows selecting
+an installation. Its macOS bundle uses FFmpeg 9.0.2; Windows and Linux native
+runtime and packaging validation remain open.
