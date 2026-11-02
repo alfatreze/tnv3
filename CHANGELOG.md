@@ -1,5 +1,10 @@
 # Changelog
 
+## Tau Encoder 0.2.2 — desktop preview
+
+- Explain common Matroska and HEVC source warnings and their possible effects, with the original diagnostics available on demand.
+- Display the app version to make it easier to confirm which build is running.
+
 ## Tau Encoder 0.2.1 — desktop preview
 
 - Report completed video segments and update the remaining-time estimate in the experimental Python-free C workflow.

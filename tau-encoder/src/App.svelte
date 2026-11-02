@@ -4,6 +4,7 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { invoke } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+  import { version } from '../package.json';
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
   let dependencyError = '';
   let mode: 'rust' | 'c' = 'c', suffix = '_C', rustAvailable = false;
@@ -46,6 +47,19 @@
     const total = p.total_frames_estimate !== null && p.frames < p.total_frames_estimate ? ` of about ${p.total_frames_estimate}` : '';
     const estimate = p.remaining_seconds !== null ? `About ${timeLabel(p.remaining_seconds)} remaining for video.` : p.total_frames_estimate === null ? 'Video duration is unavailable.' : p.frames >= p.total_frames_estimate ? 'Continuing beyond the estimated video length.' : 'Estimating video time…';
     return `${count}${total}. ${estimate}`;
+  }
+  function warningExplanations(text: string): string[] {
+    const lower = text.toLowerCase();
+    const explanations: string[] = [];
+    if (lower.includes('[matroska,webm') && (lower.includes('invalid as first byte') || lower.includes('duplicate element') || lower.includes('exceeds containing master'))) {
+      explanations.push('The source container has malformed or duplicate elements. FFmpeg continued reading it, but video or audio data may have been skipped or damaged; container warnings alone do not prove an audio decoding fault.');
+    }
+    if (lower.includes('could not find ref with poc')) {
+      explanations.push('The HEVC decoder could not find reference pictures. Affected frames may have visible corruption, missing detail, or discontinuities.');
+    }
+    if (!explanations.length) explanations.push('FFmpeg reported errors while reading the source. The video or audio may be affected; consult the details below.');
+    explanations.push('The app did not repair or verify the affected source data. Check the output, and use a clean source if available.');
+    return explanations;
   }
   type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[] };
   onMount(() => { void invoke<boolean>('experimental_rust_encoder_available').then(value => { rustAvailable = value; }).catch(() => { rustAvailable = false; }); try {
@@ -95,7 +109,7 @@
       <button type="button" class:active={page === 'decoder'} aria-current={page === 'decoder' ? 'page' : undefined} onclick={() => navigate('decoder')}>Decoder</button>
       <button type="button" class:active={page === 'settings'} aria-current={page === 'settings' ? 'page' : undefined} onclick={() => navigate('settings')}>Settings</button>
     </div>
-    <span class="badge">PREVIEW</span>
+    <span class="badge">PREVIEW · v{version}</span>
   </nav>
   <span class="sr-only" aria-live="polite" aria-atomic="true">{page === 'encoder' ? 'Encoder page' : page === 'decoder' ? 'Decoder page' : 'Settings page'}</span>
   <main>
@@ -131,7 +145,7 @@
       </div>
     {/if}
     {#if message}<p class="status success" role="status">{message}</p>{/if}
-    {#if warning}<p class="status warning" role="alert">{warning}</p>{/if}
+    {#if warning}<div class="status warning-summary" role="alert"><strong>Output created with source warnings</strong>{#each warningExplanations(warning) as explanation}<p>{explanation}</p>{/each}<details><summary>Show original decoder messages</summary><pre class="warning">{warning}</pre></details></div>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
   <aside><strong>Early preview</strong><p>Output is 24 fps, up to 400 × 360, with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Cancellation is not available yet.</p></aside>
