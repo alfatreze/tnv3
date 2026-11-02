@@ -201,3 +201,10 @@ bytes; the latter exercised two segments without proving real C joint-retry
 parity. Default remains Python. Workspace is a projected limit and retained
 raw segments constrain long films; process-tree cancellation and Windows
 runtime remain open. See the CLI README and reproducible parity smoke.
+
+**Experimental workspace improvement:** the opt-in Rust C orchestrator now
+keeps at most the job count of segments pending, accepts/rate-checks in order,
+merges, then deletes each segment's raw and C output. Generated Python parity
+and stub retry checks passed on macOS. Merged and final files remain on disk;
+the projected budget is not a strict filesystem quota. Full-film and real C
+retry parity remain open before replacing Python.

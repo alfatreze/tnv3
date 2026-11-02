@@ -7,7 +7,7 @@ use crate::y4m::Y4mFrameGroups;
 use std::{
     collections::VecDeque,
     fs::{self, File, OpenOptions},
-    io::{self, BufRead, BufWriter, Write},
+    io::{self, BufRead, BufWriter, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     process::Command,
     sync::atomic::{AtomicU64, Ordering},
@@ -220,6 +220,33 @@ fn validate_next_segment(existing_segments: usize, limit: usize) -> Result<(), S
     }
 }
 
+struct PendingSegment {
+    index: u32,
+    frames: u32,
+    y4m: PathBuf,
+    tvc: PathBuf,
+    worker: JoinHandle<Result<(), String>>,
+}
+
+#[derive(Default)]
+struct MergeState {
+    file: Option<File>,
+    header: Option<Vec<u8>>,
+    tail: VecDeque<u32>,
+    frames: u64,
+    segments: usize,
+    joint_reencodes: u32,
+    worst_window_bytes: u64,
+}
+
+#[derive(Clone, Copy)]
+struct PipelineConfig {
+    options: Options,
+    level: u8,
+    window: usize,
+    limit: u64,
+}
+
 fn encode_in_workspace<R: BufRead, W: Write>(
     tools: &Tools,
     input: R,
@@ -246,8 +273,16 @@ fn encode_in_workspace<R: BufRead, W: Write>(
             "segment Y4M bound exceeded: {max_group_bytes} > {MAX_SEGMENT_Y4M_BYTES} bytes"
         ));
     }
-    let mut workers: VecDeque<JoinHandle<Result<(), String>>> = VecDeque::new();
-    let mut segment_frames = Vec::new();
+    let window = rate_window(groups.header())?;
+    let limit = LEVEL_WINDOW_BYTES[level as usize];
+    let config = PipelineConfig {
+        options,
+        level,
+        window,
+        limit,
+    };
+    let mut workers = VecDeque::new();
+    let mut merged = MergeState::default();
     let mut next_segment = 0u32;
     let split_result = (|| -> Result<(), String> {
         loop {
@@ -273,129 +308,87 @@ fn encode_in_workspace<R: BufRead, W: Write>(
                 .flush()
                 .map_err(|error| format!("could not flush segment: {error}"))?;
             drop(writer);
-            validate_next_segment(segment_frames.len(), MAX_SEGMENTS)?;
-            segment_frames.push(
-                u32::try_from(count).map_err(|_| "segment frame count overflow".to_string())?,
-            );
+            validate_next_segment(merged.segments + workers.len(), MAX_SEGMENTS)?;
             if groups.total_frames() > crate::MAX_FRAMES as u64 {
                 return Err(format!(
                     "frame count exceeds TNV3 limit {}",
                     crate::MAX_FRAMES
                 ));
             }
+
+            let frames =
+                u32::try_from(count).map_err(|_| "segment frame count overflow".to_string())?;
+            let tvc = work.join(format!("segment{next_segment:05}.tvc"));
+            let tvc_tool = tools.tvc_encoder.clone();
+            let qp = options.qp;
+            let worker_input = y4m.clone();
+            let worker_output = tvc.clone();
+            workers.push_back(PendingSegment {
+                index: next_segment,
+                frames,
+                y4m,
+                tvc,
+                worker: thread::spawn(move || {
+                    run_tvc(&tvc_tool, &worker_input, &worker_output, qp, level, None)
+                }),
+            });
             check_workspace_capacity(
                 work,
-                (workers.len() as u64 + 1)
+                (workers.len() as u64)
                     .checked_mul(MAX_ACCEPTED_SEGMENT_TVC_BYTES)
                     .ok_or("workspace reserve overflow")?,
                 options.workspace_limit_bytes,
             )?;
-            let tvc = work.join(format!("segment{next_segment:05}.tvc"));
-            let tvc_tool = tools.tvc_encoder.clone();
-            let qp = options.qp;
-            workers.push_back(thread::spawn(move || {
-                run_tvc(&tvc_tool, &y4m, &tvc, qp, level, None)
-            }));
             next_segment = next_segment
                 .checked_add(1)
                 .ok_or_else(|| "segment count overflow".to_string())?;
             if workers.len() >= options.jobs {
-                join_one(&mut workers)?;
-                check_workspace_budget(work, options.workspace_limit_bytes)?;
+                accept_next_segment(tools, work, &mut workers, &mut merged, config)?;
             }
+        }
+        while !workers.is_empty() {
+            accept_next_segment(tools, work, &mut workers, &mut merged, config)?;
         }
         Ok(())
     })();
-    let worker_result = join_all(&mut workers);
+    let worker_result = join_remaining(&mut workers);
     split_result?;
     worker_result?;
     check_workspace_budget(work, options.workspace_limit_bytes)?;
-    if segment_frames.is_empty() {
+    if merged.segments == 0 {
         return Err("Y4M stream contains no frames".into());
     }
-
-    let win = first_rate_window(work)?;
-    let limit = LEVEL_WINDOW_BYTES[level as usize];
-    let mut all_lengths: Vec<u32> = Vec::new();
-    let mut joint_reencodes = 0u32;
-    for (index, expected_frames) in segment_frames.iter().copied().enumerate() {
-        let tvc_path = work.join(format!("segment{index:05}.tvc"));
-        let mut parsed = parse_tvc(&tvc_path)?;
-        if parsed.lengths.len() != expected_frames as usize {
-            return Err(format!("segment {index} frame count differs from Y4M"));
-        }
-        if index > 0
-            && !window_ok(
-                &all_lengths[all_lengths.len().saturating_sub(win.saturating_sub(1))..],
-                &parsed.lengths,
-                win,
-                limit,
-            )
-        {
-            let previous = all_lengths
-                .iter()
-                .rev()
-                .take(win.saturating_sub(1))
-                .copied()
-                .collect::<Vec<_>>();
-            let previous = previous
-                .into_iter()
-                .rev()
-                .map(|length| length.to_string())
-                .collect::<Vec<_>>()
-                .join(",");
-            run_tvc(
-                &tools.tvc_encoder,
-                &work.join(format!("segment{index:05}.y4m")),
-                &tvc_path,
-                options.qp,
-                level,
-                Some(&previous),
-            )?;
-            parsed = parse_tvc(&tvc_path)?;
-            if parsed.lengths.len() != expected_frames as usize {
-                return Err(format!("re-encoded segment {index} frame count changed"));
-            }
-            joint_reencodes = joint_reencodes
-                .checked_add(1)
-                .ok_or_else(|| "joint retry counter overflow".to_string())?;
-        }
-        all_lengths.extend(parsed.lengths);
-    }
-    let segment_tvc_bytes = segment_frames
-        .iter()
-        .enumerate()
-        .try_fold(0u64, |total, (index, _)| {
-            total
-                .checked_add(fs::metadata(work.join(format!("segment{index:05}.tvc")))?.len())
-                .ok_or_else(|| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "workspace TVC byte count overflow",
-                    )
-                })
-        })
-        .map_err(|error| format!("could not estimate merge workspace: {error}"))?;
-    check_workspace_capacity(
-        work,
-        segment_tvc_bytes
-            .checked_mul(2)
-            .and_then(|bytes| bytes.checked_add(TNV3_OVERHEAD_RESERVE))
-            .ok_or("workspace reserve overflow")?,
-        options.workspace_limit_bytes,
-    )?;
-    let worst = worst_window(&all_lengths, win);
-    if worst > limit {
+    if merged.frames != groups.total_frames() {
         return Err(format!(
-            "rate window remains over level budget: {worst} > {limit}"
+            "merged {} pictures; expected {}",
+            merged.frames,
+            groups.total_frames()
         ));
     }
 
-    let merged = work.join("video.tvc");
-    merge_segments(work, &merged, segment_frames.len(), groups.total_frames())?;
+    let merged_path = work.join("video.tvc");
+    let mut merged_file = merged.file.take().ok_or("missing merged TVC writer")?;
+    merged_file
+        .seek(SeekFrom::Start(12))
+        .map_err(|error| format!("could not seek to merged frame count: {error}"))?;
+    merged_file
+        .write_all(
+            &u32::try_from(groups.total_frames())
+                .map_err(|_| "frame count exceeds TVC header")?
+                .to_le_bytes(),
+        )
+        .map_err(|error| format!("could not write merged frame count: {error}"))?;
+    merged_file
+        .seek(SeekFrom::End(0))
+        .map_err(|error| format!("could not seek to merged TVC end: {error}"))?;
+    merged_file
+        .flush()
+        .map_err(|error| format!("could not flush merged TVC: {error}"))?;
+    drop(merged_file);
+
     check_workspace_capacity(
         work,
-        fs::metadata(&merged)
+        fs::metadata(&merged_path)
             .map_err(|error| format!("could not inspect merged TVC: {error}"))?
             .len()
             .checked_add(TNV3_OVERHEAD_RESERVE)
@@ -407,7 +400,7 @@ fn encode_in_workspace<R: BufRead, W: Write>(
         &tools.tnv3,
         &[
             "mux",
-            merged.to_str().ok_or("non-UTF8 work path")?,
+            merged_path.to_str().ok_or("non-UTF8 work path")?,
             "-c",
             "-o",
             output_path.to_str().ok_or("non-UTF8 work path")?,
@@ -430,12 +423,203 @@ fn encode_in_workspace<R: BufRead, W: Write>(
         frames: u32::try_from(groups.total_frames())
             .map_err(|_| "frame count overflow".to_string())?,
         level,
-        segments: u32::try_from(segment_frames.len())
+        segments: u32::try_from(merged.segments)
             .map_err(|_| "segment count overflow".to_string())?,
-        joint_reencodes,
-        worst_window_bytes: worst,
+        joint_reencodes: merged.joint_reencodes,
+        worst_window_bytes: merged.worst_window_bytes,
         tnv3_bytes: metadata.len(),
     })
+}
+
+fn accept_next_segment(
+    tools: &Tools,
+    work: &Path,
+    workers: &mut VecDeque<PendingSegment>,
+    merged: &mut MergeState,
+    config: PipelineConfig,
+) -> Result<(), String> {
+    let segment = workers.pop_front().ok_or("missing segment worker")?;
+    segment
+        .worker
+        .join()
+        .map_err(|_| format!("segment {} worker panicked", segment.index))??;
+    let mut parsed = parse_tvc(&segment.tvc)?;
+    if parsed.lengths.len() != segment.frames as usize {
+        return Err(format!(
+            "segment {} frame count differs from Y4M",
+            segment.index
+        ));
+    }
+
+    let prefix = merged.tail.iter().copied().collect::<Vec<_>>();
+    if segment.index > 0 && !window_ok(&prefix, &parsed.lengths, config.window, config.limit) {
+        let previous = prefix
+            .iter()
+            .map(u32::to_string)
+            .collect::<Vec<_>>()
+            .join(",");
+        run_tvc(
+            &tools.tvc_encoder,
+            &segment.y4m,
+            &segment.tvc,
+            config.options.qp,
+            config.level,
+            Some(&previous),
+        )?;
+        parsed = parse_tvc(&segment.tvc)?;
+        if parsed.lengths.len() != segment.frames as usize {
+            return Err(format!(
+                "re-encoded segment {} frame count changed",
+                segment.index
+            ));
+        }
+        merged.joint_reencodes = merged
+            .joint_reencodes
+            .checked_add(1)
+            .ok_or_else(|| "joint retry counter overflow".to_string())?;
+    }
+    if !window_ok(&prefix, &parsed.lengths, config.window, config.limit) {
+        let worst = worst_window_with_prefix(&prefix, &parsed.lengths, config.window);
+        return Err(format!(
+            "rate window remains over level budget: {worst} > {}",
+            config.limit
+        ));
+    }
+
+    let header = merged.header.get_or_insert_with(|| parsed.header.clone());
+    if parsed.header.len() != 20
+        || parsed.header[4..12] != header[4..12]
+        || parsed.header[16..20] != header[16..20]
+    {
+        return Err(format!(
+            "segment {} TVC header differs from prior segments",
+            segment.index
+        ));
+    }
+    if merged.file.is_none() {
+        let path = work.join("video.tvc");
+        let mut file = OpenOptions::new()
+            .write(true)
+            .read(true)
+            .create_new(true)
+            .open(path)
+            .map_err(|error| format!("could not create merged TVC: {error}"))?;
+        file.write_all(header)
+            .map_err(|error| format!("could not write merged TVC header: {error}"))?;
+        merged.file = Some(file);
+    }
+    append_tvc_chunks(
+        &parsed.bytes,
+        &parsed.lengths,
+        merged.file.as_mut().ok_or("missing merged TVC writer")?,
+    )?;
+
+    merged.worst_window_bytes = merged.worst_window_bytes.max(worst_window_with_prefix(
+        &prefix,
+        &parsed.lengths,
+        config.window,
+    ));
+    merged.frames = merged
+        .frames
+        .checked_add(segment.frames as u64)
+        .ok_or("merged frame count overflow")?;
+    merged.segments += 1;
+    let keep = config.window.saturating_sub(1);
+    let mut tail = VecDeque::new();
+    for &length in prefix.iter().chain(parsed.lengths.iter()) {
+        tail.push_back(length);
+        if tail.len() > keep {
+            tail.pop_front();
+        }
+    }
+    merged.tail = tail;
+
+    fs::remove_file(&segment.y4m)
+        .map_err(|error| format!("could not remove accepted segment Y4M: {error}"))?;
+    fs::remove_file(&segment.tvc)
+        .map_err(|error| format!("could not remove accepted segment TVC: {error}"))?;
+    check_workspace_capacity(
+        work,
+        (workers.len() as u64)
+            .checked_mul(MAX_ACCEPTED_SEGMENT_TVC_BYTES)
+            .ok_or("workspace reserve overflow")?,
+        config.options.workspace_limit_bytes,
+    )?;
+    Ok(())
+}
+
+fn append_tvc_chunks(bytes: &[u8], lengths: &[u32], output: &mut File) -> Result<(), String> {
+    let mut offset = 20usize;
+    for &expected in lengths {
+        let actual = read_u32(bytes, offset)?;
+        if actual != expected {
+            return Err("TVC picture length changed while merging".into());
+        }
+        let end = offset
+            .checked_add(4)
+            .and_then(|at| at.checked_add(actual as usize))
+            .ok_or("TVC merge offset overflow")?;
+        if end > bytes.len() {
+            return Err("truncated TVC segment while merging".into());
+        }
+        output
+            .write_all(&bytes[offset..end])
+            .map_err(|error| format!("could not append TVC chunk: {error}"))?;
+        offset = end;
+    }
+    if offset != bytes.len() {
+        return Err("trailing bytes in TVC segment during merge".into());
+    }
+    Ok(())
+}
+
+fn join_remaining(workers: &mut VecDeque<PendingSegment>) -> Result<(), String> {
+    let mut first_error = None;
+    while let Some(segment) = workers.pop_front() {
+        let result = segment
+            .worker
+            .join()
+            .map_err(|_| format!("segment {} worker panicked", segment.index))
+            .and_then(|result| result);
+        if first_error.is_none() {
+            first_error = result.err();
+        }
+    }
+    first_error.map_or(Ok(()), Err)
+}
+
+fn rate_window(header: &[u8]) -> Result<usize, String> {
+    let text = std::str::from_utf8(header).map_err(|_| "invalid Y4M header text")?;
+    let mut fps = None;
+    for token in text.split_ascii_whitespace() {
+        if let Some(value) = token.strip_prefix('F') {
+            if fps.is_some() {
+                return Err("duplicate Y4M frame rate".into());
+            }
+            let (num, den) = value.split_once(':').ok_or("invalid Y4M frame rate")?;
+            let num = num.parse::<usize>().map_err(|_| "invalid Y4M frame rate")?;
+            let den = den.parse::<usize>().map_err(|_| "invalid Y4M frame rate")?;
+            if num == 0 || den == 0 {
+                return Err("invalid Y4M frame rate".into());
+            }
+            fps = Some(num.checked_add(den - 1).ok_or("Y4M frame rate overflow")? / den);
+        }
+    }
+    fps.filter(|&window| window > 0)
+        .ok_or_else(|| "missing/invalid Y4M frame rate".into())
+}
+
+fn worst_window_with_prefix(prefix: &[u32], next: &[u32], window: usize) -> u64 {
+    let mut current = VecDeque::new();
+    let mut worst = 0u64;
+    for &length in prefix.iter().chain(next) {
+        current.push_back(length);
+        if current.len() > window {
+            current.pop_front();
+        }
+        worst = worst.max(current.iter().map(|&value| u64::from(value)).sum());
+    }
+    worst
 }
 
 fn run_tvc(
@@ -475,26 +659,6 @@ fn run_status(tool: &Path, args: &[&str], label: &str) -> Result<(), String> {
         return Err(format!("{label} failed with {status}"));
     }
     Ok(())
-}
-
-fn join_one(workers: &mut VecDeque<JoinHandle<Result<(), String>>>) -> Result<(), String> {
-    let worker = workers.pop_front().ok_or("missing segment worker")?;
-    worker
-        .join()
-        .map_err(|_| "segment worker panicked".to_string())?
-}
-fn join_all(workers: &mut VecDeque<JoinHandle<Result<(), String>>>) -> Result<(), String> {
-    let mut first_error = None;
-    while let Some(worker) = workers.pop_front() {
-        let result = worker
-            .join()
-            .map_err(|_| "segment worker panicked".to_string())
-            .and_then(|result| result);
-        if first_error.is_none() {
-            first_error = result.err();
-        }
-    }
-    first_error.map_or(Ok(()), Err)
 }
 
 fn workspace_bytes(work: &Path) -> Result<u64, String> {
@@ -540,6 +704,7 @@ fn check_workspace_capacity(work: &Path, reserved: u64, limit: u64) -> Result<()
 struct ParsedTvc {
     header: Vec<u8>,
     lengths: Vec<u32>,
+    bytes: Vec<u8>,
 }
 fn parse_tvc(path: &Path) -> Result<ParsedTvc, String> {
     let size = fs::metadata(path)
@@ -582,6 +747,7 @@ fn parse_tvc(path: &Path) -> Result<ParsedTvc, String> {
     Ok(ParsedTvc {
         header: bytes[..20].to_vec(),
         lengths,
+        bytes,
     })
 }
 fn read_u32(bytes: &[u8], at: usize) -> Result<u32, String> {
@@ -592,22 +758,6 @@ fn read_u32(bytes: &[u8], at: usize) -> Result<u32, String> {
     Ok(u32::from_le_bytes(
         chunk.try_into().map_err(|_| "invalid TVC u32")?,
     ))
-}
-fn first_rate_window(work: &Path) -> Result<usize, String> {
-    let first = parse_tvc(&work.join("segment00000.tvc"))?;
-    let numerator = u16::from_le_bytes([first.header[8], first.header[9]]) as usize;
-    let denominator = u16::from_le_bytes([first.header[10], first.header[11]]) as usize;
-    if numerator == 0 || denominator == 0 {
-        return Err("invalid TVC frame rate".into());
-    }
-    let window = numerator
-        .checked_add(denominator - 1)
-        .ok_or("frame rate overflow")?
-        / denominator;
-    if window == 0 {
-        return Err("invalid zero frame rate window".into());
-    }
-    Ok(window)
 }
 fn check_level_fit(header: &[u8], level: u8) -> Result<(), String> {
     let text = std::str::from_utf8(header).map_err(|_| "invalid Y4M header text")?;
@@ -687,6 +837,7 @@ fn window_ok(prefix: &[u32], next: &[u32], window: usize, limit: u64) -> bool {
     }
     true
 }
+#[cfg(test)]
 fn worst_window(lengths: &[u32], window: usize) -> u64 {
     let mut current: VecDeque<u32> = VecDeque::new();
     let mut worst = 0;
@@ -699,67 +850,6 @@ fn worst_window(lengths: &[u32], window: usize) -> u64 {
     }
     worst
 }
-fn merge_segments(
-    work: &Path,
-    output: &Path,
-    segments: usize,
-    frame_count: u64,
-) -> Result<(), String> {
-    let first = parse_tvc(&work.join("segment00000.tvc"))?;
-    let mut header = first.header;
-    header[12..16].copy_from_slice(
-        &u32::try_from(frame_count)
-            .map_err(|_| "frame count exceeds TVC header")?
-            .to_le_bytes(),
-    );
-    let mut merged = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(output)
-        .map_err(|error| format!("could not create merged TVC: {error}"))?;
-    merged
-        .write_all(&header)
-        .map_err(|error| format!("could not write merged TVC: {error}"))?;
-    let mut copied = 0u64;
-    for index in 0..segments {
-        let path = work.join(format!("segment{index:05}.tvc"));
-        let bytes = fs::read(&path).map_err(|error| format!("could not read segment: {error}"))?;
-        if bytes.len() < 20 || &bytes[..4] != b"TVC1" {
-            return Err("invalid TVC segment while merging".into());
-        }
-        if bytes[4..12] != header[4..12] || bytes[16..20] != header[16..20] {
-            return Err("TVC segment headers disagree".into());
-        }
-        let count = read_u32(&bytes, 12)? as usize;
-        let mut offset = 20usize;
-        for _ in 0..count {
-            let length = read_u32(&bytes, offset)?;
-            let end = offset
-                .checked_add(4)
-                .and_then(|at| at.checked_add(length as usize))
-                .ok_or("TVC merge offset overflow")?;
-            if end > bytes.len() {
-                return Err("truncated TVC segment during merge".into());
-            }
-            merged
-                .write_all(&bytes[offset..end])
-                .map_err(|error| format!("could not append TVC chunk: {error}"))?;
-            offset = end;
-            copied = copied.checked_add(1).ok_or("merged frame count overflow")?;
-        }
-        if offset != bytes.len() {
-            return Err("trailing bytes in TVC segment during merge".into());
-        }
-    }
-    if copied != frame_count {
-        return Err(format!("merged {copied} pictures; expected {frame_count}"));
-    }
-    merged
-        .flush()
-        .map_err(|error| format!("could not flush merged TVC: {error}"))?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1017,7 +1107,7 @@ int main(int argc, char **argv) {{
         assert!(compile.success());
 
         let fake_tnv3 = temp.path.join("fake-tnv3");
-        fs::write(&fake_tnv3, "#!/bin/sh\ncase \"$1\" in\n  mux) shift; while [ $# -gt 0 ]; do if [ \"$1\" = -o ]; then printf mock-valid > \"$2\"; exit 0; fi; shift; done; exit 2;;\n  check) [ \"$(cat \"$2\")\" = mock-valid ];;\n  *) exit 2;;\nesac\n").unwrap();
+        fs::write(&fake_tnv3, "#!/bin/sh\ncase \"$1\" in\n  mux) merge=\"$2\"; dir=$(dirname \"$merge\"); for f in \"$dir\"/segment*.y4m \"$dir\"/segment*.tvc; do [ ! -e \"$f\" ] || exit 10; done; shift; while [ $# -gt 0 ]; do if [ \"$1\" = -o ]; then printf mock-valid > \"$2\"; exit 0; fi; shift; done; exit 2;;\n  check) [ \"$(cat \"$2\")\" = mock-valid ];;\n  *) exit 2;;\nesac\n").unwrap();
         let mut perms = fs::metadata(&fake_tnv3).unwrap().permissions();
         perms.set_mode(0o700);
         fs::set_permissions(&fake_tnv3, perms).unwrap();

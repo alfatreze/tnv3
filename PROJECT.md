@@ -347,3 +347,9 @@ encoder without Python. **Host:** generated 121-frame and 481-frame pair
 outputs matched the Python path byte-for-byte; failure tests rejected output
 when FFmpeg failed. It remains experimental: workspace growth, real boundary
 retry, process-tree cancellation, Windows and Pocket checks remain open.
+
+The opt-in Rust C orchestrator now accepts completed segments in order and
+removes their raw and encoded temporary files after rate checking and merge.
+**Host:** generated two-segment Python byte parity and a simulated boundary
+retry passed. The merged TVC and final TNV3 still use temporary disk, the
+budget is projected, and real C retry/full-film gates remain open.
