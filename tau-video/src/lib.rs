@@ -296,3 +296,6 @@ pub mod container;
 /// Optional safe adapter to the external reference C encoder workflow.
 #[cfg(feature = "c-encoder")]
 pub mod c_encoder;
+
+/// Optional streaming reader for grouping exact 8-bit 4:2:0 Y4M frames.
+pub mod y4m;

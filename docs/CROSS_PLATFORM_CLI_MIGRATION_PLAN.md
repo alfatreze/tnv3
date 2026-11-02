@@ -180,3 +180,8 @@ does not need exhaustive robustness work before the planned audio replacement.
 Keep existing output protection, be explicit about incomplete pair atomicity
 and platform/dependency limits, and defer broad hardening rather than claiming
 the longer release gates have passed.
+
+**Python migration groundwork:** `tau_video::y4m` streams bounded 8-bit 4:2:0
+frame groups into caller-owned sinks. Host-generated parity and error tests
+pass. Production encoding still uses Python; the caller must check the
+producer exit status and manage incomplete sinks and concurrency.

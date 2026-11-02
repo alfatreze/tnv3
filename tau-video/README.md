@@ -140,3 +140,7 @@ println!("{} frames", report.frames);
 The pure Rust TVC encoder is parked behind `experimental-rust-encoder`.
 The `block-motion`, `b-pictures`, and `safe-rate` features enable it as well.
 The experimental API and its compression decisions are not at parity with C.
+
+## Optional Y4M frame grouping
+
+`tau_video::y4m::Y4mFrameGroups` is a streaming helper for explicit 8-bit 4:2:0 Y4M inputs. It writes each frame group directly to a caller-owned sink while preserving the stream header, frame metadata, and payload bytes. It retains bounded line and copy buffers and has no subprocess, filesystem, or default encoder integration. Errors poison the reader; discard the current sink. EOF only means the input pipe closed: an orchestrator must wait for FFmpeg and check its exit status before accepting the final output. The deterministic byte-preservation test has no external dependencies. An optional Python parity test runs only when `TAU_TEST_PYTHON` names a Python interpreter; `tests/y4m_python_reference.py` is the reference fixture.

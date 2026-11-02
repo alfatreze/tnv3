@@ -325,3 +325,8 @@ On fallback, failures can leave partial new files. See issue 008.
 TNV3/MP3 pair directly to TauV exFAT using the no-replace fallback; the C
 checker and MP3 probe passed, repeat encoding preserved both files, and the
 test files were removed. Pocket playback is not implied.
+
+A streaming Y4M frame-group reader is available in the process-free Rust
+core as groundwork for replacing Python segmentation. **Host:** generated
+byte parity, bounds and error-state checks passed. It is not yet connected
+to the production encoder or a claim that Python is removed.
