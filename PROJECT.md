@@ -341,3 +341,9 @@ Y4M without Python. **Host:** one generated no-retry fixture byte-matched
 the Python workflow; a stub exercised boundary retry. Production app/CLI
 still use Python. Real C retry, upstream FFmpeg success gating, Windows and
 long-film workspace behavior remain open.
+
+The CLI has an opt-in Rust orchestration experiment using FFmpeg and the C
+encoder without Python. **Host:** generated 121-frame and 481-frame pair
+outputs matched the Python path byte-for-byte; failure tests rejected output
+when FFmpeg failed. It remains experimental: workspace growth, real boundary
+retry, process-tree cancellation, Windows and Pocket checks remain open.

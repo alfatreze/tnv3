@@ -193,3 +193,11 @@ A small generated fixture byte-matched Python without a boundary retry; a
 stub exercised retry wiring. Real C retry parity, upstream FFmpeg exit
 validation, full-film workspace measurements and Windows behavior remain
 gates. Its workspace budget is projected and not a strict disk quota.
+
+**Experimental CLI handoff:** `--rust-c-orchestrator` connects FFmpeg Y4M
+to the Rust C-segment backend and waits for decoder success before publication.
+Generated 121-frame and 481-frame macOS fixtures matched the Python TNV3/MP3
+bytes; the latter exercised two segments without proving real C joint-retry
+parity. Default remains Python. Workspace is a projected limit and retained
+raw segments constrain long films; process-tree cancellation and Windows
+runtime remain open. See the CLI README and reproducible parity smoke.

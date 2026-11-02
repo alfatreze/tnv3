@@ -5,9 +5,29 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, ExitCode, ExitStatus, Stdio},
     sync::atomic::{AtomicU64, Ordering},
+    sync::mpsc,
+    time::Duration,
 };
 use tau_video::c_encoder::{self, Options, Tools};
+use tau_video::experimental_c_orchestrator::{self, Options as RustCOptions, Tools as RustCTools};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(test)]
+fn unique_test_dir(prefix: &str) -> PathBuf {
+    for _ in 0..100 {
+        let id = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+        let path = env::temp_dir().join(format!("{prefix}-{}-{id}", std::process::id()));
+        match std::fs::create_dir(&path) {
+            Ok(()) => return path,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!(
+                "could not create test directory '{}': {error}",
+                path.display()
+            ),
+        }
+    }
+    panic!("could not reserve unique test directory for {prefix}")
+}
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod publication {
@@ -372,19 +392,9 @@ mod publication {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use std::{
-            fs,
-            io::Write,
-            time::{SystemTime, UNIX_EPOCH},
-        };
+        use std::{fs, io::Write};
         fn temp_dir() -> PathBuf {
-            let stamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = env::temp_dir().join(format!("tau-cli-pub-{}-{stamp}", std::process::id()));
-            fs::create_dir(&path).unwrap();
-            path
+            unique_test_dir("tau-cli-pub")
         }
         #[test]
         fn enotsup_uses_create_new_copy_and_preserves_existing_target() {
@@ -636,16 +646,9 @@ mod publication {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use std::time::{SystemTime, UNIX_EPOCH};
 
         fn temp_dir() -> PathBuf {
-            let stamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = env::temp_dir().join(format!("tau-cli-win-{}-{stamp}", std::process::id()));
-            fs::create_dir(&path).unwrap();
-            path
+            super::super::unique_test_dir("tau-cli-win")
         }
 
         #[test]
@@ -708,7 +711,9 @@ struct Args {
     tnv3_tool: Option<PathBuf>,
     qp: u8,
     jobs: usize,
+    workspace_mib: u64,
     pocket_sidecar: bool,
+    rust_c_orchestrator: bool,
 }
 
 fn on_path(name: &str) -> Option<PathBuf> {
@@ -776,7 +781,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--video-only] [--qp 0..51] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME]\n\nDefault: write TNV3 plus a matching 48 kHz stereo 128 kbit/s MP3. Python 3, FFmpeg and FFprobe are found on PATH; the Tau codecs checkout is found from the current directory or TAU_CODECS_ROOT. Explicit executable names are resolved on PATH; paths may be used for bundled tools. Outputs must not already exist. Pair publication is not atomic; a failure may leave partial final output files."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--video-only] [--rust-c-orchestrator] [--workspace-mib N] [--qp 0..51] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME]\n\nDefault: use Python to write TNV3 plus a matching 48 kHz stereo 128 kbit/s MP3. --rust-c-orchestrator is an experimental macOS-first path: FFmpeg decodes to Y4M stdout, Rust groups frames for the C TVC tools, and level is inferred from the actual scaled Y4M header. It does not require Python or FFprobe. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Both outputs stay staged until video and audio succeed. Windows is unverified."
 }
 
 fn run_capturing_stderr(
@@ -822,8 +827,39 @@ fn run_capturing_stderr(
     Ok((status, detail))
 }
 
+fn drain_bounded_stderr(mut stderr: impl Read) -> Result<String, String> {
+    const LIMIT: usize = 4096;
+    let mut saved = Vec::new();
+    let mut buffer = [0u8; 4096];
+    let mut truncated = false;
+    loop {
+        let count = stderr
+            .read(&mut buffer)
+            .map_err(|error| error.to_string())?;
+        if count == 0 {
+            break;
+        }
+        let take = count.min(LIMIT.saturating_sub(saved.len()));
+        saved.extend_from_slice(&buffer[..take]);
+        truncated |= take < count;
+    }
+    let mut message = String::from_utf8_lossy(&saved).trim().to_owned();
+    if truncated {
+        message.push_str("\n[Further diagnostics omitted.]");
+    }
+    Ok(message)
+}
+
 fn diagnostics_warning(label: &str, detail: &str) -> Option<String> {
     (!detail.is_empty()).then(|| format!("{label} diagnostics:\n{detail}"))
+}
+
+fn retry_description(rust_c_orchestrator: bool, count: u32) -> String {
+    if rust_c_orchestrator {
+        format!("{count} joint segment retry(s)")
+    } else {
+        format!("{count} picture(s) raised for level limits")
+    }
 }
 
 fn parse_args<I>(iter: I) -> Result<Option<Args>, String>
@@ -850,7 +886,10 @@ where
     let mut tnv3_tool = None;
     let mut qp = 30;
     let mut jobs = 1;
+    let mut workspace_mib = 512u64;
+    let mut workspace_mib_explicit = false;
     let mut pocket_sidecar = true;
+    let mut rust_c_orchestrator = false;
     let mut codec_root = None;
     while let Some(key) = it.next() {
         let key_text = key
@@ -858,6 +897,21 @@ where
             .ok_or_else(|| format!("option name must be UTF-8: {}", key.to_string_lossy()))?;
         if key_text == "--video-only" {
             pocket_sidecar = false;
+            continue;
+        }
+        if key_text == "--rust-c-orchestrator" {
+            rust_c_orchestrator = true;
+            continue;
+        }
+        if key_text == "--workspace-mib" {
+            workspace_mib = it
+                .next()
+                .ok_or("missing value for --workspace-mib")?
+                .to_str()
+                .ok_or("workspace size must be UTF-8")?
+                .parse()
+                .map_err(|_| "workspace size must be a positive integer in MiB")?;
+            workspace_mib_explicit = true;
             continue;
         }
         if key_text == "--codec-root" {
@@ -906,6 +960,15 @@ where
     if qp > 51 || jobs == 0 {
         return Err("QP must be 0–51 and jobs must be positive".into());
     }
+    if workspace_mib == 0 {
+        return Err("workspace size must be a positive integer in MiB".into());
+    }
+    if workspace_mib.checked_mul(1024 * 1024).is_none() {
+        return Err("workspace size in MiB exceeds the supported byte range".into());
+    }
+    if workspace_mib_explicit && !rust_c_orchestrator {
+        return Err("--workspace-mib requires --rust-c-orchestrator".into());
+    }
     if pocket_sidecar && output.extension() != Some(OsStr::new("tnv3")) {
         return Err("The pocket-sidecar profile requires an OUTPUT path ending in .tnv3".into());
     }
@@ -921,18 +984,30 @@ where
     let python = python
         .map(resolve_executable_arg)
         .or_else(|| on_path("python3"))
-        .or_else(|| on_path("python"))
-        .ok_or("Python 3 not found on PATH; use --python")?;
+        .or_else(|| on_path("python"));
+    let python = if rust_c_orchestrator {
+        python.unwrap_or_default()
+    } else {
+        python.ok_or("Python 3 not found on PATH; use --python")?
+    };
     let ffmpeg = ffmpeg
         .map(resolve_executable_arg)
         .or_else(|| on_path("ffmpeg"))
         .ok_or("FFmpeg not found on PATH; use --ffmpeg")?;
     let ffprobe = ffprobe
         .map(resolve_executable_arg)
-        .or_else(|| on_path("ffprobe"))
-        .ok_or("FFprobe not found on PATH; use --ffprobe")?;
+        .or_else(|| on_path("ffprobe"));
+    let ffprobe = if rust_c_orchestrator {
+        ffprobe.unwrap_or_default()
+    } else {
+        ffprobe.ok_or("FFprobe not found on PATH; use --ffprobe")?
+    };
     let script = match script {
         Some(path) => path,
+        None if rust_c_orchestrator => root
+            .as_ref()
+            .map(|root| root.join("tools/tnv3_ref/encode_film.py"))
+            .unwrap_or_default(),
         None => root.as_ref().ok_or("Could not find Tau codecs checkout; use --codec-root, --script, or TAU_CODECS_ROOT")?
             .join("tools/tnv3_ref/encode_film.py"),
     };
@@ -951,7 +1026,9 @@ where
             .or_else(|| codec_tool(root.as_deref(), "tools/tnv3_ref/tnv3")),
         qp,
         jobs,
+        workspace_mib,
         pocket_sidecar,
+        rust_c_orchestrator,
     }))
 }
 
@@ -980,13 +1057,11 @@ fn run(_args: Args) -> Result<(), String> {
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 fn run(args: Args) -> Result<(), String> {
     required_file(&args.input, "Input")?;
-    for (path, label) in [
-        (&args.python, "Python"),
-        (&args.script, "Encoder script"),
-        (&args.ffmpeg, "FFmpeg"),
-        (&args.ffprobe, "FFprobe"),
-    ] {
-        required_file(path, label)?;
+    required_file(&args.ffmpeg, "FFmpeg")?;
+    if !args.rust_c_orchestrator {
+        required_file(&args.python, "Python")?;
+        required_file(&args.script, "Encoder script")?;
+        required_file(&args.ffprobe, "FFprobe")?;
     }
     validate_optional_file(args.tvc_encoder.as_deref(), "TVC encoder")?;
     validate_optional_file(args.tnv3_tool.as_deref(), "TNV3 tool")?;
@@ -1025,20 +1100,129 @@ fn run(args: Args) -> Result<(), String> {
         .file_name()
         .ok_or("Output path must include a file name")?;
     let mut staged = publication::ProtectedStage::create(parent)?;
-    let report = c_encoder::encode_video(
-        &tools,
-        &args.input,
-        staged.writer(),
-        Options {
-            qp: args.qp,
-            jobs: args.jobs,
-            ..Options::default()
-        },
-        |done, total| eprintln!("segments: {done}/{total}"),
-    )?;
+    let (frames, level, retries, encoder_diagnostics) = if args.rust_c_orchestrator {
+        let tvc_encoder = tools
+            .tvc_encoder
+            .as_ref()
+            .ok_or("--rust-c-orchestrator requires --tvc-encoder or --codec-root")?;
+        let tnv3_tool = tools
+            .tnv3_tool
+            .as_ref()
+            .ok_or("--rust-c-orchestrator requires --tnv3-tool or --codec-root")?;
+        let mut ffmpeg = Command::new(&tools.ffmpeg);
+        ffmpeg
+            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
+            .arg(&args.input)
+            .args([
+                "-map",
+                "0:v:0",
+                "-an",
+                "-vf",
+                "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24",
+                "-pix_fmt",
+                "yuv420p",
+                "-f",
+                "yuv4mpegpipe",
+                "-",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = ffmpeg
+            .spawn()
+            .map_err(|error| format!("Could not start FFmpeg Y4M decode: {error}"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or("Could not read FFmpeg Y4M output")?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or("Could not capture FFmpeg diagnostics")?;
+        let (diagnostics_tx, diagnostics_rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = diagnostics_tx.send(drain_bounded_stderr(stderr));
+        });
+        let tools = RustCTools {
+            tvc_encoder: tvc_encoder.clone(),
+            tnv3: tnv3_tool.clone(),
+        };
+        let encoded = experimental_c_orchestrator::encode_y4m_video(
+            &tools,
+            std::io::BufReader::new(stdout),
+            staged.writer(),
+            RustCOptions {
+                qp: args.qp,
+                jobs: args.jobs.clamp(1, 6),
+                // Match encode_film.py's default --seg 480.
+                frames_per_segment: 480,
+                workspace_limit_bytes: args.workspace_mib * 1024 * 1024,
+                ..RustCOptions::default()
+            },
+        );
+        let report = match encoded {
+            Ok(report) => report,
+            Err(error) => {
+                let _ = child.kill();
+                let status = child.wait().map_err(|wait_error| {
+                    format!("{error}; could not reap FFmpeg: {wait_error}")
+                })?;
+                let detail = diagnostics_rx
+                    .recv_timeout(Duration::from_secs(2))
+                    .ok()
+                    .and_then(Result::ok)
+                    .unwrap_or_else(|| "[FFmpeg stderr pipe did not close promptly.]".into());
+                return Err(format!(
+                    "{error}; FFmpeg was stopped after the Y4M stream error ({status}): {detail}"
+                ));
+            }
+        };
+        let status = child.wait();
+        let detail = match diagnostics_rx.recv_timeout(Duration::from_secs(2)) {
+            Ok(result) => result?,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                return Err("FFmpeg stderr remained open after the process exited; output was not published (diagnostics reader detached).".into());
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err("Could not collect FFmpeg diagnostics".into());
+            }
+        };
+        let status =
+            status.map_err(|error| format!("Could not wait for FFmpeg Y4M decode: {error}"))?;
+        if !status.success() {
+            return Err(format!("FFmpeg Y4M decode failed ({status}): {detail}"));
+        }
+        (
+            report.frames,
+            report.level,
+            format!(
+                "{} segment(s); {}",
+                report.segments,
+                retry_description(true, report.joint_reencodes)
+            ),
+            detail,
+        )
+    } else {
+        let report = c_encoder::encode_video(
+            &tools,
+            &args.input,
+            staged.writer(),
+            Options {
+                qp: args.qp,
+                jobs: args.jobs,
+                ..Options::default()
+            },
+            |done, total| eprintln!("segments: {done}/{total}"),
+        )?;
+        (
+            report.frames,
+            report.level,
+            retry_description(false, report.reencoded),
+            report.diagnostics,
+        )
+    };
     let (byte_size, audio_byte_size, sync_warning, audio_warning) = if args.pocket_sidecar {
         let audio_path = staged.audio_path(parent);
-        let duration = format!("{:.9}", f64::from(report.frames) / 24.0);
+        let duration = format!("{:.9}", f64::from(frames) / 24.0);
         let mut command = Command::new(&tools.ffmpeg);
         command
             .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
@@ -1080,15 +1264,15 @@ fn run(args: Args) -> Result<(), String> {
         (video_len, 0, warning, None)
     };
     println!(
-        "Wrote {}TNV3: {} frames, level {}, {} picture(s) raised for level limits, {} bytes{}",
+        "Wrote {}TNV3: {} frames, level {}, {}, {} bytes{}",
         if args.pocket_sidecar {
             "TNV3 + MP3 sidecar; "
         } else {
             "video-only "
         },
-        report.frames,
-        report.level,
-        report.reencoded,
+        frames,
+        level,
+        retries,
         byte_size,
         if args.pocket_sidecar {
             format!("; MP3 {audio_byte_size} bytes")
@@ -1097,8 +1281,8 @@ fn run(args: Args) -> Result<(), String> {
         }
     );
     println!("Output: {}", args.output.display());
-    if !report.diagnostics.is_empty() {
-        eprintln!("Encoder diagnostics:\n{}", report.diagnostics);
+    if !encoder_diagnostics.is_empty() {
+        eprintln!("Encoder diagnostics:\n{}", encoder_diagnostics);
     }
     if let Some(warning) = sync_warning {
         eprintln!("Warning: {warning}");
@@ -1222,11 +1406,177 @@ mod tests {
     }
 
     #[test]
+    fn retry_labels_distinguish_joint_segments_from_level_retries() {
+        assert_eq!(retry_description(true, 2), "2 joint segment retry(s)");
+        assert_eq!(
+            retry_description(false, 3),
+            "3 picture(s) raised for level limits"
+        );
+    }
+
+    #[test]
+    fn rust_c_flag_does_not_require_python_script_or_ffprobe() {
+        let args = parse_args([
+            OsString::from("encode"),
+            OsString::from("in.mp4"),
+            OsString::from("out.tnv3"),
+            OsString::from("--rust-c-orchestrator"),
+            OsString::from("--ffmpeg"),
+            OsString::from("/tools/ffmpeg"),
+            OsString::from("--tvc-encoder"),
+            OsString::from("/tools/tvc_enc"),
+            OsString::from("--tnv3-tool"),
+            OsString::from("/tools/tnv3"),
+        ])
+        .unwrap()
+        .unwrap();
+        assert!(args.rust_c_orchestrator);
+        assert_eq!(args.workspace_mib, 512);
+        let args = parse_args([
+            OsString::from("encode"),
+            OsString::from("in.mp4"),
+            OsString::from("out.tnv3"),
+            OsString::from("--rust-c-orchestrator"),
+            OsString::from("--workspace-mib"),
+            OsString::from("1024"),
+            OsString::from("--ffmpeg"),
+            OsString::from("/tools/ffmpeg"),
+        ])
+        .unwrap()
+        .unwrap();
+        assert_eq!(args.workspace_mib, 1024);
+        assert!(
+            parse_args([
+                OsString::from("encode"),
+                OsString::from("in.mp4"),
+                OsString::from("out.tnv3"),
+                OsString::from("--rust-c-orchestrator"),
+                OsString::from("--workspace-mib"),
+                OsString::from("0"),
+                OsString::from("--ffmpeg"),
+                OsString::from("/tools/ffmpeg"),
+            ])
+            .is_err()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ffmpeg_failure_after_valid_y4m_never_publishes_tnv3() {
+        let Some(tvc) = env::var_os("TAU_TEST_TVC").map(PathBuf::from) else {
+            return;
+        };
+        let Some(tnv3) = env::var_os("TAU_TEST_TNV3").map(PathBuf::from) else {
+            return;
+        };
+        if !tvc.is_file() || !tnv3.is_file() {
+            return;
+        }
+        let dir = env::temp_dir().join(format!(
+            "tau-rust-ffmpeg-failure-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&dir).unwrap();
+        let y4m_path = dir.join("valid.y4m");
+        let input = dir.join("unused-source.mp4");
+        let fake_ffmpeg = dir.join("ffmpeg-fails-after-output");
+        let output = dir.join("should-not-publish.tnv3");
+        fs::write(&input, b"unused by the fake FFmpeg").unwrap();
+        let mut y4m = b"YUV4MPEG2 W64 H48 F24:1 C420jpeg\n".to_vec();
+        for _ in 0..2 {
+            y4m.extend_from_slice(b"FRAME\n");
+            y4m.resize(y4m.len() + 64 * 48 * 3 / 2, 0);
+        }
+        fs::write(&y4m_path, y4m).unwrap();
+        let script = format!(
+            "#!/bin/sh\ncat '{}'\ndd if=/dev/zero bs=9000 count=1 2>/dev/null | tr '\\000' X >&2\nexit 9\n",
+            y4m_path.display()
+        );
+        fs::write(&fake_ffmpeg, script).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&fake_ffmpeg, fs::Permissions::from_mode(0o700)).unwrap();
+
+        let error = run(Args {
+            input,
+            output: output.clone(),
+            python: PathBuf::new(),
+            script: PathBuf::new(),
+            ffmpeg: fake_ffmpeg,
+            ffprobe: PathBuf::new(),
+            tvc_encoder: Some(tvc),
+            tnv3_tool: Some(tnv3),
+            qp: 30,
+            jobs: 1,
+            workspace_mib: 512,
+            pocket_sidecar: false,
+            rust_c_orchestrator: true,
+        })
+        .unwrap_err();
+        assert!(error.contains("exit status: 9"), "{error}");
+        assert!(error.contains("Further diagnostics omitted"), "{error}");
+        assert!(!output.exists());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn malformed_y4m_kills_stalled_ffmpeg_without_publication() {
+        let dir = env::temp_dir().join(format!(
+            "tau-rust-ffmpeg-stall-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&dir).unwrap();
+        let input = dir.join("unused-source.mp4");
+        let fake_ffmpeg = dir.join("ffmpeg-stalls");
+        let output = dir.join("should-not-publish.tnv3");
+        let tvc = dir.join("unused-tvc");
+        let tnv3 = dir.join("unused-tnv3");
+        fs::write(&input, b"unused by fake FFmpeg").unwrap();
+        fs::write(&tvc, b"unused").unwrap();
+        fs::write(&tnv3, b"unused").unwrap();
+        fs::write(
+            &fake_ffmpeg,
+            "#!/bin/sh\nprintf 'bad header\\n'\nexec sleep 30\n",
+        )
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&fake_ffmpeg, fs::Permissions::from_mode(0o700)).unwrap();
+
+        let started = std::time::Instant::now();
+        let error = run(Args {
+            input,
+            output: output.clone(),
+            python: PathBuf::new(),
+            script: PathBuf::new(),
+            ffmpeg: fake_ffmpeg,
+            ffprobe: PathBuf::new(),
+            tvc_encoder: Some(tvc),
+            tnv3_tool: Some(tnv3),
+            qp: 30,
+            jobs: 1,
+            workspace_mib: 512,
+            pocket_sidecar: false,
+            rust_c_orchestrator: true,
+        })
+        .unwrap_err();
+        assert!(error.contains("invalid Y4M stream"), "{error}");
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert!(!output.exists());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn video_only_flag_and_legacy_profile_are_supported() {
         let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
         argv.extend(required_options());
         argv.push("--video-only".into());
         assert!(!parse_args(argv).unwrap().unwrap().pocket_sidecar);
+        let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
+        argv.extend(required_options());
+        argv.push("--rust-c-orchestrator".into());
+        assert!(parse_args(argv).unwrap().unwrap().rust_c_orchestrator);
         let mut argv = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
         argv.extend(required_options());
         argv.extend(["--profile".into(), "pocket-sidecar".into()]);
@@ -1272,10 +1622,7 @@ mod tests {
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn private_test_dir() -> PathBuf {
-        let id = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
-        let path = env::temp_dir().join(format!("tau-publish-test-{}-{id}", std::process::id()));
-        fs::create_dir(&path).unwrap();
-        path
+        unique_test_dir("tau-publish-test")
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]

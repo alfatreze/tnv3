@@ -20,7 +20,8 @@ const MAX_JOBS: usize = 6;
 const MAX_SEGMENTS: usize = 4096;
 const DEFAULT_WORKSPACE_LIMIT_BYTES: u64 = 512 * 1024 * 1024;
 const TNV3_OVERHEAD_RESERVE: u64 = 32 * 1024 * 1024;
-const MAX_SEGMENT_Y4M_BYTES: u64 = 64 * 1024 * 1024;
+// Fits a complete 480-frame 400x360 YUV420 segment, including header and metadata.
+const MAX_SEGMENT_Y4M_BYTES: u64 = 128 * 1024 * 1024;
 // Checked after each C child exits; this is not an OS-enforced write quota.
 const MAX_ACCEPTED_SEGMENT_TVC_BYTES: u64 = 16 * 1024 * 1024;
 const LEVEL_WINDOW_BYTES: [u64; 4] = [0, 200_000, 400_000, 600_000];
@@ -86,7 +87,8 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             qp: 30,
-            level: 1,
+            // Zero selects the smallest TVC level that fits the actual Y4M header.
+            level: 0,
             frames_per_segment: 120,
             jobs: 1,
             workspace_limit_bytes: DEFAULT_WORKSPACE_LIMIT_BYTES,
@@ -98,6 +100,7 @@ impl Default for Options {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Report {
     pub frames: u32,
+    pub level: u8,
     pub segments: u32,
     pub joint_reencodes: u32,
     pub worst_window_bytes: u64,
@@ -191,8 +194,8 @@ fn validate_options(options: Options) -> Result<(), String> {
     if options.qp > 51 {
         return Err("QP must be between 0 and 51".into());
     }
-    if !(1..=3).contains(&options.level) {
-        return Err("level must be 1, 2, or 3".into());
+    if options.level > 3 {
+        return Err("level must be 0 (auto), 1, 2, or 3".into());
     }
     if !(1..=MAX_SEGMENT_FRAMES).contains(&options.frames_per_segment) {
         return Err(format!(
@@ -226,7 +229,14 @@ fn encode_in_workspace<R: BufRead, W: Write>(
 ) -> Result<Report, String> {
     let mut groups = Y4mFrameGroups::new_c_compatible(input, options.frames_per_segment)
         .map_err(|error| format!("invalid Y4M stream: {error}"))?;
-    check_level_fit(groups.header(), options.level)?;
+    let level = if options.level == 0 {
+        (1..=3)
+            .find(|&candidate| check_level_fit(groups.header(), candidate).is_ok())
+            .ok_or("Y4M header does not fit any TVC level")?
+    } else {
+        check_level_fit(groups.header(), options.level)?;
+        options.level
+    };
     let max_group_bytes = groups
         .frame_bytes()
         .checked_mul(options.frames_per_segment as u64)
@@ -283,7 +293,6 @@ fn encode_in_workspace<R: BufRead, W: Write>(
             let tvc = work.join(format!("segment{next_segment:05}.tvc"));
             let tvc_tool = tools.tvc_encoder.clone();
             let qp = options.qp;
-            let level = options.level;
             workers.push_back(thread::spawn(move || {
                 run_tvc(&tvc_tool, &y4m, &tvc, qp, level, None)
             }));
@@ -306,7 +315,7 @@ fn encode_in_workspace<R: BufRead, W: Write>(
     }
 
     let win = first_rate_window(work)?;
-    let limit = LEVEL_WINDOW_BYTES[options.level as usize];
+    let limit = LEVEL_WINDOW_BYTES[level as usize];
     let mut all_lengths: Vec<u32> = Vec::new();
     let mut joint_reencodes = 0u32;
     for (index, expected_frames) in segment_frames.iter().copied().enumerate() {
@@ -340,7 +349,7 @@ fn encode_in_workspace<R: BufRead, W: Write>(
                 &work.join(format!("segment{index:05}.y4m")),
                 &tvc_path,
                 options.qp,
-                options.level,
+                level,
                 Some(&previous),
             )?;
             parsed = parse_tvc(&tvc_path)?;
@@ -420,6 +429,7 @@ fn encode_in_workspace<R: BufRead, W: Write>(
     Ok(Report {
         frames: u32::try_from(groups.total_frames())
             .map_err(|_| "frame count overflow".to_string())?,
+        level,
         segments: u32::try_from(segment_frames.len())
             .map_err(|_| "segment count overflow".to_string())?,
         joint_reencodes,
@@ -814,6 +824,15 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn desktop_480_frame_segment_fits_y4m_and_projected_workspace_caps() {
+        let y4m_header = b"YUV4MPEG2 W400 H360 F24:1 C420jpeg\n";
+        let frame_bytes = 400u64 * 360 + 2 * 200 * 180;
+        let segment_bytes = frame_bytes * 480 + y4m_header.len() as u64 + 480 * 6;
+        assert!(segment_bytes <= MAX_SEGMENT_Y4M_BYTES);
+        assert!(segment_bytes + 6 * MAX_ACCEPTED_SEGMENT_TVC_BYTES < DEFAULT_WORKSPACE_LIMIT_BYTES);
     }
 
     #[test]

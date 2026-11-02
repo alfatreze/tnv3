@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "47dc7a1aac22660d8059e599c04ee2698b2b10a9a1d0e2524059d119f40be65d"
+      "sha256": "db4ad93db4c448b4a748de786cc0ab0375e5364457d5adb5e01a294f7a8580df"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -959,7 +959,7 @@
       "sha256": "15b092dd8ee9ae21874211a7adcae001bbed5aab0a37ebf54a667b18a56e877c"
     },
     "tau-video/README.md": {
-      "sha256": "517ee2e76fd18eb8cf9cbfb1ac3d87095bfa7bf59fea9c5d9dc52d2fcd2aa15d"
+      "sha256": "edcb963cca7adff907d1bdde4c1bf8f80d87afba2a6906c81473ffeaeee651f2"
     },
     "tau-video/src/bin/tau-mp3.rs": {
       "sha256": "b5467b3a13bbe979ebf00f8373ab3077098b3c7072a4fc499833e5dc504047f7"
@@ -1584,7 +1584,7 @@
       "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
     },
     "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
-      "sha256": "47c018e566e55bb41a5ab6b24219fcc7125f1573d21228ab5b8edd6d9c32bb3e",
+      "sha256": "2d10ed371fad4312d950d4b7bcd3b662d0485ea0d1c03870819c5b3d258deb2f",
       "status": "new_release_file"
     },
     "tools/codec_study/cli_migration_smoke.py": {
@@ -1601,7 +1601,7 @@
     },
     "tau-video-cli/Cargo.toml": {
       "status": "new_release_file",
-      "sha256": "0970c8ba17b815f7a3acd7232f097012caeef7c83116ceb64c179eec5cdc5a07"
+      "sha256": "df828a6665b05b0fd618909f8710ce0c9b0172bde492cbeb7261fa1917f23dc6"
     },
     "tau-video-cli/Cargo.lock": {
       "status": "new_release_file",
@@ -1609,11 +1609,11 @@
     },
     "tau-video-cli/README.md": {
       "status": "new_release_file",
-      "sha256": "a2a026ae071af834d280a99c4b3981decf3672957925546e6bb4aa4d1d456a31"
+      "sha256": "06e41ace1b44d9ce0d24e03646b9305fdf45fadd1d1514ac377eff0d4eea64df"
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "fe18698729c90354a2a363ee51290a576dc1bdfec933e595d0baa9fa5424028b"
+      "sha256": "b42570af4fd8a091ef2076e6d49319319627be65511fdbf135265d32a3179f48"
     },
     "tau-video-cli/smoke.py": {
       "status": "new_release_file",
@@ -1649,7 +1649,11 @@
     },
     "tau-video/src/experimental_c_orchestrator.rs": {
       "status": "new_release_file",
-      "sha256": "6481b909c0e8ca17374b2bcbebdb7468aeede572e5300884e3f4ed236cc09628"
+      "sha256": "9593810b7c4e6e663703542297a16f18db2901c27c280f6e60198fca4c1111b2"
+    },
+    "tau-video-cli/rust_c_parity_smoke.py": {
+      "status": "new_release_file",
+      "sha256": "b46b45d1890656bfd780352c19602034dec5c73af0508b55301502617d80a1f3"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",
