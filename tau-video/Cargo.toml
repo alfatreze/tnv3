@@ -10,6 +10,7 @@ description = "Portable tools for the Tau TNV3 media format"
 default = []
 cli = []
 c-encoder = ["dep:serde_json"]
+experimental-c-orchestrator = []
 experimental-rust-encoder = []
 mp3-cli = []
 block-motion = ["experimental-rust-encoder"]

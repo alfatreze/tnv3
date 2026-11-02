@@ -1,20 +1,25 @@
 use std::io::{self, BufRead, Read, Write};
 
 const MAX_LINE: usize = 64 * 1024;
+const MAX_C_STREAM_HEADER: usize = 511;
+const MAX_C_FRAME_METADATA: usize = 127;
 const COPY_BUFFER: usize = 64 * 1024;
 
 /// Reads a YUV4MPEG2 stream and emits one frame group at a time into a caller-owned sink.
 ///
-/// The source is consumed incrementally. Memory use is bounded by the Y4M stream header,
-/// one FRAME metadata line, and a fixed 64 KiB payload copy buffer; frame payloads are never
-/// retained. The caller controls each group's destination and can schedule its encoder as soon
-/// as `write_next_group` returns. A returned group contains the original stream header followed
-/// by each frame's exact metadata line and payload bytes.
+/// The source is consumed incrementally. Generic mode accepts lines up to 64 KiB. C-compatible
+/// mode enforces the reference reader's 511-byte stream-header and 127-byte FRAME-line limits.
+/// Memory use is bounded by those lines and a fixed 64 KiB payload copy buffer; frame payloads
+/// are never retained. The caller controls each group's destination and can schedule its encoder
+/// as soon as `write_next_group` returns. A returned group contains the original stream header
+/// followed by each frame's exact metadata line and payload bytes.
 pub struct Y4mFrameGroups<R> {
     input: R,
     header: Vec<u8>,
     frame_bytes: u64,
     frames_per_group: usize,
+    max_frame_metadata: usize,
+    c_compatible: bool,
     total_frames: u64,
     ended: bool,
     failed: bool,
@@ -22,18 +27,47 @@ pub struct Y4mFrameGroups<R> {
 
 impl<R: BufRead> Y4mFrameGroups<R> {
     /// Read and validate the stream header. Only explicit 8-bit 4:2:0 chroma formats are accepted.
-    pub fn new(mut input: R, frames_per_group: usize) -> io::Result<Self> {
+    pub fn new(input: R, frames_per_group: usize) -> io::Result<Self> {
+        Self::with_line_limits(input, frames_per_group, MAX_LINE, MAX_LINE, false)
+    }
+
+    /// Construct a reader whose header and metadata match the C reference parser buffers.
+    ///
+    /// Lines must fit 511/127 bytes, including newline. Only printable ASCII plus LF is accepted
+    /// so C string truncation and tokenization cannot change the interpreted stream.
+    pub fn new_c_compatible(input: R, frames_per_group: usize) -> io::Result<Self> {
+        Self::with_line_limits(
+            input,
+            frames_per_group,
+            MAX_C_STREAM_HEADER,
+            MAX_C_FRAME_METADATA,
+            true,
+        )
+    }
+
+    fn with_line_limits(
+        mut input: R,
+        frames_per_group: usize,
+        max_header_line: usize,
+        max_frame_metadata: usize,
+        c_compatible: bool,
+    ) -> io::Result<Self> {
         if frames_per_group == 0 {
             return Err(invalid("frames per group must be positive"));
         }
-        let header = read_line(&mut input, "Y4M stream header")?
+        let header = read_line(&mut input, "Y4M stream header", max_header_line)?
             .ok_or_else(|| invalid("empty Y4M input"))?;
+        if c_compatible && !c_compatible_line(&header) {
+            return Err(invalid("Y4M header contains a C-incompatible byte"));
+        }
         let frame_bytes = y4m_420_frame_bytes(&header)?;
         Ok(Self {
             input,
             header,
             frame_bytes,
             frames_per_group,
+            max_frame_metadata,
+            c_compatible,
             total_frames: 0,
             ended: false,
             failed: false,
@@ -74,7 +108,9 @@ impl<R: BufRead> Y4mFrameGroups<R> {
         if self.ended {
             return Ok(None);
         }
-        let Some(first_metadata) = read_line(&mut self.input, "FRAME metadata")? else {
+        let Some(first_metadata) =
+            read_line(&mut self.input, "FRAME metadata", self.max_frame_metadata)?
+        else {
             self.ended = true;
             return if self.total_frames == 0 {
                 Err(invalid("Y4M input contains no frames"))
@@ -83,6 +119,9 @@ impl<R: BufRead> Y4mFrameGroups<R> {
             };
         };
         validate_frame_metadata(&first_metadata)?;
+        if self.c_compatible && !c_compatible_line(&first_metadata) {
+            return Err(invalid("Y4M FRAME metadata contains a C-incompatible byte"));
+        }
         output.write_all(&self.header)?;
         let mut written = 0usize;
         let mut metadata = Some(first_metadata);
@@ -90,9 +129,14 @@ impl<R: BufRead> Y4mFrameGroups<R> {
             let frame_header = if let Some(first) = metadata.take() {
                 first
             } else {
-                match read_line(&mut self.input, "FRAME metadata")? {
+                match read_line(&mut self.input, "FRAME metadata", self.max_frame_metadata)? {
                     Some(line) => {
                         validate_frame_metadata(&line)?;
+                        if self.c_compatible && !c_compatible_line(&line) {
+                            return Err(invalid(
+                                "Y4M FRAME metadata contains a C-incompatible byte",
+                            ));
+                        }
                         line
                     }
                     None => {
@@ -119,7 +163,11 @@ impl<R: BufRead> Y4mFrameGroups<R> {
     }
 }
 
-fn read_line<R: BufRead>(reader: &mut R, context: &str) -> io::Result<Option<Vec<u8>>> {
+fn read_line<R: BufRead>(
+    reader: &mut R,
+    context: &str,
+    max_len: usize,
+) -> io::Result<Option<Vec<u8>>> {
     let mut line = Vec::new();
     loop {
         let available = reader.fill_buf()?;
@@ -139,10 +187,10 @@ fn read_line<R: BufRead>(reader: &mut R, context: &str) -> io::Result<Option<Vec
         if line
             .len()
             .checked_add(take)
-            .filter(|&size| size <= MAX_LINE)
+            .filter(|&size| size <= max_len)
             .is_none()
         {
-            return Err(invalid_owned(format!("{context} exceeds {MAX_LINE} bytes")));
+            return Err(invalid_owned(format!("{context} exceeds {max_len} bytes")));
         }
         let complete = available.get(take - 1) == Some(&b'\n');
         line.extend_from_slice(&available[..take]);
@@ -227,6 +275,11 @@ fn validate_frame_metadata(line: &[u8]) -> io::Result<()> {
         return Err(invalid("invalid Y4M FRAME metadata"));
     }
     Ok(())
+}
+
+fn c_compatible_line(line: &[u8]) -> bool {
+    line.iter()
+        .all(|&byte| byte == b'\n' || (b' '..=b'~').contains(&byte))
 }
 
 fn copy_exact<R: Read, W: Write>(
@@ -409,5 +462,74 @@ mod tests {
         );
         assert!(Y4mFrameGroups::new(Cursor::new(b"YUV4MPEG2 W4 H4\n"), 1).is_err());
         assert!(Y4mFrameGroups::new(Cursor::new(b"YUV4MPEG2 W4 H4 C420jpeg\n"), 0).is_err());
+    }
+
+    #[test]
+    fn c_reference_header_and_frame_line_limits_are_enforced() {
+        let prefix = b"YUV4MPEG2 W4 H4 C420jpeg X";
+        let mut max_header = prefix.to_vec();
+        max_header.resize(MAX_C_STREAM_HEADER - 1, b'x');
+        max_header.push(b'\n');
+        assert_eq!(max_header.len(), 511);
+        assert!(Y4mFrameGroups::new_c_compatible(Cursor::new(max_header), 1).is_ok());
+
+        let mut long_header = prefix.to_vec();
+        long_header.resize(MAX_C_STREAM_HEADER, b'x');
+        long_header.push(b'\n');
+        assert_eq!(long_header.len(), 512);
+        assert!(Y4mFrameGroups::new_c_compatible(Cursor::new(long_header), 1).is_err());
+
+        let header = b"YUV4MPEG2 W4 H4 F24:1 C420jpeg\n";
+        let mut max_metadata = b"FRAME ".to_vec();
+        max_metadata.resize(MAX_C_FRAME_METADATA - 1, b'x');
+        max_metadata.push(b'\n');
+        assert_eq!(max_metadata.len(), 127);
+        let mut input = header.to_vec();
+        input.extend_from_slice(&max_metadata);
+        input.extend([0u8; 24]);
+        let mut reader = Y4mFrameGroups::new_c_compatible(Cursor::new(input), 1).unwrap();
+        assert_eq!(reader.write_next_group(&mut Vec::new()).unwrap(), Some(1));
+
+        let mut long_metadata = b"FRAME ".to_vec();
+        long_metadata.resize(MAX_C_FRAME_METADATA, b'x');
+        long_metadata.push(b'\n');
+        assert_eq!(long_metadata.len(), 128);
+        let mut input = header.to_vec();
+        input.extend_from_slice(&long_metadata);
+        input.extend([0u8; 24]);
+        let mut reader = Y4mFrameGroups::new_c_compatible(Cursor::new(input), 1).unwrap();
+        assert!(reader.write_next_group(&mut Vec::new()).is_err());
+
+        for bad_header in [
+            b"YUV4MPEG2 W4\tH4 F24:1 C420jpeg\n".as_slice(),
+            b"YUV4MPEG2 W4 H4 F24:1 C420jpeg Xbad\0\n".as_slice(),
+        ] {
+            assert!(Y4mFrameGroups::new_c_compatible(Cursor::new(bad_header), 1).is_err());
+        }
+        for bad_metadata in [b"FRAME Xbad\0\n".as_slice(), b"FRAME\tXbad\n".as_slice()] {
+            let mut input = header.to_vec();
+            input.extend_from_slice(bad_metadata);
+            input.extend([0u8; 24]);
+            let mut reader = Y4mFrameGroups::new_c_compatible(Cursor::new(input), 1).unwrap();
+            assert!(reader.write_next_group(&mut Vec::new()).is_err());
+        }
+    }
+
+    #[test]
+    fn generic_constructor_keeps_previous_long_line_acceptance() {
+        let prefix = b"YUV4MPEG2 W4 H4 C420jpeg X";
+        let mut header = prefix.to_vec();
+        header.resize(MAX_C_STREAM_HEADER + 1, b'x');
+        header.push(b'\n');
+        assert!(Y4mFrameGroups::new(Cursor::new(header), 1).is_ok());
+
+        let mut input = b"YUV4MPEG2 W4 H4 F24:1 C420jpeg\n".to_vec();
+        let mut metadata = b"FRAME ".to_vec();
+        metadata.resize(MAX_C_FRAME_METADATA + 1, b'x');
+        metadata.push(b'\n');
+        input.extend_from_slice(&metadata);
+        input.extend([0u8; 24]);
+        let mut groups = Y4mFrameGroups::new(Cursor::new(input), 1).unwrap();
+        assert_eq!(groups.write_next_group(&mut Vec::new()).unwrap(), Some(1));
     }
 }

@@ -335,3 +335,9 @@ to the production encoder or a claim that Python is removed.
 between FFmpeg 6.1.1 and 9.0.2 under matching filters; alternate rounding
 changes selections. This does not resolve Pocket playback or full-file timing;
 see issues 003 and 005. No source media is published.
+
+An opt-in experimental Rust C-segment orchestrator now handles pre-decoded
+Y4M without Python. **Host:** one generated no-retry fixture byte-matched
+the Python workflow; a stub exercised boundary retry. Production app/CLI
+still use Python. Real C retry, upstream FFmpeg success gating, Windows and
+long-film workspace behavior remain open.

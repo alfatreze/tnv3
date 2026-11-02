@@ -185,3 +185,11 @@ the longer release gates have passed.
 frame groups into caller-owned sinks. Host-generated parity and error tests
 pass. Production encoding still uses Python; the caller must check the
 producer exit status and manage incomplete sinks and concurrency.
+
+**Experimental Python-reduction slice:** `experimental-c-orchestrator`
+accepts pre-decoded Y4M and orchestrates reference C segments and TNV3
+assembly. It is disabled by default and does not replace the film workflow.
+A small generated fixture byte-matched Python without a boundary retry; a
+stub exercised retry wiring. Real C retry parity, upstream FFmpeg exit
+validation, full-film workspace measurements and Windows behavior remain
+gates. Its workspace budget is projected and not a strict disk quota.

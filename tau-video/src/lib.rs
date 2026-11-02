@@ -297,5 +297,9 @@ pub mod container;
 #[cfg(feature = "c-encoder")]
 pub mod c_encoder;
 
+/// Experimental Y4M-to-C segment orchestration, disabled by default.
+#[cfg(feature = "experimental-c-orchestrator")]
+pub mod experimental_c_orchestrator;
+
 /// Optional streaming reader for grouping exact 8-bit 4:2:0 Y4M frames.
 pub mod y4m;
