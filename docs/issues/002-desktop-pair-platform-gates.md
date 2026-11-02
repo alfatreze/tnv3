@@ -36,3 +36,7 @@ native distribution and runtime testing remain open.
 before compilation because the version checker assumed LF line endings in
 Cargo.lock. The checker now accepts CRLF as well. Windows runtime, packaging,
 and external helper validation remain open; a new CI run is the next gate.
+
+**CI update:** rerun 41466093349 passed all three build jobs after the CRLF
+fix and produced Windows/Linux executable-only artifacts. Native app runtime,
+packaged dependencies and Pocket playback remain untested.

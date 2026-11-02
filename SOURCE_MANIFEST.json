@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "37bfa1ddc46b8fe16d7fe4c2b62b50d19e015206aaebe17a45df52800ea70575"
+      "sha256": "cccc961478a44b72ae11507ccd866227769a8efd8c448352bd8197ff42957a82"
     },
     "README.md": {
       "sha256": "ef30e2abff8e677d47403bec89bf058c20a6ad567310489110141c01fcc68514"
@@ -1507,7 +1507,7 @@
       "sha256": "db1e50251631d6dc32d3aaa410614a77f7b6b05e79eda090840ded5ecd3b264e"
     },
     "docs/issues/002-desktop-pair-platform-gates.md": {
-      "sha256": "73d2b4adc7f2ceaa76252d087e3a73074d89b67c2f80f14195d04d30680392c8"
+      "sha256": "31b967a04d0f8ce7668d06f9a819bcbfc1924d66101be47e987d974511f141a3"
     },
     "docs/issues/003-rust-encoder-player-throughput.md": {
       "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"
