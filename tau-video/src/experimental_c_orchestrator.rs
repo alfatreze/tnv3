@@ -173,10 +173,21 @@ pub fn encode_y4m_video<R: BufRead, W: Write>(
     output: &mut W,
     options: Options,
 ) -> Result<Report, String> {
+    encode_y4m_video_with_progress(tools, input, output, options, |_| {})
+}
+
+/// As `encode_y4m_video`, reporting frames only after each segment is accepted.
+pub fn encode_y4m_video_with_progress<R: BufRead, W: Write>(
+    tools: &Tools,
+    input: R,
+    output: &mut W,
+    options: Options,
+    mut progress: impl FnMut(u64),
+) -> Result<Report, String> {
     validate_options(options)?;
     let temp = TempDir::new()
         .map_err(|error| format!("could not create private work directory: {error}"))?;
-    let result = encode_in_workspace(tools, input, output, options, &temp.path);
+    let result = encode_in_workspace(tools, input, output, options, &temp.path, &mut progress);
     let cleanup = temp.cleanup();
     match (result, cleanup) {
         (Ok(report), Ok(())) => Ok(report),
@@ -253,6 +264,7 @@ fn encode_in_workspace<R: BufRead, W: Write>(
     output: &mut W,
     options: Options,
     work: &Path,
+    progress: &mut impl FnMut(u64),
 ) -> Result<Report, String> {
     let mut groups = Y4mFrameGroups::new_c_compatible(input, options.frames_per_segment)
         .map_err(|error| format!("invalid Y4M stream: {error}"))?;
@@ -344,10 +356,12 @@ fn encode_in_workspace<R: BufRead, W: Write>(
                 .ok_or_else(|| "segment count overflow".to_string())?;
             if workers.len() >= options.jobs {
                 accept_next_segment(tools, work, &mut workers, &mut merged, config)?;
+                progress(merged.frames);
             }
         }
         while !workers.is_empty() {
             accept_next_segment(tools, work, &mut workers, &mut merged, config)?;
+            progress(merged.frames);
         }
         Ok(())
     })();

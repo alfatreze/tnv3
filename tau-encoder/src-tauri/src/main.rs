@@ -532,7 +532,8 @@ fn encode_pair_impl(
             } else {
                 dependencies.workspace_limit_bytes
             };
-            let encoded = tau_video::experimental_c_orchestrator::encode_y4m_video(
+            let video_started = std::time::Instant::now();
+            let encoded = tau_video::experimental_c_orchestrator::encode_y4m_video_with_progress(
                 &tau_video::experimental_c_orchestrator::Tools {
                     tvc_encoder,
                     tnv3: tnv3_tool,
@@ -545,6 +546,21 @@ fn encode_pair_impl(
                     frames_per_segment: 480,
                     workspace_limit_bytes,
                     ..Default::default()
+                },
+                |frames| {
+                    let frames = u32::try_from(frames).unwrap_or(u32::MAX);
+                    let seconds = video_started.elapsed().as_secs_f64();
+                    let remaining_seconds = total
+                        .filter(|&n| frames < n && seconds >= 2.0 && frames > 0)
+                        .map(|n| {
+                            ((f64::from(n - frames) * seconds) / f64::from(frames)).ceil() as u64
+                        });
+                    progress(Progress {
+                        phase: "video",
+                        frames,
+                        total_frames_estimate: total,
+                        remaining_seconds,
+                    });
                 },
             );
             if encoded.is_err() {
@@ -1682,6 +1698,7 @@ mod tests {
             workspace_limit_bytes: 512u64 * 1024 * 1024,
             ..Default::default()
         };
+        let mut video_progress = Vec::new();
         let result = encode_pair(
             Path::new(&ffmpeg),
             &source,
@@ -1691,10 +1708,22 @@ mod tests {
             None,
             AdvancedSettings::default(),
             &dependencies,
-            |_| {},
+            |event| {
+                if event.phase == "video" {
+                    video_progress.push(event.frames);
+                }
+            },
         )
         .unwrap();
         assert_eq!(result.frames, 481);
+        assert!(
+            video_progress.contains(&480),
+            "first segment must report progress: {video_progress:?}"
+        );
+        assert!(
+            video_progress.contains(&481),
+            "last segment must report progress: {video_progress:?}"
+        );
         let video = Temporary(PathBuf::from(result.video));
         let audio = Temporary(PathBuf::from(result.audio));
         assert_eq!(

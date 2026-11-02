@@ -8,7 +8,7 @@ The C option defaults to the segmented Python + C workflow (`tools/tnv3_ref/enco
 
 Local preview opens a TNV3 and its matching MP3 if present. It decodes the video on the host, supports play/pause and drops late video frames against the audio clock. It is for visual checks, not a Pocket performance emulator or a full conformance checker. Seeking and replay without reopening are not implemented; the preview has not been validated on all platforms.
 
-The app currently requires a source audio track. Output is 24 fps and 48 kHz stereo MP3; the Rust encoder uses conservative rate control and may fail or reduce quality. The Python workflow reports segment progress; the native C workflow reports video progress after the video phase completes and does not provide a live estimate. Audio and saving are separate. Cancellation is not yet available. Pocket A/V synchronisation remains to be validated.
+The app currently requires a source audio track. Output is 24 fps and 48 kHz stereo MP3; the Rust encoder uses conservative rate control and may fail or reduce quality. The Python workflow reports segment progress; the native C workflow reports completed segments and updates its video-time estimate. Audio and saving are separate. Cancellation is not yet available. Pocket A/V synchronisation remains to be validated.
 
 ## Dependency settings
 
@@ -34,4 +34,4 @@ For a self-contained macOS helper bundle, run `scripts/build-ffmpeg-macos.sh`, t
 
 ## App versioning
 
-The desktop app follows semantic versioning independently of the codec format and Rust crate. Version 0.2.0 is a preview: increment the patch for compatible fixes, the minor for new functionality or breaking changes before 1.0, and the major for breaking changes after 1.0. Prereleases use a SemVer suffix such as `-alpha.1`. Update the npm, Tauri, Cargo and lockfile versions together; `npm run check-version` checks their agreement in CI. Name distributed builds `Tau-Encoder-<version>-<platform>` and document changes in the changelog.
+The desktop app follows semantic versioning independently of the codec format and Rust crate. Version 0.2.1 is a preview: increment the patch for compatible fixes, the minor for new functionality or breaking changes before 1.0, and the major for breaking changes after 1.0. Prereleases use a SemVer suffix such as `-alpha.1`. Update the npm, Tauri, Cargo and lockfile versions together; `npm run check-version` checks their agreement in CI. Name distributed builds `Tau-Encoder-<version>-<platform>` and document changes in the changelog.

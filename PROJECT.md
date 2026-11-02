@@ -369,5 +369,10 @@ remain open. See `docs/issues/004-desktop-preview-validation.md` and
 `docs/issues/009-c-encoder-process-cancellation.md`.
 
 The desktop app uses independent semantic versions; its current preview is
-0.2.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
+0.2.1. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
 not change codec-format or crate versions.
+
+**Host:** Tau Encoder 0.2.0 did not report intermediate progress for the
+Python-free C workflow; its video phase could appear stuck at zero while
+working. Version 0.2.1 reports accepted segments and an estimated video time.
+Pocket playback and full-length validation remain open; see issue 010.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Tau Encoder 0.2.1 — desktop preview
+
+- Report completed video segments and update the remaining-time estimate in the experimental Python-free C workflow.
+
 ## Tau Encoder 0.2.0 — desktop preview
 
 - Separate Encoder, Decoder preview, and Settings pages.
