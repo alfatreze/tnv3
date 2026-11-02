@@ -90,3 +90,23 @@ are experiments, not hardware-validated fixes. Automated generated-marker
 pair tests compared the output frame counts with the corresponding FFmpeg
 filters through both backends. Keep defaults for ordinary use and compare
 one setting per uniquely named pair on Pocket.
+
+## Original-source first-minute check
+
+**Host, 2026-11-02:** with the previously unavailable original HEVC source
+mounted again, FFmpeg 6.1.1 and 9.0.2 produced the same first-minute Y4M
+frame counts, nominal rates and per-frame pixel sequences for each matching
+filter in both output-window and artificial input-cutoff runs. All runs had
+no error-level diagnostics. Default 24 fps output contained 1,440 frames;
+round-down also had 1,440 but selected different pixels at 496 positions.
+At an artificial 60-second input cutoff, round-down with EOF-pass produced
+1,441 frames. Source-rate output had 1,439 frames and 23 adjacent identical
+pixel pairs; default had 28, including intentional still/repeated content.
+
+These checks compare Y4M pixel sequences and nominal CFR positions, not
+measured per-frame PTS. They do not test actual source EOF, audio sync or
+Pocket playback. They narrow the earlier FFmpeg-version hypothesis for this
+one source window but do not establish the cause of the freeze. The current
+default remains unchanged. Sanitized aggregate evidence is
+`docs/real_source_ingest_2026-11-02.json`; reproduction requires a local
+source and binary paths via `tools/codec_study/real_source_ingest_probe.py`.

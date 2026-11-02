@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "982f043e9732ddcb981e7278058a4f0b1126c860f48f4f7071a82685463d63be"
+      "sha256": "cfa986f8d27697e7b1b01450016d744fd1b7a48259ae7f0b7202aaa396b7e08a"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1510,7 +1510,7 @@
       "sha256": "c7aa0cdece0f92f2ece22ee84744eabc74c318a33ca93b67d855a1f09e893bbf"
     },
     "docs/issues/003-rust-encoder-player-throughput.md": {
-      "sha256": "1cc7008efbd5cbbec9375d3cca55ece86fca423d0de61650af4d1461a2510d7b"
+      "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"
     },
     "tau-encoder/scripts/build-codec-tools.sh": {
       "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
@@ -1525,7 +1525,7 @@
       "sha256": "87b49c92127ff59c89cb646a6236a631180200afccfa650039a6c2b4772b6d3e"
     },
     "docs/issues/005-hevc-input-ingest.md": {
-      "sha256": "06f9e70d9763395b9ee5ac9be5b35913f0b8d5f03b416c89740deb96bf1c89c1"
+      "sha256": "94ca432f61d4ce941ed90bc0c50fbc20e121d0738d19932dda3598f8700cf87a"
     },
     "docs/hevc_ingest_probe_2026-11-01.json": {
       "sha256": "d7814e059f3bc1d7b8b4c9cd167fcb334a84a844a1767e6f51861c0e113057f8"
@@ -1638,6 +1638,14 @@
     "tau-video/tests/y4m_python_reference.py": {
       "status": "new_release_file",
       "sha256": "65ccd6167e184c99e3ae5dca9bb88b93544b02f0295afbcef77fe20ed4e56982"
+    },
+    "tools/codec_study/real_source_ingest_probe.py": {
+      "status": "new_release_file",
+      "sha256": "7c3b4c0d6459c5ef6571a2a53ee7341c0964e5023b4932fbbf8faa5529c4fdfe"
+    },
+    "docs/real_source_ingest_2026-11-02.json": {
+      "status": "new_release_file",
+      "sha256": "41f85b13dedcf68f0dc8f824081fcc7894087899a69fd354f2d6d0d6e18d2daa"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

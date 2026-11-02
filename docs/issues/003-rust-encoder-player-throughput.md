@@ -90,3 +90,11 @@ smaller on that case. See `docs/RUST_C_ENCODER_PARITY.md`. This does not
 prove the prior playback cause, resolve the C freeze, or establish Pocket
 throughput. Next: compare the same actual source under identical ingest and
 collect hardware decoder/presentation counters.
+
+## Original-source first-minute ingest check
+
+**Host, 2026-11-02:** the original source is available again. On its first
+60 seconds, FFmpeg 6.1.1 and 9.0.2 produced identical Y4M pixel sequences
+for the same ingest filter. This limits the version-difference hypothesis
+for that window only; it does not measure per-frame PTS, the full file,
+hardware decode load or the freeze. See issue 005.

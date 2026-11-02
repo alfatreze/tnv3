@@ -330,3 +330,8 @@ A streaming Y4M frame-group reader is available in the process-free Rust
 core as groundwork for replacing Python segmentation. **Host:** generated
 byte parity, bounds and error-state checks passed. It is not yet connected
 to the production encoder or a claim that Python is removed.
+
+**Host:** the original HEVC source's first-minute Y4M pixel sequences match
+between FFmpeg 6.1.1 and 9.0.2 under matching filters; alternate rounding
+changes selections. This does not resolve Pocket playback or full-file timing;
+see issues 003 and 005. No source media is published.
