@@ -29,3 +29,10 @@ including the source archives and build script. A short generated-media encode
 passed with the Python and Python-free C workflows. This does not validate a
 full film, source corruption recovery, or Pocket playback. Windows and Linux
 native distribution and runtime testing remain open.
+
+## Windows version-check failure — 2026-11-02
+
+**CI:** desktop run 41464080654 passed Linux and macOS, but Windows stopped
+before compilation because the version checker assumed LF line endings in
+Cargo.lock. The checker now accepts CRLF as well. Windows runtime, packaging,
+and external helper validation remain open; a new CI run is the next gate.

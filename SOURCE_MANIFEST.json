@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "f49b6558a47466c7f322a291d1f7a007a57aeedf89913e040f4a1dbb565a44b1"
+      "sha256": "f31aa04e76849bf93ff83ea387207a860f683640e565b862c6a0f2e227b19fcd"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1507,7 +1507,7 @@
       "sha256": "db1e50251631d6dc32d3aaa410614a77f7b6b05e79eda090840ded5ecd3b264e"
     },
     "docs/issues/002-desktop-pair-platform-gates.md": {
-      "sha256": "38363479daa972a1eae277671de7eafd61d8c7da3e69ca53b84af659dc482293"
+      "sha256": "73d2b4adc7f2ceaa76252d087e3a73074d89b67c2f80f14195d04d30680392c8"
     },
     "docs/issues/003-rust-encoder-player-throughput.md": {
       "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"
@@ -1657,7 +1657,7 @@
     },
     "tau-encoder/scripts/check-version.mjs": {
       "status": "new_release_file",
-      "sha256": "0e7846e78da2cf6dc0cc61b705ab4ec43f917ee2eb703b0ca750d667d4b849ac"
+      "sha256": "442340060bdb32f60596ee5a38f70b937db11c01adb4e16d6a9f4172394b321c"
     },
     "docs/issues/010-desktop-native-progress.md": {
       "status": "new_release_file",

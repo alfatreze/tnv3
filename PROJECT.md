@@ -393,3 +393,8 @@ workflows; higher-level Pocket playback remains unverified; see issue 011.
 Tau Encoder 0.5.0 selects width with automatic height and checks the actual
 scaled dimensions against codec levels before encoding. **Host:** generated
 width and level tests passed; Pocket playback is unverified.
+
+**CI:** the 0.5.0 Linux app job passed; the Windows job stopped before
+compilation due to a line-ending assumption in the version check. The check
+now accepts Windows line endings; Windows rerun and runtime remain pending.
+See issue 002.
