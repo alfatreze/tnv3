@@ -36,10 +36,10 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "f31aa04e76849bf93ff83ea387207a860f683640e565b862c6a0f2e227b19fcd"
+      "sha256": "37bfa1ddc46b8fe16d7fe4c2b62b50d19e015206aaebe17a45df52800ea70575"
     },
     "README.md": {
-      "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
+      "sha256": "ef30e2abff8e677d47403bec89bf058c20a6ad567310489110141c01fcc68514"
     },
     "VALIDATION.md": {
       "sha256": "d181f9b87a100ecd75c922ee57abc88b1f7fd07b891297fb1070f0de22db9ee0",
@@ -1441,7 +1441,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "d4a7e6beeeb385186c05f13a64e4246e749b6a41e1c97769854e97ad110ed429"
+      "sha256": "e346eafa85feff2c61e8c31decf5dbeff90da0fa764903ab50418a2ebb4c31da"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"

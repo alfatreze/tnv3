@@ -10,6 +10,12 @@ Local preview opens a TNV3 and its matching MP3 if present. It decodes the video
 
 The app currently requires a source audio track. Output is 24 fps and 48 kHz stereo MP3; the Rust encoder uses conservative rate control and may fail or reduce quality. The Python workflow reports segment progress; the native C workflow reports completed segments and updates its video-time estimate. Audio and saving are separate. Cancellation is not yet available. Pocket A/V synchronisation remains to be validated.
 
+## Platform status
+
+The macOS Apple Silicon archive includes FFmpeg 9.0.2, FFprobe and the C tools. Python 3 remains separate for the default workflow. The macOS app is ad-hoc signed and not notarized.
+
+Windows and Linux executable-only builds are **not runtime-tested**, are not installers, and do not bundle dependencies. Install FFmpeg and FFprobe with libmp3lame, Python 3 for the Python workflow, and matching `encode_film.py`, `tvc_enc` and `tnv3` tools separately. Configure their full paths in Settings; the Python-free workflow needs FFmpeg and both C tools. The operating system also needs the Tauri runtime (WebView2 on Windows; WebKitGTK and other Tauri libraries on Linux). A CI build is not a runtime or Pocket playback test.
+
 ## Dependency settings
 
 Open **Settings** to inspect automatically detected paths, choose a detected installation, refresh the scan, or browse to or enter full paths for FFmpeg, FFprobe, Python 3, `encode_film.py`, `tvc_enc` and `tnv3` (use the `.exe` programs on Windows). The Python workflow uses these tools; the native C workflow uses FFmpeg and the two C tools without Python or the script. Selected paths override automatic discovery and are remembered on this computer. Clear a field to return to the bundled, environment or default tool. If FFprobe is blank, the app looks beside the selected or automatically discovered FFmpeg. A selected file must exist; executable permissions and compatibility with the current platform are still required. FFmpeg must support the source formats and `libmp3lame`.

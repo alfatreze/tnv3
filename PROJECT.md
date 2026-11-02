@@ -398,3 +398,7 @@ width and level tests passed; Pocket playback is unverified.
 compilation due to a line-ending assumption in the version check. The check
 now accepts Windows line endings; Windows rerun and runtime remain pending.
 See issue 002.
+
+The Tau Encoder 0.5.0 preview release documents the macOS bundled helpers and
+separately supplied Windows/Linux dependencies. Windows and Linux runtime and
+Pocket playback remain unverified. See issue 002.

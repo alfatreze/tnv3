@@ -78,7 +78,7 @@ not a stable library API or a completed Rust crate.
 `make rust` builds the library and the `tau-video info FILE` command;
 `make rust-test` runs its tests. The current reader validates header and
 declared layout only, so it cannot certify files. See [tau-video/README.md](tau-video/README.md).
-A future cross-platform GUI can use this UI-independent library.
+The desktop preview uses this UI-independent library.
 
 For temporary Tau ν MP3 sidecars, `make rust` also builds `tau-mp3`, an
 FFmpeg-backed encoder/decoder. See [the crate README](tau-video/README.md)
@@ -99,11 +99,9 @@ does not play or extract audio or subtitles.
 
 ## Desktop encoder preview
 
-[`tau-encoder/`](tau-encoder/README.md) contains a Tauri and Svelte desktop
-preview that accepts common video files and creates a video-only TNV3 and a
-matching MP3 sidecar in a chosen folder. The macOS preview includes FFmpeg;
-Windows and Linux helper bundling remains open. See the app README for limits.
+[Tau Encoder 0.5.0](https://github.com/alfatreze/tnv3/releases/tag/tau-encoder-v0.5.0) is a Tauri and Svelte preview for creating a TNV3 video and matching temporary MP3 sidecar. It has Python + C and experimental Python-free C workflows, output width and level settings, and local video preview. See the [app README](tau-encoder/README.md) for setup and limitations.
 
-The desktop app also offers the segmented C encoder and an experimental local
-TNV3/MP3 viewer. See its README for Python and platform requirements and
-`docs/issues/004-desktop-preview-validation.md` for outstanding checks.
+- **macOS Apple Silicon:** the app archive includes FFmpeg 9.0.2 and the C tools. Python 3 is required for the default Python + C workflow. The bundle is locally signed, not notarized. Generated media has been host-tested; Pocket playback remains unverified.
+- **Windows and Linux:** experimental executable-only builds are **not runtime-tested** and do not bundle FFmpeg, FFprobe, Python, the encoder script or the C tools. Install compatible dependencies separately and configure their paths in Settings. They also require the normal Tauri system runtime. These artifacts are not installers.
+
+The original source recovery warnings and outstanding Pocket checks remain relevant; see [desktop preview validation](docs/issues/004-desktop-preview-validation.md) and [platform gates](docs/issues/002-desktop-pair-platform-gates.md).
