@@ -369,7 +369,7 @@ remain open. See `docs/issues/004-desktop-preview-validation.md` and
 `docs/issues/009-c-encoder-process-cancellation.md`.
 
 The desktop app uses independent semantic versions; its current preview is
-0.4.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
+0.5.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
 not change codec-format or crate versions.
 
 **Host:** Tau Encoder 0.2.0 did not report intermediate progress for the
@@ -389,3 +389,7 @@ runtime and packaging validation remain open.
 Tau Encoder 0.4.0 offers output size and C codec level selection and local
 preview scaling. **Host:** short generated level 1–3 encodes passed in both C
 workflows; higher-level Pocket playback remains unverified; see issue 011.
+
+Tau Encoder 0.5.0 selects width with automatic height and checks the actual
+scaled dimensions against codec levels before encoding. **Host:** generated
+width and level tests passed; Pocket playback is unverified.

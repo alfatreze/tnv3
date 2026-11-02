@@ -1,5 +1,10 @@
 # Changelog
 
+## Tau Encoder 0.5.0 — desktop preview
+
+- Select output width, including 240 and 360 pixels, and determine height from the source.
+- Show the actual scaled dimensions and compatible level; prevent selecting an incompatible manual level.
+
 ## Tau Encoder 0.4.0 — desktop preview
 
 - Select output dimensions and TVC level in both C workflows.

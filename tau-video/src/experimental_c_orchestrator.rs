@@ -773,7 +773,8 @@ fn read_u32(bytes: &[u8], at: usize) -> Result<u32, String> {
         chunk.try_into().map_err(|_| "invalid TVC u32")?,
     ))
 }
-fn check_level_fit(header: &[u8], level: u8) -> Result<(), String> {
+/// Check a Y4M header against the dimensions and decoding-work limits of a TVC level.
+pub fn check_level_fit(header: &[u8], level: u8) -> Result<(), String> {
     let text = std::str::from_utf8(header).map_err(|_| "invalid Y4M header text")?;
     let mut width = None;
     let mut height = None;

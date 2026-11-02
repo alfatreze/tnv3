@@ -15,3 +15,11 @@ was rejected. This is not a full-film test or evidence of Pocket playback at
 higher levels. The safe default is the prior 400×360 automatic-level setting;
 validate the exact output on the target before relying on it. Next gate: test
 representative full-length clips on Pocket and assess quality and performance.
+
+## Automatic height update — 2026-11-02
+
+Version 0.5.0 chooses output width and derives height from the source; very tall
+inputs are bounded to 720 pixels high. A one-frame FFmpeg preflight displays
+the actual scaled dimensions and minimum compatible level, and rejects an
+incompatible manual choice. **Host:** generated 240- and 360-wide outputs
+matched the preflight in both C workflows; Pocket playback is unverified.

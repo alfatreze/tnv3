@@ -8,9 +8,21 @@
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
   let dependencyError = '';
   let mode: 'rust' | 'c' = 'c', suffix = '_C', rustAvailable = false;
-  let resolution = '400x360', customWidth = 400, customHeight = 360, selectedLevel = 0;
-  function outputDimensions(): [number, number] { return resolution === 'custom' ? [Number(customWidth), Number(customHeight)] : resolution.split('x').map(Number) as [number, number]; }
-  function validDimensions(): boolean { const [w, h] = outputDimensions(); return Number.isInteger(w) && Number.isInteger(h) && w >= 2 && w <= 800 && h >= 2 && h <= 720 && w % 2 === 0 && h % 2 === 0; }
+  let resolution = '400', customWidth = 400, selectedLevel = 0;
+  type OutputPreview = { width: number; height: number; minimum_level: number };
+  let outputPreview: OutputPreview | null = null, previewError = '', previewLoading = false, previewRequest = 0;
+  function outputWidth(): number { return resolution === 'custom' ? Number(customWidth) : Number(resolution); }
+  function validDimensions(): boolean { const w = outputWidth(); return Number.isInteger(w) && w >= 2 && w <= 800 && w % 2 === 0; }
+  function invalidLevel(): boolean { return mode === 'c' && Number(selectedLevel) > 0 && !!outputPreview && Number(selectedLevel) < outputPreview.minimum_level; }
+  async function refreshOutputPreview() {
+    const request = ++previewRequest;
+    outputPreview = null; previewError = '';
+    if (!input || !validDimensions()) { previewLoading = false; return; }
+    previewLoading = true;
+    try { const result = await invoke<OutputPreview>('inspect_output', { input, width: outputWidth(), dependencies }); if (request === previewRequest) outputPreview = result; }
+    catch (e) { if (request === previewRequest) previewError = String(e); }
+    finally { if (request === previewRequest) previewLoading = false; }
+  }
   let workflow: 'python' | 'native' = 'python', workspaceMib = 512;
   let page: 'encoder' | 'decoder' | 'settings' = 'encoder';
   let player: { pausePlayback: () => void } | undefined;
@@ -30,6 +42,7 @@
   function saveDependencies() {
     try { localStorage.setItem('tau-encoder-dependencies', JSON.stringify(dependencies)); } catch { /* Keep settings for this session. */ }
     void refreshTools();
+    void refreshOutputPreview();
   }
   async function refreshTools() {
     const request = ++discoveryRequest;
@@ -98,7 +111,7 @@
   async function chooseInput() {
     try {
       const file = await open({ multiple: false, directory: false, filters: [{ name: 'Video', extensions: ['mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v', 'mpg', 'mpeg', 'y4m'] }, { name: 'All files', extensions: ['*'] }] });
-      if (file) { input = file; name = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'video'; message = ''; error = ''; warning = ''; }
+      if (file) { input = file; name = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'video'; message = ''; error = ''; warning = ''; void refreshOutputPreview(); }
     } catch (e) { error = String(e); }
   }
   async function chooseFolder() {
@@ -108,13 +121,13 @@
     } catch (e) { error = String(e); }
   }
   async function encode() {
-    if (!input || !folder || !name || busy || !validDimensions() || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))) return;
+    if (!input || !folder || !name || busy || previewLoading || !validDimensions() || invalidLevel() || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))) return;
     busy = true; error = ''; message = ''; warning = '';
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
     let unlisten: UnlistenFn | undefined;
     try {
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
-      const [width, height] = outputDimensions();
+      const width = outputWidth(), height = 720;
       const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video} and ${result.audio}. Level limits may cause automatic quality reductions.`;
@@ -150,10 +163,10 @@
       </div>
     {/if}
     <div class="field"><label for="suffix">Output suffix <small>Added to both file names</small></label><input class="name" id="suffix" bind:value={suffix} disabled={busy} /></div>
-    <div class="field"><label for="resolution">Output size <small>Maximum width × height</small></label><select id="resolution" bind:value={resolution} disabled={busy}><option value="400x240">400 × 240 — Level 1 size</option><option value="400x360">400 × 360 — Pocket window (default)</option><option value="800x464">800 × 464 — Level 2 size</option><option value="800x720">800 × 720 — Level 3 size</option><option value="custom">Custom</option></select>{#if resolution === 'custom'}<div class="dimensions"><label for="custom-width">Width <input id="custom-width" type="number" min="2" max="800" step="2" bind:value={customWidth} disabled={busy} /></label><label for="custom-height">Height <input id="custom-height" type="number" min="2" max="720" step="2" bind:value={customHeight} disabled={busy} /></label></div>{#if !validDimensions()}<p class="status error">Use even dimensions from 2 × 2 up to 800 × 720.</p>{/if}{/if}<p class="workflow-note">Preserves aspect ratio; actual dimensions may be smaller. Higher resolutions and levels are not confirmed on Pocket.</p></div>
-    {#if mode === 'c'}<div class="field"><label for="level">Codec level</label><select id="level" bind:value={selectedLevel} disabled={busy}><option value={0}>Automatic — lowest compatible level</option><option value={1}>Level 1</option><option value={2}>Level 2</option><option value={3}>Level 3</option></select><p class="workflow-note">The encode fails if the selected level cannot hold the output. The encoder can raise QP on individual pictures to meet the level, reducing quality in those pictures.</p></div>{/if}
-    <div class="field quality"><div><label for="qp">Quality <small>QP</small></label><p>Lower values use more space. Default: 30.</p></div><input id="qp" type="number" min="0" max="51" step="1" bind:value={qp} disabled={busy} /></div>
-    <button class="primary" type="button" onclick={encode} disabled={busy || !input || !folder || !name.trim() || !validDimensions() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp) || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
+    <div class="field"><label for="resolution">Output width <small>Pixels</small></label><select id="resolution" value={resolution} onchange={(event) => { resolution = (event.currentTarget as HTMLSelectElement).value; void refreshOutputPreview(); }} disabled={busy}><option value="240">240 pixels</option><option value="360">360 pixels</option><option value="400">400 pixels (default)</option><option value="800">800 pixels</option><option value="custom">Custom</option></select>{#if resolution === 'custom'}<label for="custom-width">Custom width <input id="custom-width" type="number" min="2" max="800" step="2" value={customWidth} onchange={(event) => { customWidth = Number((event.currentTarget as HTMLInputElement).value); void refreshOutputPreview(); }} disabled={busy} /></label>{#if !validDimensions()}<p class="status error">Choose an even width from 2 to 800 pixels.</p>{/if}{/if}<p class="workflow-note">Height follows the source aspect ratio. Very tall video is scaled down if needed to fit the 720-pixel height limit.</p>{#if previewLoading}<p class="workflow-note">Checking output size and level…</p>{:else if outputPreview}<p class="workflow-note">Output: {outputPreview.width} × {outputPreview.height} · lowest compatible level: {outputPreview.minimum_level}.</p>{:else if previewError}<p class="status error">{previewError}</p>{/if}</div>
+    {#if mode === 'c'}<div class="field"><label for="level">Codec level</label><select id="level" bind:value={selectedLevel} disabled={busy}><option value={0}>Automatic — lowest compatible level</option><option value={1}>Level 1</option><option value={2}>Level 2</option><option value={3}>Level 3</option></select>{#if invalidLevel()}<p class="status error">This output requires at least level {outputPreview?.minimum_level}. Choose Automatic or a compatible level.</p>{/if}<p class="workflow-note">The encoder selects or validates the level from the actual output. It may increase individual picture QP to stay within that level’s rate limits.</p></div>{/if}
+    <div class="field quality"><div><label for="qp">Quality <small>QP</small></label><p>Lower values use more space. Default: 30. QP may rise for individual pictures to satisfy level limits.</p></div><input id="qp" type="number" min="0" max="51" step="1" bind:value={qp} disabled={busy} /></div>
+    <button class="primary" type="button" onclick={encode} disabled={busy || previewLoading || !input || !folder || !name.trim() || !validDimensions() || invalidLevel() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp) || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
     {#if busy}
       <div class="progress-area" aria-live="polite">
         <div class="progress-heading"><strong>{progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : 'Saving files'}</strong>

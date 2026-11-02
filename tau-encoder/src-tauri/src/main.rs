@@ -947,6 +947,86 @@ fn discover_tools(
 fn experimental_rust_encoder_available() -> bool {
     cfg!(feature = "experimental-rust-encoder")
 }
+#[derive(Serialize)]
+struct OutputPreview {
+    width: u32,
+    height: u32,
+    minimum_level: u8,
+}
+
+fn inspect_output_impl(ffmpeg: &Path, input: &Path, width: u32) -> Result<OutputPreview, String> {
+    if !(2..=800).contains(&width) || width % 2 != 0 {
+        return Err("Choose an even width from 2 to 800 pixels.".into());
+    }
+    let filter = format!(
+        "scale={width}:720:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24"
+    );
+    let result = Command::new(ffmpeg)
+        .args(["-nostdin", "-v", "error", "-i"])
+        .arg(input)
+        .args([
+            "-map",
+            "0:v:0",
+            "-an",
+            "-sn",
+            "-vf",
+            &filter,
+            "-frames:v",
+            "1",
+            "-pix_fmt",
+            "yuv420p",
+            "-f",
+            "yuv4mpegpipe",
+            "pipe:1",
+        ])
+        .output()
+        .map_err(|e| format!("Could not inspect video: {e}"))?;
+    if !result.status.success() {
+        return Err(
+            "Could not inspect the source dimensions. Check the source and FFmpeg settings.".into(),
+        );
+    }
+    let end = result
+        .stdout
+        .iter()
+        .position(|&b| b == b'\n')
+        .ok_or("FFmpeg returned an invalid video header.")?;
+    let header = &result.stdout[..=end];
+    let text =
+        std::str::from_utf8(header).map_err(|_| "FFmpeg returned an invalid video header.")?;
+    let dimension = |key: char| {
+        text.split_ascii_whitespace()
+            .find_map(|field| field.strip_prefix(key).and_then(|v| v.parse::<u32>().ok()))
+    };
+    let width = dimension('W').ok_or("Video header has no width.")?;
+    let height = dimension('H').ok_or("Video header has no height.")?;
+    let minimum_level = (1..=3)
+        .find(|&level| {
+            tau_video::experimental_c_orchestrator::check_level_fit(header, level).is_ok()
+        })
+        .ok_or("The output dimensions and frame rate do not fit levels 1–3.")?;
+    Ok(OutputPreview {
+        width,
+        height,
+        minimum_level,
+    })
+}
+
+#[tauri::command]
+async fn inspect_output(
+    app: tauri::AppHandle,
+    input: String,
+    width: u32,
+    dependencies: Dependencies,
+) -> Result<OutputPreview, String> {
+    let ffmpeg =
+        selected_file(&dependencies.ffmpeg, "FFmpeg")?.unwrap_or_else(|| ffmpeg_path(&app));
+    tauri::async_runtime::spawn_blocking(move || {
+        inspect_output_impl(&ffmpeg, Path::new(&input), width)
+    })
+    .await
+    .map_err(|e| format!("Could not inspect video: {e}"))?
+}
 fn workspace_bytes(mib: u32) -> Result<u64, String> {
     if mib == 0 || mib > 16_384 {
         return Err("Workspace limit must be between 1 and 16384 MiB.".into());
@@ -1107,6 +1187,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
+            inspect_output,
             discover_tools,
             encode,
             player_open,
@@ -1120,6 +1201,39 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn portrait_preview_preserves_aspect_and_height_limit() {
+        let Some(ffmpeg) = std::env::var_os("TAU_TEST_FFMPEG") else {
+            return;
+        };
+        let (source, file) = temporary_file("mp4").unwrap();
+        drop(file);
+        assert!(
+            Command::new(&ffmpeg)
+                .args([
+                    "-y",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc2=size=160x600:rate=24",
+                    "-frames:v",
+                    "1",
+                    "-c:v",
+                    "mpeg4"
+                ])
+                .arg(&source.0)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let preview = inspect_output_impl(Path::new(&ffmpeg), &source.0, 240).unwrap();
+        assert_eq!(
+            (preview.width, preview.height, preview.minimum_level),
+            (192, 720, 3)
+        );
+    }
     #[test]
     fn c_workflows_honor_resolution_and_levels() {
         let (Some(ffmpeg), Some(ffprobe), Some(script), Some(tvc), Some(tnv3)) = (
@@ -1163,6 +1277,49 @@ mod tests {
             ..Default::default()
         };
         for backend in [false, true] {
+            for (width, expected_height, level) in [(240, 180, 1), (360, 270, 2)] {
+                let preview =
+                    inspect_output_impl(Path::new(&ffmpeg), &source_guard.0, width).unwrap();
+                assert_eq!(
+                    (preview.width, preview.height, preview.minimum_level),
+                    (width, expected_height, level)
+                );
+                let (reserve, file) = temporary_file("tnv3").unwrap();
+                drop(file);
+                std::fs::remove_file(&reserve.0).unwrap();
+                let settings = AdvancedSettings {
+                    width: Some(width),
+                    height: Some(720),
+                    ..Default::default()
+                };
+                let tools = if backend {
+                    Some((Path::new(&script), Path::new(&ffprobe)))
+                } else {
+                    None
+                };
+                let result = encode_pair(
+                    Path::new(&ffmpeg),
+                    &source_guard.0,
+                    reserve.0.parent().unwrap(),
+                    reserve.0.file_stem().unwrap().to_str().unwrap(),
+                    30,
+                    tools,
+                    settings,
+                    &dependencies,
+                    |_| {},
+                )
+                .unwrap();
+                let video = Temporary(PathBuf::from(result.video));
+                let _audio = Temporary(PathBuf::from(result.audio));
+                let info = tau_video::Tnv3Reader::open(File::open(&video.0).unwrap())
+                    .unwrap()
+                    .info()
+                    .clone();
+                assert_eq!(
+                    (u32::from(info.width), u32::from(info.height), info.level),
+                    (preview.width, preview.height, preview.minimum_level)
+                );
+            }
             for (width, height, level) in [(400, 240, 1), (800, 464, 2), (800, 720, 3)] {
                 let (reserve, file) = temporary_file("tnv3").unwrap();
                 drop(file);
