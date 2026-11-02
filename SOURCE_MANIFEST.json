@@ -36,7 +36,7 @@
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
     },
     "PROJECT.md": {
-      "sha256": "f28ffe8b9030db55c50a7adac761544bf60e4f037d50476396bc9239b906df5b"
+      "sha256": "0aff9622e06b457ccd75d8e7b3b1165cc73ffc5e292aa6f6a5917260076d4c06"
     },
     "README.md": {
       "sha256": "d1e3765ff7aebd1ea221c677bbea6b9a595790bf0884e3aa621648d6e0848b9b"
@@ -1441,7 +1441,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "92cef76fdbdd4a88cf41a62fe7dc4c70742994aaeee809f1aec5b4efa86628c0"
+      "sha256": "9f416f38c0914a926abdc17794b7a87efb9f88025bfcd734068935f8f3e6ce5a"
     },
     "tau-encoder/index.html": {
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
@@ -1453,19 +1453,19 @@
       "sha256": "5401d78a61157220e3cb13a60c1fd6c4500c0d912580ce225a1fbd8cb818b8aa"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "0fb48b29d3905d7fcf495b1ddbe206106b4219e70f7e7bc086ff61f419d296e5"
+      "sha256": "7542af2ef02f97e68a86afc7c5c956f135ccfda24492b8921ad314217f9455be"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "0984dcf38800f2bc8b849008de0a56086a0336e497a83520d58bc60bc00af0b2"
+      "sha256": "5a0aee76bdfe98b4c7d65d02b8f740479ec923158f7a96e866c507fddbc67993"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
       "sha256": "5df9330bb61198e75c04aaaa99fa955fea25a21ece0d13f0101050a0599cfa25"
     },
     "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "b14c3bed84c278bb8edaef6e71267f812558e8388c22c6af33c9f49c9980530e"
+      "sha256": "ff066c995482a426f754e72d8eba664917adc6df786181a3d7ece607919451c8"
     },
     "tau-encoder/src-tauri/build.rs": {
       "sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
@@ -1489,7 +1489,7 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "0f636622f56dcd9896e8111ae82a39b68dd6b2ee0ebf3207fa7aac9d08a680a2"
+      "sha256": "24c7bcf7595007d821bb73bbfa5bf991cd20d1c3933714fe357498d945f04910"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
       "sha256": "009a070af9f70b40f486204bc9d2b523530c80e2f986cf374cdba34b795023ed"
@@ -1516,13 +1516,13 @@
       "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
     },
     "tau-encoder/src/Player.svelte": {
-      "sha256": "acf0edac244810f3a1ab8e60e4faabbb1f236ff9260c6966dee9ed5fd9e6f0e1"
+      "sha256": "07d48e8f815bf33566e6a9f530a5945e80a890cd986e3d9780bb552809cdcf52"
     },
     "tau-encoder/src-tauri/src/player.rs": {
       "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
     },
     "docs/issues/004-desktop-preview-validation.md": {
-      "sha256": "87b49c92127ff59c89cb646a6236a631180200afccfa650039a6c2b4772b6d3e"
+      "sha256": "0c998228ae4ce798fa744276f4508b77737f5ef42723cb489feaf18a0ae4f1b1"
     },
     "docs/issues/005-hevc-input-ingest.md": {
       "sha256": "94ca432f61d4ce941ed90bc0c50fbc20e121d0738d19932dda3598f8700cf87a"

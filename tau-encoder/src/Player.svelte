@@ -2,18 +2,22 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   type Info = { width: number; height: number; fps_num: number; fps_den: number; frames: number; audio: string | null };
-  let info: Info | null = null, path = '', playing = false, done = false, error = '', frame = 0;
-  let canvas: HTMLCanvasElement, audio: HTMLAudioElement, generation = 0, origin = 0, pausedAt = 0, running = false;
+  let info: Info | null = null, path = '', playing = false, done = false, loading = false, playPending = false, error = '', frame = 0;
+  let canvas: HTMLCanvasElement, audio: HTMLAudioElement, generation = 0, playAttempt = 0, origin = 0, pausedAt = 0, running = false, runner: Promise<void> | null = null;
   async function choose() {
+    loading = true;
     try {
       const file = await open({ multiple: false, filters: [{ name: 'Tau video', extensions: ['tnv3'] }] });
       if (!file) return;
-      generation++; playing = false; running = false; audio?.pause();
+      playAttempt++; playing = false; audio?.pause(); generation++;
+      if (runner) await runner;
+      running = false;
       info = await invoke<Info>('player_open', { path: file });
       path = file; frame = 0; done = false; error = ''; pausedAt = 0;
       if (audio) { audio.src = info.audio ? convertFileSrc(info.audio) : ''; audio.load(); }
       const ctx = canvas?.getContext('2d'); ctx?.clearRect(0, 0, canvas.width, canvas.height);
     } catch (e) { error = String(e); }
+    finally { loading = false; }
   }
   function draw(raw: Uint8Array, details: Info) {
     const w = details.width, h = details.height, cw = Math.ceil(w / 2), ch = Math.ceil(h / 2), area = w * h, chroma = cw * ch;
@@ -46,21 +50,38 @@
         if (clock() - due < 0.25) draw(raw, details);
         frame++;
       }
-    } catch (e) { if (token === generation) { error = String(e); playing = false; audio.pause(); } } finally { if (token === generation) running = false; }
+    } catch (e) { if (token === generation) { error = String(e); playing = false; audio.pause(); } }
   }
   async function toggle() {
-    if (!info || done) return;
-    if (playing) { playing = false; if (info.audio) audio.pause(); else pausedAt = (performance.now() - origin) / 1000; return; }
+    if (!info || done || loading || playPending) return;
+    if (playing) { playAttempt++; playing = false; if (info.audio) audio.pause(); else pausedAt = (performance.now() - origin) / 1000; return; }
+    const attempt = ++playAttempt;
+    playPending = true;
     try {
       if (info.audio) await audio.play(); else origin = performance.now() - pausedAt * 1000;
+      if (attempt !== playAttempt) { audio?.pause(); return; }
       playing = true;
-      if (!running) { running = true; const token = ++generation; void run(token, info); }
-    } catch (e) { error = `Could not play audio: ${String(e)}`; }
+      if (!running) {
+        running = true;
+        const token = ++generation;
+        const task = run(token, info);
+        runner = task;
+        void task.finally(() => { if (runner === task) { runner = null; running = false; } });
+      }
+    } catch (e) { if (attempt === playAttempt) error = `Could not play audio: ${String(e)}`; }
+    finally { playPending = false; }
+  }
+  export function pausePlayback() {
+    playAttempt++;
+    audio?.pause();
+    if (!playing || !info) return;
+    playing = false;
+    if (!info.audio) pausedAt = (performance.now() - origin) / 1000;
   }
 </script>
 <section aria-label="Local preview" class="preview">
   <h2>Local preview</h2><p class="help">Open a TNV3 file to preview it with its matching MP3 sidecar.</p>
-  <div class="player-actions"><button type="button" onclick={choose}>Open video</button><button type="button" onclick={toggle} disabled={!info || done}>{playing ? 'Pause' : 'Play'}</button></div>
+  <div class="player-actions"><button type="button" onclick={choose} disabled={loading}>{loading ? 'Loading…' : 'Open video'}</button><button type="button" onclick={toggle} disabled={!info || done || loading || playPending}>{playPending ? 'Starting…' : playing ? 'Pause' : 'Play'}</button></div>
   {#if info}<p class="help filename">{path.split(/[\\/]/).pop()} · {info.audio ? 'MP3 sidecar found' : 'No MP3 sidecar — silent'}</p>{/if}
   <canvas bind:this={canvas} width={info?.width || 400} height={info?.height || 226} aria-label="Decoded video preview"></canvas>
   <audio bind:this={audio} preload="metadata"></audio>

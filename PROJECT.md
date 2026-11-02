@@ -358,3 +358,12 @@ budget is projected, and real C retry/full-film gates remain open.
 experimental Rust C workflows produced byte-identical TNV3/MP3. Periodic
 temporary-workspace sampling measured about 260 MB versus 173 MB, respectively;
 one run each, not a performance benchmark. See the CLI migration plan.
+
+The desktop app now separates Encoder, Decoder (local preview only), and
+Settings. Its default remains the Python-orchestrated C workflow; users may
+select an experimental Python-free Rust orchestrator that uses the same C
+codec and a projected temporary workspace budget. The pure Rust codec stays
+behind its build feature. **Host:** generated-media tests and frontend checks
+cover the workflows; long-film, Pocket, and Windows/Linux runtime validation
+remain open. See `docs/issues/004-desktop-preview-validation.md` and
+`docs/issues/009-c-encoder-process-cancellation.md`.

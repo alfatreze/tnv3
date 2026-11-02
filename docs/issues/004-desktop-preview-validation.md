@@ -57,3 +57,11 @@ until final file creation; `create_new` remains the no-overwrite gate. On
 the TauV exFAT card a unique generated `create_new`/sync probe succeeded and
 was removed without touching existing media. This is not a GUI or Pocket
 playback test. The pre-existing final cleanup path remains unchanged.
+
+## Desktop navigation update — 2026-11-02
+
+**Host:** the desktop UI now has separate Encoder, Decoder and Settings pages;
+the Decoder remains a local preview, not an export or Pocket performance
+model. Playback is paused when leaving the preview page. Frontend build and
+static checks cover the navigation changes; desktop runtime and Pocket
+playback validation remain separate gates.

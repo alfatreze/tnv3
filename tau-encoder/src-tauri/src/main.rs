@@ -1,6 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod player;
 use serde::{Deserialize, Serialize};
+use std::io::BufReader;
+#[cfg(feature = "experimental-rust-encoder")]
+use std::time::{Duration, Instant};
 use std::{
     fs::{File, OpenOptions},
     io::{self, Read, Seek, SeekFrom},
@@ -10,11 +13,6 @@ use std::{
         Mutex,
         atomic::{AtomicU64, Ordering},
     },
-};
-#[cfg(feature = "experimental-rust-encoder")]
-use std::{
-    io::BufReader,
-    time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};
 
@@ -222,7 +220,6 @@ struct AdvancedSettings {
     trim_mp3_delay: bool,
 }
 impl AdvancedSettings {
-    #[cfg(feature = "experimental-rust-encoder")]
     fn fps_filter(self) -> &'static str {
         match (self.round_down, self.eof_pass) {
             (false, _) => "fps=24",
@@ -248,6 +245,7 @@ struct Dependencies {
     script: String,
     tvc_encoder: String,
     tnv3_tool: String,
+    workspace_limit_bytes: u64,
 }
 fn selected_file(value: &str, label: &str) -> Result<Option<PathBuf>, String> {
     let value = value.trim();
@@ -279,6 +277,32 @@ fn encode_pair(
     c_tools: Option<(&Path, &Path)>,
     advanced: AdvancedSettings,
     dependencies: &Dependencies,
+    progress: impl FnMut(Progress),
+) -> Result<ResultInfo, String> {
+    encode_pair_impl(
+        ffmpeg,
+        input,
+        folder,
+        name,
+        qp,
+        c_tools,
+        false,
+        advanced,
+        dependencies,
+        progress,
+    )
+}
+
+fn encode_pair_impl(
+    ffmpeg: &Path,
+    input: &Path,
+    folder: &Path,
+    name: &str,
+    qp: u8,
+    c_tools: Option<(&Path, &Path)>,
+    pure_rust: bool,
+    advanced: AdvancedSettings,
+    dependencies: &Dependencies,
     mut progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
     if qp > 51 || !safe_name(name) {
@@ -301,7 +325,7 @@ fn encode_pair(
         remaining_seconds: None,
     });
     let mut warnings = Vec::new();
-    let (_video_tmp, mut tvc) = temporary_file(if c_tools.is_some() { "tnv3" } else { "tvc" })?;
+    let (_video_tmp, mut tvc) = temporary_file("tnv3")?;
     let stats = if let Some((script, ffprobe)) = c_tools {
         progress(Progress {
             phase: "c-video",
@@ -359,12 +383,114 @@ fn encode_pair(
             reencoded: report.reencoded,
         }
     } else {
-        #[cfg(not(feature = "experimental-rust-encoder"))]
-        {
-            return Err("The experimental Rust encoder is not enabled in this build.".into());
-        }
-        #[cfg(feature = "experimental-rust-encoder")]
-        {
+        if pure_rust {
+            #[cfg(not(feature = "experimental-rust-encoder"))]
+            {
+                return Err("The experimental Rust encoder is not enabled in this build.".into());
+            }
+            #[cfg(feature = "experimental-rust-encoder")]
+            {
+                let video_filter = format!(
+                    "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
+                    advanced.fps_filter()
+                );
+                let mut decoder = Command::new(ffmpeg)
+                    .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
+                    .arg(input)
+                    .args([
+                        "-map",
+                        "0:v:0",
+                        "-an",
+                        "-sn",
+                        "-vf",
+                        &video_filter,
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-f",
+                        "yuv4mpegpipe",
+                        "pipe:1",
+                    ])
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
+                let stderr = decoder
+                    .stderr
+                    .take()
+                    .ok_or("Could not capture source diagnostics.")?;
+                let log = capture_diagnostics(stderr);
+                let stdout = decoder
+                    .stdout
+                    .take()
+                    .ok_or("Could not read FFmpeg video output.")?;
+                let start = Instant::now();
+                let mut last_update = start;
+                let mut samples = std::collections::VecDeque::from([(start, 0u32)]);
+                let encoded = tau_video::tvc::encoder::encode_y4m_with_progress(
+                    BufReader::new(stdout),
+                    &mut tvc,
+                    qp,
+                    |frames| {
+                        let now = Instant::now();
+                        if frames != 1
+                            && now.duration_since(last_update) < Duration::from_millis(500)
+                        {
+                            return;
+                        }
+                        samples.push_back((now, frames));
+                        while samples.len() > 2
+                            && now.duration_since(samples[1].0) > Duration::from_secs(10)
+                        {
+                            samples.pop_front();
+                        }
+                        let (first, first_frames) = samples.front().copied().unwrap_or((start, 0));
+                        let seconds = now.duration_since(first).as_secs_f64();
+                        let rate = f64::from(frames - first_frames) / seconds.max(0.001);
+                        let remaining_seconds = total
+                            .filter(|&n| frames < n && seconds >= 2.0 && rate > 0.0)
+                            .map(|n| (f64::from(n - frames) / rate).ceil() as u64);
+                        progress(Progress {
+                            phase: "video",
+                            frames,
+                            total_frames_estimate: total,
+                            remaining_seconds,
+                        });
+                        last_update = now;
+                    },
+                );
+                if encoded.is_err() {
+                    let _ = decoder.kill();
+                }
+                let status = decoder
+                    .wait()
+                    .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
+                let details = finish_diagnostics(log)?;
+                let stats = encoded.map_err(|e| {
+                    with_diagnostics(format!("Video encoding failed: {e}"), &details)
+                })?;
+                if !status.success() {
+                    return Err(with_diagnostics(
+                        process_failed(status, "Video conversion"),
+                        &details,
+                    ));
+                }
+                if !details.is_empty() {
+                    warnings.push(with_diagnostics(
+                        "Source decoding reported errors; inspect the output.".into(),
+                        &details,
+                    ));
+                }
+                VideoSummary {
+                    frames: stats.frames,
+                    level: stats.level,
+                    reencoded: stats.reencoded,
+                }
+            }
+        } else {
+            let tvc_encoder = selected_file(&dependencies.tvc_encoder, "TVC encoder")?
+                .ok_or("The Rust C workflow requires tvc_enc; set it in Dependency settings or bundle it with the app.")?;
+            let tnv3_tool = selected_file(&dependencies.tnv3_tool, "TNV3 tool")?
+                .ok_or("The Rust C workflow requires tnv3; set it in Dependency settings or bundle it with the app.")?;
             let video_filter = format!(
                 "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
                 advanced.fps_filter()
@@ -398,37 +524,27 @@ fn encode_pair(
                 .stdout
                 .take()
                 .ok_or("Could not read FFmpeg video output.")?;
-            let start = Instant::now();
-            let mut last_update = start;
-            let mut samples = std::collections::VecDeque::from([(start, 0u32)]);
-            let encoded = tau_video::tvc::encoder::encode_y4m_with_progress(
+            // Two maximum-size Y4M segments, plus the orchestrator's reserved TVC outputs,
+            // fit the default 512 MiB budget while leaving room for the merged stream.
+            let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().clamp(1, 2));
+            let workspace_limit_bytes = if dependencies.workspace_limit_bytes == 0 {
+                512u64 * 1024 * 1024
+            } else {
+                dependencies.workspace_limit_bytes
+            };
+            let encoded = tau_video::experimental_c_orchestrator::encode_y4m_video(
+                &tau_video::experimental_c_orchestrator::Tools {
+                    tvc_encoder,
+                    tnv3: tnv3_tool,
+                },
                 BufReader::new(stdout),
                 &mut tvc,
-                qp,
-                |frames| {
-                    let now = Instant::now();
-                    if frames != 1 && now.duration_since(last_update) < Duration::from_millis(500) {
-                        return;
-                    }
-                    samples.push_back((now, frames));
-                    while samples.len() > 2
-                        && now.duration_since(samples[1].0) > Duration::from_secs(10)
-                    {
-                        samples.pop_front();
-                    }
-                    let (first, first_frames) = samples.front().copied().unwrap_or((start, 0));
-                    let seconds = now.duration_since(first).as_secs_f64();
-                    let rate = f64::from(frames - first_frames) / seconds.max(0.001);
-                    let remaining_seconds = total
-                        .filter(|&n| frames < n && seconds >= 2.0 && rate > 0.0)
-                        .map(|n| (f64::from(n - frames) / rate).ceil() as u64);
-                    progress(Progress {
-                        phase: "video",
-                        frames,
-                        total_frames_estimate: total,
-                        remaining_seconds,
-                    });
-                    last_update = now;
+                tau_video::experimental_c_orchestrator::Options {
+                    qp,
+                    jobs,
+                    frames_per_segment: 480,
+                    workspace_limit_bytes,
+                    ..Default::default()
                 },
             );
             if encoded.is_err() {
@@ -438,7 +554,7 @@ fn encode_pair(
                 .wait()
                 .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
             let details = finish_diagnostics(log)?;
-            let stats = encoded
+            let report = encoded
                 .map_err(|e| with_diagnostics(format!("Video encoding failed: {e}"), &details))?;
             if !status.success() {
                 return Err(with_diagnostics(
@@ -452,10 +568,16 @@ fn encode_pair(
                     &details,
                 ));
             }
+            progress(Progress {
+                phase: "video",
+                frames: report.frames,
+                total_frames_estimate: total,
+                remaining_seconds: None,
+            });
             VideoSummary {
-                frames: stats.frames,
-                level: stats.level,
-                reencoded: stats.reencoded,
+                frames: report.frames,
+                level: report.level,
+                reencoded: report.joint_reencodes,
             }
         }
     };
@@ -538,11 +660,11 @@ fn encode_pair(
             .open(&audio_path)
             .map_err(|e| format!("Could not create audio output: {e}"))?;
         let result = (|| {
-            if c_tools.is_some() {
-                io::copy(&mut tvc, &mut video).map_err(|e| format!("Could not copy TNV3: {e}"))?;
-            } else {
+            if pure_rust {
                 tau_video::container::mux_tvc(&mut tvc, &mut video)
                     .map_err(|e| format!("Could not create TNV3: {e}"))?;
+            } else {
+                io::copy(&mut tvc, &mut video).map_err(|e| format!("Could not copy TNV3: {e}"))?;
             }
             io::copy(
                 &mut File::open(&audio_tmp.0).map_err(|e| e.to_string())?,
@@ -614,6 +736,15 @@ fn ffmpeg_path(app: &tauri::AppHandle) -> PathBuf {
 fn experimental_rust_encoder_available() -> bool {
     cfg!(feature = "experimental-rust-encoder")
 }
+fn workspace_bytes(mib: u32) -> Result<u64, String> {
+    if mib == 0 || mib > 16_384 {
+        return Err("Workspace limit must be between 1 and 16384 MiB.".into());
+    }
+    u64::from(mib)
+        .checked_mul(1024 * 1024)
+        .ok_or_else(|| "Workspace limit is too large.".into())
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // Parameters are named Tauri command arguments.
 async fn encode(
@@ -622,18 +753,33 @@ async fn encode(
     folder: String,
     name: String,
     qp: u8,
-    mode: String,
+    workflow: Option<String>,
+    mode: Option<String>,
+    workspace_mib: Option<u32>,
     advanced: AdvancedSettings,
-    dependencies: Dependencies,
+    mut dependencies: Dependencies,
     busy: tauri::State<'_, Mutex<bool>>,
 ) -> Result<ResultInfo, String> {
     let chosen_ffmpeg = selected_file(&dependencies.ffmpeg, "FFmpeg")?;
-    let chosen_ffprobe = if mode == "c" {
+    let pure_rust = workflow.is_none() && mode.as_deref() == Some("rust");
+    if let Some(value) = workflow.as_deref() {
+        if value != "python" && value != "native" {
+            return Err("Unknown encoder workflow.".into());
+        }
+    }
+    let workflow = workflow.unwrap_or_else(|| "python".into());
+    if pure_rust && !cfg!(feature = "experimental-rust-encoder") {
+        return Err("The experimental Rust encoder is not enabled in this build.".into());
+    }
+    let workspace_mib = workspace_mib.unwrap_or(512);
+    let workspace_limit_bytes = workspace_bytes(workspace_mib)?;
+    dependencies.workspace_limit_bytes = workspace_limit_bytes;
+    let chosen_ffprobe = if workflow == "python" && !pure_rust {
         selected_file(&dependencies.ffprobe, "FFprobe")?
     } else {
         None
     };
-    let chosen_script = if mode == "c" {
+    let chosen_script = if workflow == "python" && !pure_rust {
         selected_file(&dependencies.script, "C encoder script")?
     } else {
         None
@@ -645,10 +791,7 @@ async fn encode(
         }
         *running = true;
     }
-    if mode != "c" && !(mode == "rust" && cfg!(feature = "experimental-rust-encoder")) {
-        *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
-        return Err("Unknown encoder.".into());
-    }
+
     let ffmpeg = chosen_ffmpeg.unwrap_or_else(|| ffmpeg_path(&app));
     let ffprobe = chosen_ffprobe.unwrap_or_else(|| {
         ffmpeg.with_file_name(if cfg!(windows) {
@@ -657,20 +800,45 @@ async fn encode(
             "ffprobe"
         })
     });
-    let script = if mode == "c" {
+    let script = if workflow == "python" && !pure_rust {
         Some(chosen_script.unwrap_or_else(|| codec_script(&app)))
     } else {
         None
     };
+    if workflow == "native" {
+        if let Ok(dir) = app.path().resource_dir() {
+            let tvc = dir.join("codec-tools/tvc_ref").join(if cfg!(windows) {
+                "tvc_enc.exe"
+            } else {
+                "tvc_enc"
+            });
+            let tnv3 = dir.join("codec-tools/tnv3_ref").join(if cfg!(windows) {
+                "tnv3.exe"
+            } else {
+                "tnv3"
+            });
+            if dependencies.tvc_encoder.trim().is_empty() && tvc.is_file() {
+                dependencies.tvc_encoder = tvc.display().to_string();
+            }
+            if dependencies.tnv3_tool.trim().is_empty() && tnv3.is_file() {
+                dependencies.tnv3_tool = tnv3.display().to_string();
+            }
+        }
+    }
     let result = tauri::async_runtime::spawn_blocking(move || {
         let reporter = app.clone();
-        encode_pair(
+        encode_pair_impl(
             &ffmpeg,
             Path::new(&input),
             Path::new(&folder),
             &name,
             qp,
-            script.as_deref().map(|s| (s, ffprobe.as_path())),
+            if workflow == "python" && !pure_rust {
+                script.as_deref().map(|s| (s, ffprobe.as_path()))
+            } else {
+                None
+            },
+            pure_rust,
             advanced,
             &dependencies,
             move |event| {
@@ -1049,6 +1217,22 @@ mod tests {
         }
     }
     #[test]
+    fn workspace_limit_accepts_maximum_without_narrowing_overflow() {
+        assert_eq!(workspace_bytes(512).unwrap(), 512u64 * 1024 * 1024);
+        assert_eq!(workspace_bytes(16_384).unwrap(), 16_384u64 * 1024 * 1024);
+        assert!(workspace_bytes(0).is_err());
+        assert!(workspace_bytes(16_385).is_err());
+    }
+
+    #[test]
+    fn experimental_pure_rust_availability_matches_build_feature() {
+        assert_eq!(
+            experimental_rust_encoder_available(),
+            cfg!(feature = "experimental-rust-encoder")
+        );
+    }
+
+    #[test]
     fn dependency_settings_validate_and_deserialize() {
         assert!(selected_file("", "FFmpeg").unwrap().is_none());
         assert!(
@@ -1108,6 +1292,7 @@ mod tests {
             script: script_guard.0.display().to_string(),
             tvc_encoder: PathBuf::from(tvc).display().to_string(),
             tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
         };
         let f = selected_file(&dependencies.ffmpeg, "FFmpeg")
             .unwrap()
@@ -1145,11 +1330,20 @@ mod tests {
             assert!(!safe_name(name));
         }
     }
-    #[cfg(feature = "experimental-rust-encoder")]
     #[test]
     fn real_media_pair_and_no_overwrite() {
-        let Some(ffmpeg) = std::env::var_os("TAU_TEST_FFMPEG") else {
+        let (Some(ffmpeg), Some(tvc), Some(tnv3)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        ) else {
             return;
+        };
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default()
         };
         let (_src_guard, src_file) = temporary_file("mp4").unwrap();
         let src = _src_guard.0.clone();
@@ -1190,7 +1384,7 @@ mod tests {
             30,
             None,
             AdvancedSettings::default(),
-            &Dependencies::default(),
+            &dependencies,
             |p| phases.push(p),
         )
         .unwrap();
@@ -1260,7 +1454,7 @@ mod tests {
                 30,
                 None,
                 AdvancedSettings::default(),
-                &Dependencies::default(),
+                &dependencies,
                 |_| {}
             )
             .is_err()
@@ -1277,7 +1471,7 @@ mod tests {
                 30,
                 Some((Path::new(&script), Path::new(&probe))),
                 AdvancedSettings::default(),
-                &Dependencies::default(),
+                &dependencies,
                 |_| {},
             )
             .unwrap();
@@ -1306,5 +1500,210 @@ mod tests {
             let first_line = reference.iter().position(|&b| b == b'\n').unwrap() + 1;
             assert_eq!(actual, reference[first_line..]);
         }
+    }
+    #[cfg(unix)]
+    #[test]
+    fn native_ffmpeg_nonzero_exit_publishes_neither_file() {
+        let (Some(real_ffmpeg), Some(tvc), Some(tnv3)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        ) else {
+            return;
+        };
+        let (_src_guard, file) = temporary_file("mp4").unwrap();
+        let source = _src_guard.0.clone();
+        drop(file);
+        assert!(
+            Command::new(&real_ffmpeg)
+                .args([
+                    "-y",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc2=size=64x48:rate=24:duration=1",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=440:sample_rate=48000:duration=1",
+                    "-c:v",
+                    "mpeg4",
+                    "-c:a",
+                    "aac"
+                ])
+                .arg(&source)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let (wrapper, mut file) = temporary_file("sh").unwrap();
+        use std::io::Write;
+        writeln!(file, "#!/bin/sh").unwrap();
+        writeln!(file, "'{}' \"$@\"", PathBuf::from(&real_ffmpeg).display()).unwrap();
+        writeln!(file, "exit 23").unwrap();
+        drop(file);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&wrapper.0, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let folder = reserve.0.parent().unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default()
+        };
+        let result = encode_pair(
+            &wrapper.0,
+            &source,
+            folder,
+            name,
+            30,
+            None,
+            AdvancedSettings::default(),
+            &dependencies,
+            |_| {},
+        );
+        assert!(matches!(result, Err(message) if message.contains("Video conversion failed")));
+        assert!(!folder.join(format!("{name}.tnv3")).exists());
+        assert!(!folder.join(format!("{name}.mp3")).exists());
+    }
+    #[cfg(feature = "experimental-rust-encoder")]
+    #[test]
+    fn legacy_mode_rust_keeps_pure_rust_encoder_available() {
+        let Some(ffmpeg) = std::env::var_os("TAU_TEST_FFMPEG") else {
+            return;
+        };
+        let (_source_guard, file) = temporary_file("mp4").unwrap();
+        let source = _source_guard.0.clone();
+        drop(file);
+        let created = Command::new(&ffmpeg)
+            .args([
+                "-y",
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=64x48:rate=24:duration=1",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=1",
+                "-c:v",
+                "mpeg4",
+                "-c:a",
+                "aac",
+            ])
+            .arg(&source)
+            .status()
+            .unwrap();
+        assert!(created.success());
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let result = encode_pair_impl(
+            Path::new(&ffmpeg),
+            &source,
+            reserve.0.parent().unwrap(),
+            name,
+            30,
+            None,
+            true,
+            AdvancedSettings::default(),
+            &Dependencies::default(),
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(result.frames, 24);
+        let video_path = PathBuf::from(&result.video);
+        assert_eq!(
+            tau_video::Tnv3Reader::open(File::open(&video_path).unwrap())
+                .unwrap()
+                .info()
+                .frame_count,
+            24,
+            "pure Rust TVC1 must be muxed into a valid TNV3 container"
+        );
+        let _video = Temporary(video_path);
+        let _audio = Temporary(PathBuf::from(result.audio));
+    }
+    #[test]
+    fn native_default_workspace_handles_more_than_one_full_segment() {
+        let (Some(ffmpeg), Some(tvc), Some(tnv3)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        ) else {
+            return;
+        };
+        let (_source_guard, file) = temporary_file("mp4").unwrap();
+        let source = _source_guard.0.clone();
+        drop(file);
+        let created = Command::new(&ffmpeg)
+            .args([
+                "-y",
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=400x360:rate=24:duration=20.041667",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=20.041667",
+                "-c:v",
+                "mpeg4",
+                "-q:v",
+                "4",
+                "-c:a",
+                "aac",
+            ])
+            .arg(&source)
+            .status()
+            .unwrap();
+        assert!(created.success());
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default()
+        };
+        let result = encode_pair(
+            Path::new(&ffmpeg),
+            &source,
+            reserve.0.parent().unwrap(),
+            name,
+            30,
+            None,
+            AdvancedSettings::default(),
+            &dependencies,
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(result.frames, 481);
+        let video = Temporary(PathBuf::from(result.video));
+        let audio = Temporary(PathBuf::from(result.audio));
+        assert_eq!(
+            tau_video::Tnv3Reader::open(File::open(&video.0).unwrap())
+                .unwrap()
+                .info()
+                .frame_count,
+            481
+        );
+        assert!(std::fs::metadata(&audio.0).unwrap().len() > 1_000);
     }
 }

@@ -5,7 +5,11 @@
   import { invoke } from '@tauri-apps/api/core';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
+  let dependencyError = '';
   let mode: 'rust' | 'c' = 'c', suffix = '_C', rustAvailable = false;
+  let workflow: 'python' | 'native' = 'python', workspaceMib = 512;
+  let page: 'encoder' | 'decoder' | 'settings' = 'encoder';
+  let player: { pausePlayback: () => void } | undefined;
   let roundDown = false, eofPass = false, trimMp3Delay = false;
   type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool';
   let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '' };
@@ -21,10 +25,11 @@
     try { localStorage.setItem('tau-encoder-dependencies', JSON.stringify(dependencies)); } catch { /* Keep settings for this session. */ }
   }
   async function chooseDependency(key: DependencyKey) {
+    dependencyError = '';
     try {
       const file = await open({ multiple: false, directory: false, defaultPath: dependencies[key] || undefined });
       if (file) { dependencies = { ...dependencies, [key]: file }; saveDependencies(); }
-    } catch (e) { error = String(e); }
+    } catch (e) { dependencyError = String(e); }
   }
   type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null };
   let progress: Progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
@@ -52,6 +57,10 @@
     mode = (event.currentTarget as HTMLSelectElement).value as 'rust' | 'c';
     suffix = mode === 'rust' ? '_R' : '_C';
   }
+  function navigate(next: 'encoder' | 'decoder' | 'settings') {
+    if (page === 'decoder' && next !== 'decoder') player?.pausePlayback();
+    page = next;
+  }
   async function chooseInput() {
     try {
       const file = await open({ multiple: false, directory: false, filters: [{ name: 'Video', extensions: ['mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v', 'mpg', 'mpeg', 'y4m'] }, { name: 'All files', extensions: ['*'] }] });
@@ -65,49 +74,49 @@
     } catch (e) { error = String(e); }
   }
   async function encode() {
-    if (!input || !folder || !name || busy) return;
+    if (!input || !folder || !name || busy || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))) return;
     busy = true; error = ''; message = ''; warning = '';
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
     let unlisten: UnlistenFn | undefined;
     try {
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
-      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay }, dependencies });
+      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level} · ${result.reencoded} frames retried. Created ${result.video} and ${result.audio}.`;
     } catch (e) { error = String(e); } finally { unlisten?.(); busy = false; }
   }
 </script>
 <svelte:head><title>Tau Encoder</title></svelte:head>
-<main>
-  <header><span class="mark">τ</span><div><p class="eyebrow">TAU VIDEO TOOLS</p><h1>Tau Encoder</h1></div><span class="badge">PREVIEW</span></header>
+<div class="app-shell">
+  <nav class="side-nav" aria-label="Main navigation">
+    <div class="nav-brand"><span class="mark">τ</span><div><p class="eyebrow">TAU VIDEO TOOLS</p><strong>Tau Encoder</strong></div></div>
+    <div class="nav-items" role="group" aria-label="Pages">
+      <button type="button" class:active={page === 'encoder'} aria-current={page === 'encoder' ? 'page' : undefined} onclick={() => navigate('encoder')}>Encoder</button>
+      <button type="button" class:active={page === 'decoder'} aria-current={page === 'decoder' ? 'page' : undefined} onclick={() => navigate('decoder')}>Decoder</button>
+      <button type="button" class:active={page === 'settings'} aria-current={page === 'settings' ? 'page' : undefined} onclick={() => navigate('settings')}>Settings</button>
+    </div>
+    <span class="badge">PREVIEW</span>
+  </nav>
+  <span class="sr-only" aria-live="polite" aria-atomic="true">{page === 'encoder' ? 'Encoder page' : page === 'decoder' ? 'Decoder page' : 'Settings page'}</span>
+  <main>
+  {#if page === 'encoder'}
+  <header><div><p class="eyebrow">VIDEO CONVERSION</p><h1>Encoder</h1></div></header>
   <p class="intro">Convert a video into a Tau video and matching audio file.</p>
   <section aria-label="Video settings">
     <div class="field"><label for="input">Source video <small>MP4, MKV, MOV and more</small></label><div class="pick"><input id="input" value={input} readonly placeholder="Choose a video file" /><button type="button" onclick={chooseInput} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="folder">Output folder <small>Choose a folder or card</small></label><div class="pick"><input id="folder" value={folder} readonly placeholder="Choose where to save" /><button type="button" onclick={chooseFolder} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="name">File name <small>Creates matching .tnv3 and .mp3 files</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
+    {#if mode === 'c'}
+      <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} disabled={busy}><option value="python">Python + C (default)</option><option value="native">Experimental Python-free Rust + C</option></select>
+        {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{:else}<p class="workflow-note">Rust handles orchestration; the same C video encoder still performs compression. Python is not required. This experimental workflow tracks a projected temporary workspace budget; long films may need a higher value. Encoding stops when the projected workspace exceeds this budget, though actual disk use can vary. Video progress is reported when that phase finishes; no live estimate is available.</p>
+          <label class="workspace-label" for="workspace-mib">Projected workspace budget <small>MiB</small></label><input class="workspace-input" id="workspace-mib" type="number" min="1" max="16384" step="1" bind:value={workspaceMib} disabled={busy} />
+        {/if}
+      </div>
+    {/if}
     <div class="field"><label for="suffix">Output suffix <small>Added to both file names</small></label><input class="name" id="suffix" bind:value={suffix} disabled={busy} /></div>
     <div class="field quality"><div><label for="qp">Quality <small>QP</small></label><p>Lower values use more space. Default: 30.</p></div><input id="qp" type="number" min="0" max="51" step="1" bind:value={qp} disabled={busy} /></div>
-    <details class="advanced dependency-settings">
-      <summary>Dependency settings</summary>
-      <p>Choose installed files to override automatic discovery. Leave a path empty to use the bundled or default tool. These settings are remembered on this computer.</p>
-      {#each dependencyFields as field}
-        <div class="field"><label for={'dependency-' + field.key}>{field.label} <small>{field.help}</small></label>
-          <div class="pick"><input id={'dependency-' + field.key} bind:value={dependencies[field.key]} onchange={saveDependencies} disabled={busy} placeholder="Automatic" /><button type="button" onclick={() => chooseDependency(field.key)} disabled={busy}>Browse</button></div>
-        </div>
-      {/each}
-    </details>
-    <details class="advanced">
-      <summary>Advanced Pocket experiments</summary>
-      <p>Optional tests for both encoders. Change one setting at a time and use a different suffix to compare files. These have not been verified on Pocket.</p>
-      <label><input type="checkbox" bind:checked={roundDown} disabled={busy} /> Round frame timestamps down</label>
-      <p>May reduce repeated frames for some sources; can shift timing or omit the last frame.</p>
-      <label><input type="checkbox" bind:checked={eofPass} disabled={busy || !roundDown} /> Pass the final frame with round-down</label>
-      <p>May restore a final frame, but can add an extra frame.</p>
-      <label><input type="checkbox" bind:checked={trimMp3Delay} disabled={busy} /> Test MP3 delay compensation</label>
-      <p>Removes the first 1,105 audio samples (23 ms) before encoding. This may improve or worsen sync and permanently removes that audio.</p>
-    </details>
-    <button class="primary" type="button" onclick={encode} disabled={busy || !input || !folder || !name.trim() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp)}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
+    <button class="primary" type="button" onclick={encode} disabled={busy || !input || !folder || !name.trim() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp) || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
     {#if busy}
       <div class="progress-area" aria-live="polite">
         <div class="progress-heading"><strong>{progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : 'Saving files'}</strong>
@@ -125,6 +134,33 @@
     {#if warning}<p class="status warning" role="alert">{warning}</p>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
-  <Player />
   <aside><strong>Early preview</strong><p>Output is 24 fps, up to 400 × 360, with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Cancellation is not available yet.</p></aside>
+  {:else if page === 'decoder'}
+    <header><div><p class="eyebrow">LOCAL PREVIEW</p><h1>Decoder</h1></div></header>
+    <p class="intro">Test player for local TNV3 video and matching audio files.</p>
+  {:else}
+    <header><div><p class="eyebrow">APP CONFIGURATION</p><h1>Settings</h1></div></header>
+    <p class="intro">Choose installed tools to override automatic discovery. Paths are remembered on this computer.</p>
+    <section aria-label="Dependency settings">
+      <p class="settings-copy">Leave a path empty to use the bundled or default tool. The Python path is used only by the Python + C workflow.</p>
+      {#each dependencyFields as field}
+          <div class="field"><label for={'dependency-' + field.key}>{field.label} <small>{field.help}</small></label>
+            <div class="pick"><input id={'dependency-' + field.key} bind:value={dependencies[field.key]} onchange={saveDependencies} disabled={busy} placeholder="Automatic" /><button type="button" onclick={() => chooseDependency(field.key)} disabled={busy}>Browse</button></div>
+          </div>
+      {/each}
+      {#if dependencyError}<p class="status error" role="alert">{dependencyError}</p>{/if}
+    </section>
+    <details class="advanced settings-advanced" open>
+      <summary>Advanced Pocket experiments</summary>
+      <p>Optional tests for both encoders. Change one setting at a time and use a different suffix to compare files. These have not been verified on Pocket.</p>
+      <label><input type="checkbox" bind:checked={roundDown} disabled={busy} /> Round frame timestamps down</label>
+      <p>May reduce repeated frames for some sources; can shift timing or omit the last frame.</p>
+      <label><input type="checkbox" bind:checked={eofPass} disabled={busy || !roundDown} /> Pass the final frame with round-down</label>
+      <p>May restore a final frame, but can add an extra frame.</p>
+      <label><input type="checkbox" bind:checked={trimMp3Delay} disabled={busy} /> Test MP3 delay compensation</label>
+      <p>Removes the first 1,105 audio samples (23 ms) before MP3 encoding. This may improve or worsen sync and permanently removes that audio.</p>
+    </details>
+  {/if}
+  <div class="decoder-player" hidden={page !== 'decoder'}><Player bind:this={player} /></div>
 </main>
+</div>
