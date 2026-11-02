@@ -31,3 +31,7 @@ Source decoding diagnostics remain enabled; they cannot detect every corrupt sou
 Install Node.js, Rust and the Tauri v2 platform prerequisites. From this directory run `npm ci`, then `cargo install tauri-cli --version '^2' --locked`, compile the C tools with `make` in the repository root, and run `cargo tauri dev`. FFmpeg and FFprobe are used by the app; set `TAU_FFMPEG` or install them on PATH if a bundled copy is absent.
 
 For a self-contained macOS helper bundle, run `scripts/build-ffmpeg-macos.sh`, then `scripts/build-codec-tools.sh`, then `cargo tauri build --config src-tauri/tauri.bundle.conf.json`. This includes the C tools and LGPL FFmpeg 6.1.1 dynamically linked to LGPL LAME 4.0, with corresponding sources, licenses and build instructions. Python remains a separate dependency. Equivalent bundled helpers and platform validation on Windows and Linux remain outstanding.
+
+## App versioning
+
+The desktop app follows semantic versioning independently of the codec format and Rust crate. Version 0.2.0 is a preview: increment the patch for compatible fixes, the minor for new functionality or breaking changes before 1.0, and the major for breaking changes after 1.0. Prereleases use a SemVer suffix such as `-alpha.1`. Update the npm, Tauri, Cargo and lockfile versions together; `npm run check-version` checks their agreement in CI. Name distributed builds `Tau-Encoder-<version>-<platform>` and document changes in the changelog.

@@ -1,5 +1,11 @@
 # Changelog
 
+## Tau Encoder 0.2.0 — desktop preview
+
+- Separate Encoder, Decoder preview, and Settings pages.
+- Choose Python or experimental Python-free orchestration of the C encoder.
+- Keep the pure Rust encoder behind its experimental build feature.
+
 ## 0.1.0-alpha.2 — research and specifications
 
 - Include format and codec research, encoder experiment records and measurement data.

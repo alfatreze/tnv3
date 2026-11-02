@@ -28,7 +28,7 @@ jobs:
         run: npm ci
       - name: Check frontend
         working-directory: tau-encoder
-        run: npm run check && npm run build
+        run: npm run check-version && npm run check && npm run build
       - name: Test and build native app
         run: cargo test --locked --manifest-path tau-encoder/src-tauri/Cargo.toml && cargo test --locked --manifest-path tau-encoder/src-tauri/Cargo.toml --features experimental-rust-encoder && cargo build --locked --release --manifest-path tau-encoder/src-tauri/Cargo.toml
       - name: Upload macOS app executable

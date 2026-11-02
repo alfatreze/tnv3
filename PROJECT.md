@@ -367,3 +367,7 @@ behind its build feature. **Host:** generated-media tests and frontend checks
 cover the workflows; long-film, Pocket, and Windows/Linux runtime validation
 remain open. See `docs/issues/004-desktop-preview-validation.md` and
 `docs/issues/009-c-encoder-process-cancellation.md`.
+
+The desktop app uses independent semantic versions; its current preview is
+0.2.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
+not change codec-format or crate versions.
