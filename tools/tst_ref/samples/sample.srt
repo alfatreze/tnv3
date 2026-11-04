@@ -1,0 +1,41 @@
+1
+00:00:00,500 --> 00:00:02,500
+Hello, world.
+
+2
+00:00:01,000 --> 00:00:03,000
+- Who is there?
+- It is me, José.
+
+3
+00:00:02,000 --> 00:00:06,000
+This is a deliberately long subtitle line that cannot fit on a single row of the 800 wide grid and so must be wrapped by the encoder.
+
+4
+00:00:06,500 --> 00:00:08,500
+Où est la bibliothèque ? Ça coûte 5 € &amp; c'est très cher.
+
+5
+00:00:09,000 --> 00:00:11,000
+Καλημέρα κόσμε
+Привет, мир!
+
+6
+00:00:11,500 --> 00:00:13,500
+<i>(whispering) Do not tell anyone.</i>
+
+7
+00:00:14,000 --> 00:00:15,000
+<i> </i>
+
+8
+00:00:15,500 --> 00:00:18,000
+She said <i>never</i> and meant <b>it</b>.
+
+9
+00:00:18,500 --> 00:00:19,000
+Supercalifragilisticexpialidocious_Pneumonoultramicroscopicsilicovolcanoconiosis_Antidisestablishmentarianism_WWWWWWWWWWWWWWWWWWWWWWWW
+
+10
+00:00:19,500 --> 00:00:21,500
+{\an8}Top hint stripped to plain text.

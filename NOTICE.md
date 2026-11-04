@@ -1,46 +1,37 @@
-# Tau provenance and third-party notices
+# Notices
 
-Tau is a derivative work based on
-[HarpMudd MP3 Player](https://github.com/harpmudd/HarpMudd.mp3player) v1.4.0.
-Development began from upstream commit
-`7ef8f0fb84abd4ae5a6a187805fd910351ae57dc`.
+## Origin
 
-Tau V preserves the upstream Git history. This extracted codec repository
-starts from a source snapshot; `SOURCE_MANIFEST.json` records its provenance.
-HarpMudd's original copyright notice remains in `LICENSE`, alongside the notice
-for Tau's later modifications. The MIT license applies to HarpMudd's MIT-licensed original work
-and to Tau's own MIT-licensed additions; it does not replace licenses attached
-to third-party components.
+This repository was extracted from the Tau V project (alfatreze/Tau-v, itself derived from
+[Tau Alpha](https://github.com/alfatreze/Tau-Alpha), which began from
+[HarpMudd MP3 Player](https://github.com/harpmudd/HarpMudd.mp3player) v1.4.0, commit
+`7ef8f0fb84abd4ae5a6a187805fd910351ae57dc`). It starts from a source snapshot, not from the full upstream
+history; `SOURCE_MANIFEST.json` records the provenance and hashes of the snapshot files. HarpMudd's original
+copyright notice is kept in `LICENSE` next to the notice for later modifications. The MIT licence covers
+HarpMudd's original work and the MIT-licensed additions of alfatreze; it does not replace the licences of the
+third-party components below.
 
-## Original project
+## What is in this repository
 
-- Project: HarpMudd MP3 Player for Analogue Pocket
-- Author: HarpMudd
-- Source: <https://github.com/harpmudd/HarpMudd.mp3player>
-- Tau baseline: v1.4.0 / commit `7ef8f0fb84abd4ae5a6a187805fd910351ae57dc`
-- License: MIT, preserved in `LICENSE`
+- Reference code and tools for TVC (video), TAC (audio) and TNV3 (container), a Rust crate (`tau-video`), a command-line
+  tool and a desktop encoder application (`tau-encoder`). MIT.
+- `tools/tst_ref/fonts/`: Roboto and UnifrakturCook fonts, used only to render subtitle test images; their licences are
+  `OFL-Roboto.txt` and `OFL-UnifrakturCook.txt` in the same folder.
+- No Helix MP3 decoder, no Inter font and no Analogue Pocket framework files: those belong to the player project (Tau V)
+  and are not in this repository.
 
-## Tau
+## Separately licensed software built into the macOS application bundle
 
-- Project direction, identity, artwork, packaging, documentation, and
-  modifications after the baseline: alfatreze
-- Source: <https://github.com/alfatreze/Tau-Alpha>
-- License for Tau-authored code and documentation: MIT
+`tau-encoder/scripts/build-ffmpeg-macos.sh` downloads and builds, at packaging time, **FFmpeg n9.0.2** and **LAME 4.0**
+(`libmp3lame`) as helper programs of the application bundle. FFmpeg is configured without `--enable-gpl`, so it is used
+under the GNU LGPL v2.1 or later; LAME is licensed under the LGPL. The script copies the licence texts
+(`FFmpeg-COPYING.LGPLv2.1`, `LAME-COPYING`) and the exact source archives (checked against pinned SHA-256 values)
+into the bundle next to the binaries. None of their source is stored in this repository. Anyone redistributing a bundle
+must keep those files with it.
 
-## Components with separate terms
+## Test material
 
-- Helix MP3 decoder: RealNetworks Public Source License 1.0. Its notices and
-  license remain under `third_party/libhelix-mp3/`. Tau has made small, macro-gated
-  modifications (decoder stage-cost profiling in `mp3dec.c` and `pub/mp3_profile.h`,
-  and the `TAU_POLY_FW` hook in `real/dct32.c`, `real/subband.c` and `real/coder.h`
-  that hands the synthesis-window stage to the FPGA unit); with those macros off
-  the code is the unmodified decoder. See `docs/ATTRIBUTIONS.md`.
-- Inter font and the generated font ROM derived from it: SIL Open Font License
-  1.1, retained at `third_party/font/OFL.txt`.
-- Analogue Pocket Framework files: their embedded Analogue APF license notices
-  and Pocket EULA terms remain controlling for those files.
-- Other vendored components retain their file-level MIT, ISC, or public-domain
-  notices as described in the README credits.
+Reference vectors derived from film or television sources, and the research media, are never published; they stay in
+the git-ignored `local-media/`. Tracked fixtures are synthetic.
 
-No endorsement by HarpMudd, RealNetworks, Rasmus Andersson, Analogue, or other
-upstream contributors is implied.
+No endorsement by HarpMudd, FFmpeg, LAME, Analogue or other upstream authors is implied.

@@ -1,0 +1,19 @@
+[Script Info]
+Title: demon scene
+ScriptType: v4.00+
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic
+Style: Default,Roboto,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0
+Style: Demon,Demon,24,&H000000FF,&H000000FF,&H00000000,&H00000000,0,0
+Style: Whisper,Roboto,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.50,0:00:02.50,Default,,0,0,0,,Hello? Is anyone there?
+Dialogue: 0,0:00:03.00,0:00:05.50,Demon,,0,0,0,,I am the voice in the dark.\NKneel before me.
+Dialogue: 0,0:00:06.00,0:00:09.00,Default,,0,0,0,,The sign said {\c&H0000FF&}DANGER{\c} but we came anyway.
+Dialogue: 0,0:00:09.50,0:00:11.50,Whisper,,0,0,0,,It was only a dream, wasn't it?
+Dialogue: 0,0:00:12.00,0:00:14.00,Default,,0,0,0,,[thunder rumbles in the distance]
+Dialogue: 0,0:00:14.50,0:00:17.50,Default,,0,0,0,,He whispered {\fnDemon\c&H0000FF&}you cannot leave{\r} and was gone, {\i1}or so we thought{\i0}.
+Dialogue: 0,0:00:18.00,0:00:20.00,Default,,0,0,0,,{\c&H00FF00&}Green{\c} and {\c&HFF8000&}blue{\c} and {\c&H00FFFF&}yellow{\c} words.

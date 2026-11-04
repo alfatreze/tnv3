@@ -1451,3 +1451,23 @@ media-derived vectors were not redistributed pending rights review. Initial
 external commit source snapshot is 637b9f83, with isolated release integration.
 No Tau V decoder/RTL/fw, hardware VM or SD changes, and no push to the Tau V
 repository. No active build/encode jobs at handoff.
+
+### E055 — 2026-10-31: research release and local media
+
+Decision: publish format research, measurement data and archival study scripts
+in tnv3 alpha.2 alongside the four unchanged format snapshots. Historical
+experiments are distinguished from current specifications; absolute local paths
+were replaced with placeholders. Keep the media-derived vectors and research
+media in the new project's Git-ignored local-media directory, rather than the
+public repository or release archives. Neither codec hot paths nor hardware
+are changed. This extends E054 without changing its conclusions.
+
+Verification: **host** synthetic serial/slice TVC, TAC and TNV3 smoke passed;
+196 research JSON files parsed; all 385 source-archive files matched the
+release commit and excluded local-media. GitHub Ubuntu/macOS CI passed at
+c1b94b5d8f83e4dd1f610beb9e0acd4faf723098. **code-review**: all six tnv3
+commits use Abel Santos as author and committer, with no agent attribution.
+383 generated experiment media files (2.52 GiB), reference vector directories
+and the excluded screenshot were copied locally. No new Pocket, Quartus or
+performance measurements; E054's validation limits and Rust implementation
+remain the next gates. Release: https://github.com/alfatreze/tnv3/releases/tag/v0.1.0-alpha.2.

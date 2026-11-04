@@ -67,3 +67,12 @@ open. The `tau-video` Rust crate is not implemented; the new project's
 order. The user's requested Rust requirements remain the input for that work;
 no claim of a published Rust library is made. No Tau V SD card, hardware VM,
 decoder, RTL or firmware changes were made during extraction.
+
+## Alpha.2 research update
+
+https://github.com/alfatreze/tnv3/releases/tag/v0.1.0-alpha.2 adds format and
+codec research, measurements and archival scripts, without runtime changes.
+The local project retains the media-derived vectors and experimental media in
+Git-ignored `local-media/`; these are excluded from public release archives.
+Host smoke and GitHub Ubuntu/macOS CI passed; no new hardware claim is made.
+The Rust crate remains unimplemented. See ENCODER_LOG.md E055.

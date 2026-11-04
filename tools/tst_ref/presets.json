@@ -1,0 +1,10 @@
+{
+  "classic":       {"_": "white, 2 px black outline", "text_color": "FFFFFF", "outline_color": "000000", "outline_width": 2},
+  "thin_outline":  {"_": "white, 1 px black outline", "text_color": "FFFFFF", "outline_width": 1},
+  "yellow":        {"_": "yellow, 2 px black outline", "text_color": "FFE040", "outline_width": 2},
+  "box":           {"_": "white on a solid black box", "text_color": "FFFFFF", "outline_width": 0, "box_color": "000000", "box_pad": 4},
+  "yellow_box":    {"_": "yellow on a dark blue box, thin outline", "text_color": "FFE040", "outline_width": 1, "outline_color": "000000", "box_color": "101830", "box_pad": 6},
+  "large":         {"_": "largest size, white, 3 px outline", "size": -1, "text_color": "FFFFFF", "outline_width": 3},
+  "small_plain":   {"_": "smallest size, light grey, no outline", "size": 0, "text_color": "D8D8D8", "outline_width": 0},
+  "high_contrast": {"_": "cyan on black, 4 px outline, wide box", "text_color": "60E0FF", "outline_width": 4, "box_color": "000000", "box_pad": 10}
+}

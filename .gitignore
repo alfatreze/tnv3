@@ -16,3 +16,10 @@ __pycache__/
 
 # Locally packaged application builds
 /local-builds/
+
+# macOS / tooling
+.DS_Store
+node_modules/
+target/
+**/target/
+tau-encoder/dist/

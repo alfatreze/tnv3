@@ -4,11 +4,19 @@
       "sha256": "a0be0dae152cb0eeb333098400a1c0e1cc1345231f91735eace848465fd610a6",
       "status": "new_release_file"
     },
+    ".github/workflows/experimental-tau-codecs-cli.yml": {
+      "sha256": "73553ec8d896326b7778adf9503de8106cda2fcbd363a561b0db237a467904f9",
+      "status": "new_release_file"
+    },
     ".github/workflows/rust.yml": {
       "sha256": "a7578afc847effeb15d6b7ab602de5794119239eaf0c43e2a9be56cadd31b21c"
     },
+    ".github/workflows/tau-encoder.yml": {
+      "sha256": "c69d22e0d5de6b1c2a5e0330ca752ad128e311cbc865c2373a561c5deac58407",
+      "status": "new_release_file"
+    },
     ".gitignore": {
-      "sha256": "6d9c5a309714af0fd3aff14f1582699dd00031daae6f990046b06e2f020bb5b5",
+      "sha256": "fbe8996176c5bd1149ec218eaf0cba63919bc411e97967b3a481e2d64e5e57e0",
       "status": "modified_for_release",
       "upstream_path": ".gitignore",
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
@@ -30,7 +38,7 @@
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
     },
     "NOTICE.md": {
-      "sha256": "c4c919e521807376872d8868ab2ca9e0c82f8ec1f57254c74419351a0e60ca7e",
+      "sha256": "a65e012019db4ce18a28795b33347929ee4297311f9f79fdd342b111b710f769",
       "status": "modified_for_release",
       "upstream_path": "NOTICE.md",
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1"
@@ -78,6 +86,10 @@
     "docs/CODEC_ROADMAP_2026-10-23.md": {
       "sha256": "56dd59844f7dd1af8ddf40015e1e9fd9408e037b56db6d07b2cff4a9bd89553c"
     },
+    "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
+      "sha256": "eac5701a7b0b1d68d67a69060965cdedd5a865df93f63a196f708ab345c274ba",
+      "status": "new_release_file"
+    },
     "docs/ENCODER_ACCELERATORS.md": {
       "sha256": "1be524920e23f45e7911472f4917558aeca61b53b223293c00b77d2e45d77ec9"
     },
@@ -94,7 +106,8 @@
       "sha256": "43e9f7821228f85fec52f39f8c3f4f17d888d369f9b22cbb531f393e4f2ecb9e"
     },
     "docs/ENCODER_LOG.md": {
-      "sha256": "a42cad6d8cf94362341428d2a5ec112d7f3fc94861074a2e5bf0d6ac6abb23ce"
+      "sha256": "4713c899b42f8d4784f0a51094c13d2b668a8762aacd28de4922abf1bffb11d1",
+      "status": "modified_after_extraction"
     },
     "docs/ENCODER_PARALLEL_HYPOTHESES.md": {
       "sha256": "7691bb3f8416496427fd8b60cc451d0bfccd67c8fee43ddb69712b2b95e4d72c",
@@ -109,7 +122,8 @@
       "sha256": "bc336f9f1021fc812e9c99567deebb2dbdcc0ee9a7e4f4e61382e991c6bbd12a"
     },
     "docs/ENCODER_RELEASE_SPLIT.md": {
-      "sha256": "41e570bd1c43f9533e50a89c228dc3ea529a1cf527cfd8c4d76594a53d5a58c8"
+      "sha256": "fbaab1418acfdc9aa92e0a2328efb2ca1bdb1f1c159348d4e8958caddd3a3192",
+      "status": "modified_after_extraction"
     },
     "docs/ENCODER_TOTAL_RESULTS.md": {
       "sha256": "675a887e8344aeaf7e2211d5722000cef265aa068bec64c2e8424f68b16ee33b",
@@ -129,6 +143,10 @@
     },
     "docs/RESEARCH_INDEX.md": {
       "sha256": "8a60c50fd3fc6f95ab4d44990153482128498bee817f866b4755ddeb66c4842c"
+    },
+    "docs/RUST_C_ENCODER_PARITY.md": {
+      "sha256": "6070c3040694ae833ee1a65e764c9ae3f1dc0e41ae78a5c79b3d9b561037d735",
+      "status": "new_release_file"
     },
     "docs/RUST_ENCODER_EXPERIMENTS.md": {
       "sha256": "f80260af8a459b745b9f09243c40cea628426f93926b7443de0578c71c9109c9"
@@ -922,8 +940,62 @@
     "docs/handoffs/SESSION_HANDOFF_2026-10-30_TVC_PLAYER.md": {
       "sha256": "d50e9093da7c925b8fcc949c1b83ec43ca0f98be1ceca8a3db6d3999857206ce"
     },
+    "docs/hevc_ingest_eof_2026-11-01.json": {
+      "sha256": "4893d369f7b0a31c94eab36e71dd633406cb3f34a3d9517af20614dc128a0584",
+      "status": "new_release_file"
+    },
+    "docs/hevc_ingest_probe_2026-11-01.json": {
+      "sha256": "d7814e059f3bc1d7b8b4c9cd167fcb334a84a844a1767e6f51861c0e113057f8"
+    },
+    "docs/hevc_ingest_sync_2026-11-01.json": {
+      "sha256": "14df78a262aedc6b9bb10ba1897dea8ca722673838e6a37f36a3386d68e68bfb"
+    },
     "docs/issues/001-rust-rate-window-starvation.md": {
       "sha256": "c4cfb232a730318f1329c063cc6dddcebf6f34f16c3d6a0bae6410872785553f"
+    },
+    "docs/issues/002-desktop-pair-platform-gates.md": {
+      "sha256": "31b967a04d0f8ce7668d06f9a819bcbfc1924d66101be47e987d974511f141a3"
+    },
+    "docs/issues/003-rust-encoder-player-throughput.md": {
+      "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"
+    },
+    "docs/issues/004-desktop-preview-validation.md": {
+      "sha256": "0c998228ae4ce798fa744276f4508b77737f5ef42723cb489feaf18a0ae4f1b1"
+    },
+    "docs/issues/005-hevc-input-ingest.md": {
+      "sha256": "94ca432f61d4ce941ed90bc0c50fbc20e121d0738d19932dda3598f8700cf87a"
+    },
+    "docs/issues/006-mp3-gapless-timing.md": {
+      "sha256": "82b8667e6ad701eb1040bd98fbe4ee4d8770a1d1379ad11270d0e234eacf4b1e",
+      "status": "new_release_file"
+    },
+    "docs/issues/007-c-encoder-temp-acl.md": {
+      "sha256": "8b44ec618762e679028b30061c40c4f46a0d150d4b49d229e8d5d36c090c8fe2",
+      "status": "new_release_file"
+    },
+    "docs/issues/008-staged-cli-final-output-copy.md": {
+      "sha256": "6d3c5bc1c56951d188d81d0011b43d0793101941a541c234e738851eb2d043c7",
+      "status": "new_release_file"
+    },
+    "docs/issues/009-c-encoder-process-cancellation.md": {
+      "sha256": "7937315782bb26d610c04ccf16e84b0b42804f6a2262f23c3777d2c47073ec3b",
+      "status": "new_release_file"
+    },
+    "docs/issues/010-desktop-native-progress.md": {
+      "sha256": "128bec9776c6c1ab58ac3971c35390a652334722ed69da4e337490f1a7a27550",
+      "status": "new_release_file"
+    },
+    "docs/issues/011-desktop-resolution-level-validation.md": {
+      "sha256": "b8a4a97c90bc2bcbeccaaeb84f0a1f2589751309827d61f86b0094b964bda4b7",
+      "status": "new_release_file"
+    },
+    "docs/mp3_delay_probe_2026-11-01.json": {
+      "sha256": "ca42364d51a849e77de16f5f134baec5b3f9d7fd0d514262241a41bac6be916b",
+      "status": "new_release_file"
+    },
+    "docs/real_source_ingest_2026-11-02.json": {
+      "sha256": "41f85b13dedcf68f0dc8f824081fcc7894087899a69fd354f2d6d0d6e18d2daa",
+      "status": "new_release_file"
     },
     "docs/research/DECODE_QUALITY_RESEARCH.md": {
       "sha256": "3da9ca782ff5e1090ffd50c056bb38a5a144209e6cb96e225c2fb331d2979ed8"
@@ -949,6 +1021,120 @@
     "docs/rust_long_rate_study.json": {
       "sha256": "2ed2ba071b4e7d73efba082b137b1b36b50405471c4cfe8fdfa0122919036767"
     },
+    "docs/rust_parity_2026-11-01.json": {
+      "sha256": "9422328469e850ba2d7a0d862a060e0542a5476227baee6ae61c5ec5a49812be",
+      "status": "new_release_file"
+    },
+    "tau-encoder/.gitignore": {
+      "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
+    },
+    "tau-encoder/README.md": {
+      "sha256": "e346eafa85feff2c61e8c31decf5dbeff90da0fa764903ab50418a2ebb4c31da"
+    },
+    "tau-encoder/index.html": {
+      "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
+    },
+    "tau-encoder/package-lock.json": {
+      "sha256": "ff1945b716191305ca245be0e5dad46cffc3c9685a9610d090094978231cc641"
+    },
+    "tau-encoder/package.json": {
+      "sha256": "ab5c98fca2beb056e276cdf3d28a325a75e07995d9203bd33f29a893fea844a1"
+    },
+    "tau-encoder/scripts/build-codec-tools.sh": {
+      "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
+    },
+    "tau-encoder/scripts/build-ffmpeg-macos.sh": {
+      "sha256": "aa941eb79c5a15a9c48118f245e859858dd2dab7db9825e01718dc7ee3f5d75a"
+    },
+    "tau-encoder/scripts/check-version.mjs": {
+      "sha256": "442340060bdb32f60596ee5a38f70b937db11c01adb4e16d6a9f4172394b321c",
+      "status": "new_release_file"
+    },
+    "tau-encoder/src-tauri/Cargo.lock": {
+      "sha256": "99845e57e3e64ea04a8299cd6ff7901e10cec07764245b78abd6627ea5b20cbf"
+    },
+    "tau-encoder/src-tauri/Cargo.toml": {
+      "sha256": "08b31bfe0a12e4d7fb9f8fc86b5223359c2a72ac1426139ff3234d4ea790d02c"
+    },
+    "tau-encoder/src-tauri/build.rs": {
+      "sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
+    },
+    "tau-encoder/src-tauri/capabilities/default.json": {
+      "sha256": "d353dff1d600b1dddf85ff6d474173084284de2449ffa1f7f8edd8022ffa6ee7"
+    },
+    "tau-encoder/src-tauri/icons/128x128.png": {
+      "sha256": "10d3ce30e0ed4c1405bb2fecaff84a2287631731d0371340b17d3f09c29db134"
+    },
+    "tau-encoder/src-tauri/icons/128x128@2x.png": {
+      "sha256": "64e151382ea666ef72b9ed518885e4d8c39ac0212b8a2545c3a0e7c43a873a02"
+    },
+    "tau-encoder/src-tauri/icons/32x32.png": {
+      "sha256": "9fab31b1ebcee4886c7aab233eba36b35284e4bc07ac27c67792e729ed9a4535"
+    },
+    "tau-encoder/src-tauri/icons/icon.icns": {
+      "sha256": "760dd564cd345211940885a407680b0ec1cc2340d563086b6feaef077754b10b"
+    },
+    "tau-encoder/src-tauri/icons/icon.ico": {
+      "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
+    },
+    "tau-encoder/src-tauri/src/main.rs": {
+      "sha256": "4e4fc041b0d8211fd650c823c8f84fb7473c0fbc2154f8eafdb2fb23e89d730c"
+    },
+    "tau-encoder/src-tauri/src/player.rs": {
+      "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
+    },
+    "tau-encoder/src-tauri/tauri.bundle.conf.json": {
+      "sha256": "db1e50251631d6dc32d3aaa410614a77f7b6b05e79eda090840ded5ecd3b264e"
+    },
+    "tau-encoder/src-tauri/tauri.conf.json": {
+      "sha256": "d5392fa0d3797ccab6851a4293352dc37f29fa933529684f6a7e2b5d50110828"
+    },
+    "tau-encoder/src/App.svelte": {
+      "sha256": "c96ca30355f09280ea317d3b8d9e318d1c594344f1309894492ec46949e3c312"
+    },
+    "tau-encoder/src/Player.svelte": {
+      "sha256": "5fe8f38a2a5970c166770699ed08a1a9492e29ecb734e8ef4f1f34b69100d249"
+    },
+    "tau-encoder/src/main.ts": {
+      "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
+    },
+    "tau-encoder/src/style.css": {
+      "sha256": "a5abcec89a54404d0e55c9fb1a73a3c768b16e45b94db4c38beaacc622138d21"
+    },
+    "tau-encoder/tsconfig.json": {
+      "sha256": "2e1e6c6ab1495e04baba2e339d1c4b2afaacbb753651b46c5786745ff4e60e60"
+    },
+    "tau-encoder/vite.config.ts": {
+      "sha256": "fa14b49798ac993ac1e3b78b6de732929a41aab8066a1365c4939a7ca82bba89"
+    },
+    "tau-video-cli/Cargo.lock": {
+      "sha256": "dfa4b66cc86ec1574de13e3bda51c61da4d9bee6214db1d153dfd4e66669fdd7",
+      "status": "new_release_file"
+    },
+    "tau-video-cli/Cargo.toml": {
+      "sha256": "df828a6665b05b0fd618909f8710ce0c9b0172bde492cbeb7261fa1917f23dc6",
+      "status": "new_release_file"
+    },
+    "tau-video-cli/README.md": {
+      "sha256": "d1177ab820b626b44e6bfca1842453d2e8d28d002c80f731f7f08124dc272fc5",
+      "status": "new_release_file"
+    },
+    "tau-video-cli/pocket_sidecar_smoke.py": {
+      "sha256": "6431a7fa8ec7483ec7f57e4af8e6131a694b3a83b8a70e2d3d395dbfe8d479fc",
+      "status": "new_release_file"
+    },
+    "tau-video-cli/rust_c_parity_smoke.py": {
+      "sha256": "b46b45d1890656bfd780352c19602034dec5c73af0508b55301502617d80a1f3",
+      "status": "new_release_file"
+    },
+    "tau-video-cli/smoke.py": {
+      "sha256": "991d056212526430a88d4ae68f2106d3904639c91384f1d9505f8b2f20f16467",
+      "status": "new_release_file"
+    },
+    "tau-video-cli/src/main.rs": {
+      "sha256": "b42570af4fd8a091ef2076e6d49319319627be65511fdbf135265d32a3179f48",
+      "status": "new_release_file"
+    },
     "tau-video/CHANGELOG.md": {
       "sha256": "2dc024c5d6d955acd3c0f7ebd7b83cef4f401cccedb44d3a9ae7945f46f6a409"
     },
@@ -967,8 +1153,16 @@
     "tau-video/src/bin/tau-video.rs": {
       "sha256": "bd2ffdbb231b6f8a74815efd173d58b1ad48129679bda8168d623f73765787f4"
     },
+    "tau-video/src/c_encoder.rs": {
+      "sha256": "1ac557f20f223594e8df0330da07383e91847bf664f41bf368f08570a8830ea8",
+      "status": "new_release_file"
+    },
     "tau-video/src/container.rs": {
       "sha256": "e4178814ebba4d08c04cccbc83b531918b499f7ec92a00329f3b55ce5de79c45"
+    },
+    "tau-video/src/experimental_c_orchestrator.rs": {
+      "sha256": "ccde655c1f655318bf87c6e13a87991678ef583630f2c16290f93b24674a7611",
+      "status": "new_release_file"
     },
     "tau-video/src/lib.rs": {
       "sha256": "6cbc34f24ab5f6175365bbed6e10c09ad5c365d05a23fa01df4fe522f6f0bf45"
@@ -1069,6 +1263,14 @@
     "tau-video/src/tvc/transform.rs": {
       "sha256": "c682c888e9741a06fa0f090a59b59d8de56e121d9084a775b8c74ede2af6588b"
     },
+    "tau-video/src/y4m.rs": {
+      "sha256": "5203748c1d789b390b08549e4b933c0677b4ba0d36f4a9696935c4602d9d337c",
+      "status": "new_release_file"
+    },
+    "tau-video/tests/c_encoder_adapter.rs": {
+      "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1",
+      "status": "new_release_file"
+    },
     "tau-video/tests/encoder_reference.rs": {
       "sha256": "f03a00497d576692be33320cd9f280bf4fd8b8223d821699d8eaff0f61af0037"
     },
@@ -1123,6 +1325,10 @@
     "tau-video/tests/video_reference.rs": {
       "sha256": "b6b4cb47e0926cad18c4d7d4790b3216f58e503bca6c0c48f4154704bd85588d"
     },
+    "tau-video/tests/y4m_python_reference.py": {
+      "sha256": "65ccd6167e184c99e3ae5dca9bb88b93544b02f0295afbcef77fe20ed4e56982",
+      "status": "new_release_file"
+    },
     "tests/check_manifest.py": {
       "sha256": "59ec527d0479aeb03589d5d7b67c10359e630d04abb2baa65a81f4a5d5482a2c",
       "status": "new_release_file"
@@ -1130,6 +1336,10 @@
     "tests/smoke.py": {
       "sha256": "971ec03492fe9e6f3cfab95138f6623731133019f599b5be774c1fc3b5a0cc94",
       "status": "new_release_file"
+    },
+    "tools/README.md": {
+      "sha256": "b207073cdf743557bf4316d64dd1b0065569d6f2489e45c08dc1ada136f97ce7",
+      "status": "added_after_extraction"
     },
     "tools/codec_study/audio_pack.py": {
       "sha256": "5d0fd94fd7c177f90fde7635cee42c43c15b46ededa74dde7e59fe2d4f7f48a4"
@@ -1165,7 +1375,8 @@
       "sha256": "ee7b2ed04256754307f1af77796db04be367c311f182db37766e1575d92b93ac"
     },
     "tools/codec_study/clean_sheet/r0_sweep.py": {
-      "sha256": "ba98446eca56a462867d130149dfd0464b43b173569d243b1abf2a2d88059438"
+      "sha256": "5abb481b96e40b1a7ea05881f45d0a14458c64e04bc1ef673ff465f4f66f0fbf",
+      "status": "modified_after_extraction"
     },
     "tools/codec_study/clean_sheet/results_lite.json": {
       "sha256": "88de092e5a0f679382f23790812e5f47daacd84ff3a3bfdfe5f680aeb4e1f9f6"
@@ -1188,6 +1399,10 @@
     "tools/codec_study/clean_sheet/transform_study2.py": {
       "sha256": "d0f652bf88f81df0f520f634fde4cfd562930b1ed7e8cfaf4b3f926de55778eb"
     },
+    "tools/codec_study/cli_migration_smoke.py": {
+      "sha256": "e5cdc195575d086162fb147c00648a6ad67e70b00c747c410b28c4c0f8adf5f6",
+      "status": "new_release_file"
+    },
     "tools/codec_study/clips.py": {
       "sha256": "9b67097d5ab15cb9b8015e84596dfa43f5912c2d5b3960ac8ea6e5cd3a29de8c"
     },
@@ -1200,6 +1415,16 @@
     "tools/codec_study/fg_table.py": {
       "sha256": "84b610465a60d8276e1e817eddbeb6c0a7b87f454cc98eb87e610b04a4d37ea3"
     },
+    "tools/codec_study/ingest_eof_probe.py": {
+      "sha256": "78621dd5d69e35cd815078add72f70d27e8959e65e6358f11f62f20a8b13c412",
+      "status": "new_release_file"
+    },
+    "tools/codec_study/ingest_probe.py": {
+      "sha256": "86211546dcafc1b7bc72986fb0980b583f9e1e5a85229ba3a5b0a62faf3466c4"
+    },
+    "tools/codec_study/ingest_sync_probe.py": {
+      "sha256": "1e4794b3da03ec0a71d362b0df14d1041a4322267857a5ce8b5df797c9d7e727"
+    },
     "tools/codec_study/intra_traces.py": {
       "sha256": "e00b6aed4b2bf2d10c13a47e5f3e00745ae64cf0e3debdab0fb84a8e2814a28a"
     },
@@ -1211,6 +1436,10 @@
     },
     "tools/codec_study/montage.py": {
       "sha256": "a7f2678d8a628355e5d67299295586878e1b37169870afa4ece2d9b825f5af16"
+    },
+    "tools/codec_study/mp3_delay_probe.py": {
+      "sha256": "284505287a42ece72a590ce81e09c5c690b1f192d0eb4fb6607a3f64ddc413df",
+      "status": "new_release_file"
     },
     "tools/codec_study/mt_streams.py": {
       "sha256": "d6c28f0fd299fae0392ba769792d593a30fd6db526df956d98714314f684f1fd"
@@ -1227,6 +1456,10 @@
     "tools/codec_study/rbuf_streams.py": {
       "sha256": "4bb7c0cad1e86ba90e3d72c0d4b53f6e40bf55b0e2d20b15cbe778caf24921f9"
     },
+    "tools/codec_study/real_source_ingest_probe.py": {
+      "sha256": "7c3b4c0d6459c5ef6571a2a53ee7341c0964e5023b4932fbbf8faa5529c4fdfe",
+      "status": "new_release_file"
+    },
     "tools/codec_study/report.py": {
       "sha256": "1ef0f31fd5deba0bdb2dd8c22e9912e0069d6f83765a5c1045cd390d43098385"
     },
@@ -1235,6 +1468,10 @@
     },
     "tools/codec_study/run_int.sh": {
       "sha256": "1c5a12b8e38dacdc1383c51fb22208416c14f753db8489fcacce9bc71f4a9bca"
+    },
+    "tools/codec_study/rust_parity_probe.py": {
+      "sha256": "64fc22366dc078262485670a782bd586b035c1505f77145eb5efb1b24b860031",
+      "status": "new_release_file"
     },
     "tools/codec_study/scan_errors.py": {
       "sha256": "9a329fd93885a594c490c14ea14f9940a0b570c3950d49e22395815beb48ed73"
@@ -1266,6 +1503,46 @@
     "tools/encoder_lab.py": {
       "sha256": "a4b8ee90562d3385bc960dc4141693f66735149c08dedf132309cb2b08c701f2"
     },
+    "tools/tac_ref/audcmp.py": {
+      "sha256": "53b6ce302ad776632743f06e89836f6beffd3d880f0fb65d860b0b11cbd885ad",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/fx_mutants.py": {
+      "sha256": "0eacb5e7e290cc30b480747d15934aaaf32ab751c5344cb165dab1f1c994ae5b",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/fx_sweep.py": {
+      "sha256": "43de07fb2b366c2ace935881e855662d7549898d2a80d13566351c63ad9e0c7b",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/listening_pack.py": {
+      "sha256": "cdc79540aad258ea60ab62545c5f568c53874ec28dcf1f08348a3e4b54f3ad7d",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/make_fx_expected.py": {
+      "sha256": "ea931a4ca390d4bf1deeb9c52e7e304db6cd06fa2514c72f0f5d7e9f870c5df6",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/make_vectors.py": {
+      "sha256": "06f43440218a5f029ae3a501978ec3299ec13b3c5e830ff22adfe98573e7d9f3",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/py/run_fx_vectors.py": {
+      "sha256": "9d4b8adef974bb0f563881f77e9f5f47541120d0b2a8ef200b5ca6aca5aca4a8",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/py/run_vectors.py": {
+      "sha256": "414e95edafb46849cefed0c90feac28b704f7d22a601ded06dc79baa2477f974",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/py/tac_dec.py": {
+      "sha256": "ee00c0c9e2475537d11f97fcef280be85ed5e6c85d152ede3afc23269dd5271c",
+      "status": "added_after_extraction"
+    },
+    "tools/tac_ref/py/tac_fx.py": {
+      "sha256": "89adffedc1b33ed1eda67f089ac53475d58222ee183d79fdb9780fe31c9986d7",
+      "status": "added_after_extraction"
+    },
     "tools/tac_ref/tac.c": {
       "sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
       "status": "unchanged",
@@ -1278,14 +1555,118 @@
       "upstream_path": "tools/tac_ref/tac_fx.c",
       "upstream_sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e"
     },
+    "tools/tac_ref/tac_gen.c": {
+      "sha256": "311d88d42e382fb8ca04c39ed3d04cf71102a058d9e56fd129769847b044ea5c",
+      "status": "added_after_extraction"
+    },
+    "tools/tnv3_ref/check_roundtrip.py": {
+      "sha256": "922d2c38ec407f1408944b693765b79d9924793128e44018f0a5280835f3f580",
+      "status": "added_after_extraction"
+    },
     "tools/tnv3_ref/encode_film.py": {
       "sha256": "89faf407843275a51b927778b5a978e7745d161dc2c34d933335ab601aff2f89"
+    },
+    "tools/tnv3_ref/film_sweep.py": {
+      "sha256": "605121952d374876dfb262b8759b546e7272fe80a1e47bd2f7199b466194c0e9",
+      "status": "added_after_extraction"
+    },
+    "tools/tnv3_ref/make_vectors.py": {
+      "sha256": "6a15f1509046a03e6737d35a883d04a8a7da0c94c3f342389bbaa5e4363fa130",
+      "status": "added_after_extraction"
+    },
+    "tools/tnv3_ref/mutants.py": {
+      "sha256": "6a31c4f95719048975026d814b00d2ca5ccb9d1d53c3d97abb66223591a3f06f",
+      "status": "added_after_extraction"
+    },
+    "tools/tnv3_ref/py/run_vectors.py": {
+      "sha256": "c9fc4501f75a7c26102dc8572111ab953648e9fbf3f169d63ec78985a3be2ed9",
+      "status": "added_after_extraction"
+    },
+    "tools/tnv3_ref/py/tnv3_demux.py": {
+      "sha256": "9def732d89d86d812fd9734e2bf0f5884376377988c9498fdf3b4c0f0db2f9de",
+      "status": "added_after_extraction"
     },
     "tools/tnv3_ref/tnv3.c": {
       "sha256": "bbf20c8f5b9de74afb97a8937519e1ea9731b237619c475829cd043cdc5cd3e0",
       "status": "unchanged",
       "upstream_path": "tools/tnv3_ref/tnv3.c",
       "upstream_sha256": "bbf20c8f5b9de74afb97a8937519e1ea9731b237619c475829cd043cdc5cd3e0"
+    },
+    "tools/tst_ref/.gitignore": {
+      "sha256": "32dae3052f331ee34d628ef535709b301259a45df7c7522c4d35dcf49873f00b",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/demo_demon.py": {
+      "sha256": "b82868d97cfad32d182ad37d06b9f4b643f31539c1f9e294279bc5ecc683a45d",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/fonts/OFL-Roboto.txt": {
+      "sha256": "7d96701533d059cfd4191a85ecfd159e262527abd737eae6d9fb533844c70410",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/fonts/OFL-UnifrakturCook.txt": {
+      "sha256": "99d2f30e282d6174af8ff68597f58bb53c0dcb2b104a4c1b8d19da49021d00d3",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/fonts/Roboto-Italic.ttf": {
+      "sha256": "6a372c348dc20c246b92d60b9bda3c0a9ffedc129790ed3f31faf89daa99d793",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/fonts/Roboto-Regular.ttf": {
+      "sha256": "15256405ecb0d880678833a582760efad538ab2932318b52c8105b267d159459",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/fonts/UnifrakturCook-Bold.ttf": {
+      "sha256": "ea002fa9c65f1a612af100e00d87ab65f16381f450020ec3d021f3dbf79a6dcd",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/presets.json": {
+      "sha256": "ebd9bfc2ff5922971b0b5525e4d88463af552fc8dbe7f5f2dda6639176173209",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/samples/demon.ass": {
+      "sha256": "ee232264aeb6006b3773d0905d18393dd06b9314067a84bfa57a20fe3a262395",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/samples/demon.srt": {
+      "sha256": "65535d075d0ac1cfecf0aa1c7627da0222c9061ebebaa431efe4cb8a450c275f",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/samples/demon_styles.json": {
+      "sha256": "44cb291a9f46392c616c4563d45b6583bd9aeb3c5e9b08878c946adbf29333a2",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/samples/sample.ass": {
+      "sha256": "ec48dd09ff8832ca36ff07736dc280a585374f1b340ddd2f4bb677a9c8d9f20e",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/samples/sample.srt": {
+      "sha256": "de1e3aedf0b8aa339c6972826a63a42c87cd43213d6b8d916d1b3f6c5b5b090e",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/samples/sample_forced.srt": {
+      "sha256": "0bd32b629363483980c5cc6a488d99192216fc0a5d10dea8530e392cf19ee295",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/samples/sample_sdh.srt": {
+      "sha256": "1b7707e76389ce04a6878d44a073fb1adef0ac723ef7628e462c901987ede228",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/test_tst.py": {
+      "sha256": "a44abfafd0ce514bf1552d971dc61af81b0db59da23e0f8cdc284a7a3f979415",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/tst_area.py": {
+      "sha256": "c074e1ef557adb183950af78fa5876dd8b128ee6ef8a96e610244829c2fb399b",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/tst_build.py": {
+      "sha256": "46c75b7b5eae34c535c3f49917bc8be36dcf636c4e3d5602bd95ce76fc678bfb",
+      "status": "added_after_extraction"
+    },
+    "tools/tst_ref/tst_render.py": {
+      "sha256": "24d057f3bf1a3da94cdb21d82d3ab0c4f26f7188df7f9f04b25f2d9588e1a05d",
+      "status": "added_after_extraction"
     },
     "tools/tvc_ref/check_c_vectors.py": {
       "sha256": "b501c3b93c0775d93c9b325dd32dd55bce196768f9f11c4f53516fc69c1b615c"
@@ -1368,6 +1749,14 @@
     "tools/tvc_ref/enc/metal_probe.m": {
       "sha256": "35335a244bb74e44fc93b9eb669759fd4e69935cd5da1eb8eae04221c8682ee0"
     },
+    "tools/tvc_ref/enc/mock_win32/process.h": {
+      "sha256": "00cb9484b6e37328f3406cb2add575ed1c4f73295a0a06bdbfd0030194af0117",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/enc/mock_win32/windows.h": {
+      "sha256": "bdf099a2750b560b0c2fb898bf441cc71be66dcdd209914839237f402110fcee",
+      "status": "added_after_extraction"
+    },
     "tools/tvc_ref/enc/pass_context.py": {
       "sha256": "050e5f63cb2c510c22105a1c799a7799770b7a8c8a3308f97a57f34d91f3d66b"
     },
@@ -1410,8 +1799,40 @@
     "tools/tvc_ref/enc/vt_seeds.m": {
       "sha256": "bad72e7bbc31881d8c428ed297080d3c44182f907be980715a78b524ddab63f4"
     },
+    "tools/tvc_ref/eval_an.py": {
+      "sha256": "780793ce1091a4403294f25de68422a7f5980d0a315a163c60af93f21dd7e753",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/eval_long_an.py": {
+      "sha256": "5008c23fb976b00f68cf09c6d7acc574626c6cb33637d78898ea0ee35e5b1fc8",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/eval_tvc.py": {
+      "sha256": "71150d81afc3963d7b1617badbf5d20626fb48990667a89b9ff3fd3e0db9002d",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/make_long_clips.py": {
+      "sha256": "95fa168ba46408da8f646fdff63bc24c556487fd972f55d8dbfd5c7b1659900f",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/make_vectors.py": {
+      "sha256": "000e4c799643b46f812bcb18d6b2ee96b948f1c4da3fc0510b66dee9ee8aecbf",
+      "status": "added_after_extraction"
+    },
     "tools/tvc_ref/parse_budget.py": {
       "sha256": "c105736da7b221558db253531ca43fc877fa202023a14f40cc28b2020cacc309"
+    },
+    "tools/tvc_ref/py/run_vectors.py": {
+      "sha256": "d9297a98f77fec346788a67e8b68eceb3356e09ba687c529e3966e0acd7d0e20",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/py/tvc_dec.py": {
+      "sha256": "83a7d8dd0a7607e56c44e527becb8c21560f4095333e3bab86d7e4bc1af3621c",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/quick_try.py": {
+      "sha256": "bd1c5ae388429714732c766cb61892317d367e7e85cccdbca02cf1697dbb3435",
+      "status": "added_after_extraction"
     },
     "tools/tvc_ref/tvc.h": {
       "sha256": "9bd2400bead52047f05097cb7590fafda3416810fba591b7408daddc67da5424",
@@ -1437,235 +1858,17 @@
       "sha256": "184c32d9ad0bc7fbdef386c41cb6bb0f7a179f8554d8db5aceff02493f2c4b4c",
       "status": "generated_and_modified_for_release"
     },
-    "tau-encoder/.gitignore": {
-      "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
-    },
-    "tau-encoder/README.md": {
-      "sha256": "e346eafa85feff2c61e8c31decf5dbeff90da0fa764903ab50418a2ebb4c31da"
-    },
-    "tau-encoder/index.html": {
-      "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
-    },
-    "tau-encoder/package-lock.json": {
-      "sha256": "ff1945b716191305ca245be0e5dad46cffc3c9685a9610d090094978231cc641"
-    },
-    "tau-encoder/package.json": {
-      "sha256": "ab5c98fca2beb056e276cdf3d28a325a75e07995d9203bd33f29a893fea844a1"
-    },
-    "tau-encoder/src/App.svelte": {
-      "sha256": "c96ca30355f09280ea317d3b8d9e318d1c594344f1309894492ec46949e3c312"
-    },
-    "tau-encoder/src/main.ts": {
-      "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
-    },
-    "tau-encoder/src/style.css": {
-      "sha256": "a5abcec89a54404d0e55c9fb1a73a3c768b16e45b94db4c38beaacc622138d21"
-    },
-    "tau-encoder/src-tauri/Cargo.lock": {
-      "sha256": "99845e57e3e64ea04a8299cd6ff7901e10cec07764245b78abd6627ea5b20cbf"
-    },
-    "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "08b31bfe0a12e4d7fb9f8fc86b5223359c2a72ac1426139ff3234d4ea790d02c"
-    },
-    "tau-encoder/src-tauri/build.rs": {
-      "sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
-    },
-    "tau-encoder/src-tauri/capabilities/default.json": {
-      "sha256": "d353dff1d600b1dddf85ff6d474173084284de2449ffa1f7f8edd8022ffa6ee7"
-    },
-    "tau-encoder/src-tauri/icons/128x128.png": {
-      "sha256": "10d3ce30e0ed4c1405bb2fecaff84a2287631731d0371340b17d3f09c29db134"
-    },
-    "tau-encoder/src-tauri/icons/128x128@2x.png": {
-      "sha256": "64e151382ea666ef72b9ed518885e4d8c39ac0212b8a2545c3a0e7c43a873a02"
-    },
-    "tau-encoder/src-tauri/icons/32x32.png": {
-      "sha256": "9fab31b1ebcee4886c7aab233eba36b35284e4bc07ac27c67792e729ed9a4535"
-    },
-    "tau-encoder/src-tauri/icons/icon.icns": {
-      "sha256": "760dd564cd345211940885a407680b0ec1cc2340d563086b6feaef077754b10b"
-    },
-    "tau-encoder/src-tauri/icons/icon.ico": {
-      "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
-    },
-    "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "4e4fc041b0d8211fd650c823c8f84fb7473c0fbc2154f8eafdb2fb23e89d730c"
-    },
-    "tau-encoder/src-tauri/tauri.conf.json": {
-      "sha256": "d5392fa0d3797ccab6851a4293352dc37f29fa933529684f6a7e2b5d50110828"
-    },
-    "tau-encoder/tsconfig.json": {
-      "sha256": "2e1e6c6ab1495e04baba2e339d1c4b2afaacbb753651b46c5786745ff4e60e60"
-    },
-    "tau-encoder/vite.config.ts": {
-      "sha256": "fa14b49798ac993ac1e3b78b6de732929a41aab8066a1365c4939a7ca82bba89"
-    },
-    "tau-encoder/scripts/build-ffmpeg-macos.sh": {
-      "sha256": "aa941eb79c5a15a9c48118f245e859858dd2dab7db9825e01718dc7ee3f5d75a"
-    },
-    "tau-encoder/src-tauri/tauri.bundle.conf.json": {
-      "sha256": "db1e50251631d6dc32d3aaa410614a77f7b6b05e79eda090840ded5ecd3b264e"
-    },
-    "docs/issues/002-desktop-pair-platform-gates.md": {
-      "sha256": "31b967a04d0f8ce7668d06f9a819bcbfc1924d66101be47e987d974511f141a3"
-    },
-    "docs/issues/003-rust-encoder-player-throughput.md": {
-      "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"
-    },
-    "tau-encoder/scripts/build-codec-tools.sh": {
-      "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
-    },
-    "tau-encoder/src/Player.svelte": {
-      "sha256": "5fe8f38a2a5970c166770699ed08a1a9492e29ecb734e8ef4f1f34b69100d249"
-    },
-    "tau-encoder/src-tauri/src/player.rs": {
-      "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
-    },
-    "docs/issues/004-desktop-preview-validation.md": {
-      "sha256": "0c998228ae4ce798fa744276f4508b77737f5ef42723cb489feaf18a0ae4f1b1"
-    },
-    "docs/issues/005-hevc-input-ingest.md": {
-      "sha256": "94ca432f61d4ce941ed90bc0c50fbc20e121d0738d19932dda3598f8700cf87a"
-    },
-    "docs/hevc_ingest_probe_2026-11-01.json": {
-      "sha256": "d7814e059f3bc1d7b8b4c9cd167fcb334a84a844a1767e6f51861c0e113057f8"
-    },
-    "tools/codec_study/ingest_probe.py": {
-      "sha256": "86211546dcafc1b7bc72986fb0980b583f9e1e5a85229ba3a5b0a62faf3466c4"
-    },
-    "docs/hevc_ingest_sync_2026-11-01.json": {
-      "sha256": "14df78a262aedc6b9bb10ba1897dea8ca722673838e6a37f36a3386d68e68bfb"
-    },
-    "tools/codec_study/ingest_sync_probe.py": {
-      "sha256": "1e4794b3da03ec0a71d362b0df14d1041a4322267857a5ce8b5df797c9d7e727"
-    },
-    "docs/issues/006-mp3-gapless-timing.md": {
-      "status": "new_release_file",
-      "sha256": "82b8667e6ad701eb1040bd98fbe4ee4d8770a1d1379ad11270d0e234eacf4b1e"
-    },
-    "tools/codec_study/ingest_eof_probe.py": {
-      "status": "new_release_file",
-      "sha256": "78621dd5d69e35cd815078add72f70d27e8959e65e6358f11f62f20a8b13c412"
-    },
-    "tools/codec_study/mp3_delay_probe.py": {
-      "status": "new_release_file",
-      "sha256": "284505287a42ece72a590ce81e09c5c690b1f192d0eb4fb6607a3f64ddc413df"
-    },
-    "docs/hevc_ingest_eof_2026-11-01.json": {
-      "status": "new_release_file",
-      "sha256": "4893d369f7b0a31c94eab36e71dd633406cb3f34a3d9517af20614dc128a0584"
-    },
-    "docs/mp3_delay_probe_2026-11-01.json": {
-      "status": "new_release_file",
-      "sha256": "ca42364d51a849e77de16f5f134baec5b3f9d7fd0d514262241a41bac6be916b"
-    },
-    "tools/codec_study/rust_parity_probe.py": {
-      "status": "new_release_file",
-      "sha256": "64fc22366dc078262485670a782bd586b035c1505f77145eb5efb1b24b860031"
-    },
-    "docs/RUST_C_ENCODER_PARITY.md": {
-      "status": "new_release_file",
-      "sha256": "6070c3040694ae833ee1a65e764c9ae3f1dc0e41ae78a5c79b3d9b561037d735"
-    },
-    "docs/rust_parity_2026-11-01.json": {
-      "status": "new_release_file",
-      "sha256": "9422328469e850ba2d7a0d862a060e0542a5476227baee6ae61c5ec5a49812be"
-    },
-    ".github/workflows/tau-encoder.yml": {
-      "status": "new_release_file",
-      "sha256": "c69d22e0d5de6b1c2a5e0330ca752ad128e311cbc865c2373a561c5deac58407"
-    },
-    "tau-video/src/c_encoder.rs": {
-      "status": "new_release_file",
-      "sha256": "1ac557f20f223594e8df0330da07383e91847bf664f41bf368f08570a8830ea8"
-    },
-    "tau-video/tests/c_encoder_adapter.rs": {
-      "status": "new_release_file",
-      "sha256": "31a54f9c08db25bc1abb77a492e757aaa32c60e14ee99078a06bde7d4fb922f1"
-    },
-    "docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md": {
-      "sha256": "eac5701a7b0b1d68d67a69060965cdedd5a865df93f63a196f708ab345c274ba",
-      "status": "new_release_file"
-    },
-    "tools/codec_study/cli_migration_smoke.py": {
-      "sha256": "e5cdc195575d086162fb147c00648a6ad67e70b00c747c410b28c4c0f8adf5f6",
-      "status": "new_release_file"
-    },
-    "docs/issues/007-c-encoder-temp-acl.md": {
-      "status": "new_release_file",
-      "sha256": "8b44ec618762e679028b30061c40c4f46a0d150d4b49d229e8d5d36c090c8fe2"
-    },
-    "docs/issues/008-staged-cli-final-output-copy.md": {
-      "status": "new_release_file",
-      "sha256": "6d3c5bc1c56951d188d81d0011b43d0793101941a541c234e738851eb2d043c7"
-    },
-    "tau-video-cli/Cargo.toml": {
-      "status": "new_release_file",
-      "sha256": "df828a6665b05b0fd618909f8710ce0c9b0172bde492cbeb7261fa1917f23dc6"
-    },
-    "tau-video-cli/Cargo.lock": {
-      "status": "new_release_file",
-      "sha256": "dfa4b66cc86ec1574de13e3bda51c61da4d9bee6214db1d153dfd4e66669fdd7"
-    },
-    "tau-video-cli/README.md": {
-      "status": "new_release_file",
-      "sha256": "d1177ab820b626b44e6bfca1842453d2e8d28d002c80f731f7f08124dc272fc5"
-    },
-    "tau-video-cli/src/main.rs": {
-      "status": "new_release_file",
-      "sha256": "b42570af4fd8a091ef2076e6d49319319627be65511fdbf135265d32a3179f48"
-    },
-    "tau-video-cli/smoke.py": {
-      "status": "new_release_file",
-      "sha256": "991d056212526430a88d4ae68f2106d3904639c91384f1d9505f8b2f20f16467"
-    },
-    ".github/workflows/experimental-tau-codecs-cli.yml": {
-      "status": "new_release_file",
-      "sha256": "73553ec8d896326b7778adf9503de8106cda2fcbd363a561b0db237a467904f9"
-    },
-    "tau-video-cli/pocket_sidecar_smoke.py": {
-      "status": "new_release_file",
-      "sha256": "6431a7fa8ec7483ec7f57e4af8e6131a694b3a83b8a70e2d3d395dbfe8d479fc"
-    },
-    "docs/issues/009-c-encoder-process-cancellation.md": {
-      "status": "new_release_file",
-      "sha256": "7937315782bb26d610c04ccf16e84b0b42804f6a2262f23c3777d2c47073ec3b"
-    },
-    "tau-video/src/y4m.rs": {
-      "status": "new_release_file",
-      "sha256": "5203748c1d789b390b08549e4b933c0677b4ba0d36f4a9696935c4602d9d337c"
-    },
-    "tau-video/tests/y4m_python_reference.py": {
-      "status": "new_release_file",
-      "sha256": "65ccd6167e184c99e3ae5dca9bb88b93544b02f0295afbcef77fe20ed4e56982"
-    },
-    "tools/codec_study/real_source_ingest_probe.py": {
-      "status": "new_release_file",
-      "sha256": "7c3b4c0d6459c5ef6571a2a53ee7341c0964e5023b4932fbbf8faa5529c4fdfe"
-    },
-    "docs/real_source_ingest_2026-11-02.json": {
-      "status": "new_release_file",
-      "sha256": "41f85b13dedcf68f0dc8f824081fcc7894087899a69fd354f2d6d0d6e18d2daa"
-    },
-    "tau-video/src/experimental_c_orchestrator.rs": {
-      "status": "new_release_file",
-      "sha256": "ccde655c1f655318bf87c6e13a87991678ef583630f2c16290f93b24674a7611"
-    },
-    "tau-video-cli/rust_c_parity_smoke.py": {
-      "status": "new_release_file",
-      "sha256": "b46b45d1890656bfd780352c19602034dec5c73af0508b55301502617d80a1f3"
-    },
-    "tau-encoder/scripts/check-version.mjs": {
-      "status": "new_release_file",
-      "sha256": "442340060bdb32f60596ee5a38f70b937db11c01adb4e16d6a9f4172394b321c"
-    },
-    "docs/issues/010-desktop-native-progress.md": {
-      "status": "new_release_file",
-      "sha256": "128bec9776c6c1ab58ac3971c35390a652334722ed69da4e337490f1a7a27550"
-    },
-    "docs/issues/011-desktop-resolution-level-validation.md": {
-      "status": "new_release_file",
-      "sha256": "b8a4a97c90bc2bcbeccaaeb84f0a1f2589751309827d61f86b0094b964bda4b7"
+    "tools/tvc_ref/tvc_long_results.json": {
+      "sha256": "87ddf40ba682df163cdb0fe5335069221d3d73ee7059c495d8e27033c67935f3",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/tvc_v1_results.json": {
+      "sha256": "b060d7ffb75198a9365684e3daaeb750961246d5f969df393bf3465cc302dd4b",
+      "status": "added_after_extraction"
+    },
+    "tools/tvc_ref/yuvcmp.py": {
+      "sha256": "90852e7f988b4d534874ac959f2e232993dfa3f06fa5c272a77d1c514bf613d0",
+      "status": "added_after_extraction"
     }
   },
   "note": "Upstream paths refer to the encoder-lab worktree snapshot; generated slice source and film wrapper carry release-specific integration changes.",

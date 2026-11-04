@@ -1,0 +1,17 @@
+[Script Info]
+Title: sample
+ScriptType: v4.00+
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, Italic
+Style: Default,Arial,20,&H00FFFFFF,0
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.50,0:00:02.50,Default,,0,0,0,,Hello, world.
+Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,{\an8}{\pos(400,50)}Positioning is ignored\Nsecond line, with commas
+Dialogue: 0,0:00:03.50,0:00:06.00,Default,,0,0,0,,{\i1}Whispered{\i0} and then spoken, with {\b1}bold{\b0} and a long tail that goes on and on until the line must wrap around.
+Dialogue: 0,0:00:06.50,0:00:08.50,Default,,0,0,0,,Café déjà vu\NΚαλημέρα Привет
+Dialogue: 0,0:00:09.00,0:00:10.00,Default,,0,0,0,,{\p1}m 0 0 l 100 0 100 100 0 100{\p0}
+Dialogue: 0,0:00:10.50,0:00:11.50,Default,,0,0,0,,{\b1}  {\b0}
+Dialogue: 0,0:00:12.00,0:00:14.00,Default,,0,0,0,,Soft\nbreak\hand hard space

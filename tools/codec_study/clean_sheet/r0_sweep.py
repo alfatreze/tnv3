@@ -2,7 +2,7 @@ import subprocess, pathlib, json, re, sys, os, time
 from concurrent.futures import ThreadPoolExecutor
 S = pathlib.Path(__file__).parent
 CL = pathlib.Path("<study-worktree>/work/codec_phase0/ref")
-OUT = pathlib.Path("/private/tmp/claude-501/-Users-abel-santos-Downloads-DEV-PROJECTS-Tau-Alpha-tau-nu/6ee0a67e-dbcf-4484-9eb3-cee8ffa7a25e/scratchpad/r0out"); OUT.mkdir(parents=True, exist_ok=True)
+OUT = pathlib.Path("<scratch>/r0out"); OUT.mkdir(parents=True, exist_ok=True)
 CLIPS = ["dialog", "dark", "action", "anime_wide", "anime_dialog", "anime_motion", "bw_garden", "bw_closeup", "bw_room"]
 import threading
 LOCK = threading.Lock()
