@@ -402,3 +402,9 @@ Windows and Linux; native Windows/Linux runtime remains untested. See issue 002.
 The Tau Encoder 0.5.0 preview release documents the macOS bundled helpers and
 separately supplied Windows/Linux dependencies. Windows and Linux runtime and
 Pocket playback remain unverified. See issue 002.
+
+A 0.6.0 development preview adds a stoppable source preflight, warning choice
+and saved continue preference. **Host:** controlled process checks, the user’s
+previously reported source, and a synthetic UI preview passed. The preflight
+can require a full decode; live prompts during encoding and safe cancellation
+of encoder worker trees remain open. See issues 009 and 012.

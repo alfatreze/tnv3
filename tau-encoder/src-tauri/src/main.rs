@@ -10,13 +10,211 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
-        Mutex,
-        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        mpsc,
     },
 };
 use tauri::{Emitter, Manager};
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+#[derive(Default)]
+struct SourceCheckState(Mutex<Option<Arc<AtomicBool>>>);
+
+#[derive(Serialize, Debug)]
+struct SourceCheckResult {
+    status: &'static str,
+    details: String,
+}
+
+fn check_source_impl(
+    ffmpeg: &Path,
+    input: &Path,
+    cancel: &AtomicBool,
+) -> Result<SourceCheckResult, String> {
+    let mut child = Command::new(ffmpeg)
+        .args(["-nostdin", "-hide_banner", "-v", "error", "-i"])
+        .arg(input)
+        .args(["-map", "0:v:0", "-map", "0:a:0?", "-f", "null", "-"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Could not start source check: {e}"))?;
+    let stderr = match child.stderr.take() {
+        Some(stderr) => stderr,
+        None => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("Could not capture source-check diagnostics.".into());
+        }
+    };
+    let (sender, receiver) = mpsc::sync_channel::<io::Result<Vec<u8>>>(4);
+    let (done_sender, done_receiver) = mpsc::channel();
+    let reader = std::thread::spawn(move || {
+        let mut input = stderr;
+        loop {
+            let mut buffer = vec![0u8; 2048];
+            match input.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(n) => {
+                    buffer.truncate(n);
+                    if sender.send(Ok(buffer)).is_err() {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    let _ = sender.send(Err(e));
+                    break;
+                }
+            }
+        }
+        let _ = done_sender.send(());
+    });
+    let mut saved = Vec::new();
+    let mut stopped = false;
+    let mut issue_detected = false;
+    let mut read_error = None;
+    let mut exited_at = None;
+    loop {
+        if cancel.load(Ordering::Acquire) {
+            stopped = true;
+            break;
+        }
+        match receiver.recv_timeout(std::time::Duration::from_millis(100)) {
+            Ok(Ok(bytes)) => {
+                let available = 4096usize.saturating_sub(saved.len());
+                saved.extend_from_slice(&bytes[..bytes.len().min(available)]);
+                let text = String::from_utf8_lossy(&saved).to_lowercase();
+                if (text.contains("[matroska,webm")
+                    && (text.contains("invalid as first byte")
+                        || text.contains("duplicate element")
+                        || text.contains("exceeds containing master")))
+                    || text.contains("could not find ref with poc")
+                {
+                    issue_detected = true;
+                    break;
+                }
+            }
+            Ok(Err(e)) => {
+                read_error = Some(e.to_string());
+                break;
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => match child.try_wait() {
+                Ok(Some(_)) => {
+                    let since = exited_at.get_or_insert_with(std::time::Instant::now);
+                    if since.elapsed() >= std::time::Duration::from_secs(1) {
+                        read_error = Some("the source-check diagnostic pipe did not close".into());
+                        break;
+                    }
+                    continue;
+                }
+                Ok(None) => continue,
+                Err(e) => {
+                    read_error = Some(e.to_string());
+                    break;
+                }
+            },
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    let finished = match child.try_wait() {
+        Ok(status) => status,
+        Err(e) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            drop(receiver);
+            let _ = done_receiver.recv_timeout(std::time::Duration::from_secs(1));
+            return Err(format!("Could not inspect source-check process: {e}"));
+        }
+    };
+    let exited_before_stop = finished.is_some();
+    let status = match finished {
+        Some(status) => status,
+        None if stopped || issue_detected || read_error.is_some() => {
+            if let Err(error) = child.kill() {
+                if child.try_wait().ok().flatten().is_none() {
+                    drop(receiver);
+                    return Err(format!(
+                        "Could not stop the source-check process; cleanup is unverified: {error}"
+                    ));
+                }
+            }
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            loop {
+                if let Some(status) = child
+                    .try_wait()
+                    .map_err(|e| format!("Could not wait for the source check: {e}"))?
+                {
+                    break status;
+                }
+                if std::time::Instant::now() >= deadline {
+                    drop(receiver);
+                    return Err("Source-check process did not exit; cleanup is unverified.".into());
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+        }
+        None => {
+            let mut deadline = None;
+            loop {
+                if let Some(status) = child
+                    .try_wait()
+                    .map_err(|e| format!("Could not wait for source check: {e}"))?
+                {
+                    break status;
+                }
+                if cancel.load(Ordering::Acquire) && deadline.is_none() {
+                    stopped = true;
+                    child.kill().map_err(|e| {
+                        format!(
+                            "Could not stop the source-check process; cleanup is unverified: {e}"
+                        )
+                    })?;
+                    deadline = Some(std::time::Instant::now() + std::time::Duration::from_secs(2));
+                }
+                if deadline.is_some_and(|until| std::time::Instant::now() >= until) {
+                    drop(receiver);
+                    return Err("Source-check process did not exit; cleanup is unverified.".into());
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+        }
+    };
+    drop(receiver);
+    if done_receiver
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .is_err()
+    {
+        return Err(
+            "Source-check process exited, but diagnostic pipe cleanup could not be verified."
+                .into(),
+        );
+    }
+    reader
+        .join()
+        .map_err(|_| "Could not collect source-check diagnostics.")?;
+    if let Some(error) = read_error {
+        return Err(format!("Could not read source-check diagnostics: {error}"));
+    }
+    if stopped || cancel.load(Ordering::Acquire) {
+        return Ok(SourceCheckResult {
+            status: "stopped",
+            details: String::new(),
+        });
+    }
+    let details = String::from_utf8_lossy(&saved).trim().to_owned();
+    if !status.success() && (exited_before_stop || !issue_detected) {
+        return Err(with_diagnostics("Source check failed.".into(), &details));
+    }
+    Ok(SourceCheckResult {
+        status: if issue_detected || !details.is_empty() {
+            "warning"
+        } else {
+            "clean"
+        },
+        details,
+    })
+}
 struct Temporary(PathBuf);
 impl Drop for Temporary {
     fn drop(&mut self) {
@@ -947,6 +1145,55 @@ fn discover_tools(
 fn experimental_rust_encoder_available() -> bool {
     cfg!(feature = "experimental-rust-encoder")
 }
+#[tauri::command]
+async fn check_source(
+    app: tauri::AppHandle,
+    input: String,
+    dependencies: Dependencies,
+    state: tauri::State<'_, SourceCheckState>,
+) -> Result<SourceCheckResult, String> {
+    let ffmpeg =
+        selected_file(&dependencies.ffmpeg, "FFmpeg")?.unwrap_or_else(|| ffmpeg_path(&app));
+    let cancel = Arc::new(AtomicBool::new(false));
+    {
+        let mut current = state
+            .0
+            .lock()
+            .map_err(|_| "Source check state unavailable.")?;
+        if current.is_some() {
+            return Err("A source check is already running.".into());
+        }
+        *current = Some(cancel.clone());
+    }
+    let worker_cancel = cancel.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        check_source_impl(&ffmpeg, Path::new(&input), &worker_cancel)
+    })
+    .await;
+    if let Ok(mut current) = state.0.lock() {
+        if current
+            .as_ref()
+            .is_some_and(|token| Arc::ptr_eq(token, &cancel))
+        {
+            *current = None;
+        }
+    }
+    result.map_err(|e| format!("Source check stopped unexpectedly: {e}"))?
+}
+
+#[tauri::command]
+fn stop_source_check(state: tauri::State<'_, SourceCheckState>) -> Result<(), String> {
+    let current = state
+        .0
+        .lock()
+        .map_err(|_| "Source check state unavailable.")?;
+    if let Some(cancel) = current.as_ref() {
+        cancel.store(true, Ordering::Release);
+        Ok(())
+    } else {
+        Err("The source check is still starting or has already finished.".into())
+    }
+}
 #[derive(Serialize)]
 struct OutputPreview {
     width: u32,
@@ -1184,9 +1431,12 @@ fn main() {
     tauri::Builder::default()
         .manage(Mutex::new(false))
         .manage(Mutex::new(None::<player::Player>))
+        .manage(SourceCheckState::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
+            check_source,
+            stop_source_check,
             inspect_output,
             discover_tools,
             encode,
@@ -1201,6 +1451,73 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn source_check_reports_configured_corrupt_source() {
+        let (Some(ffmpeg), Some(source)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_RECOVERY_SOURCE"),
+        ) else {
+            return;
+        };
+        let result = check_source_impl(
+            Path::new(&ffmpeg),
+            Path::new(&source),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        assert_eq!(result.status, "warning");
+        assert!(!result.details.is_empty());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn source_check_handles_clean_warning_failure_and_stop() {
+        use std::io::Write;
+        use std::os::unix::fs::PermissionsExt;
+        fn stub(script: &str) -> Temporary {
+            let (file, mut out) = temporary_file("sh").unwrap();
+            write!(out, "#!/bin/sh\n{script}\n").unwrap();
+            drop(out);
+            std::fs::set_permissions(&file.0, std::fs::Permissions::from_mode(0o700)).unwrap();
+            file
+        }
+        let clean = stub("exit 0");
+        assert_eq!(
+            check_source_impl(&clean.0, Path::new("unused"), &AtomicBool::new(false))
+                .unwrap()
+                .status,
+            "clean"
+        );
+        let warning =
+            stub("printf '[matroska,webm @ 0] Duplicate element\\n' >&2; exec /bin/sleep 20");
+        let result =
+            check_source_impl(&warning.0, Path::new("unused"), &AtomicBool::new(false)).unwrap();
+        assert_eq!(result.status, "warning");
+        assert!(result.details.contains("Duplicate element"));
+        let failed = stub("printf 'fatal input error\\n' >&2; exit 2");
+        assert!(
+            check_source_impl(&failed.0, Path::new("unused"), &AtomicBool::new(false)).is_err()
+        );
+        let slow = stub("exec /bin/sleep 20");
+        let cancel = Arc::new(AtomicBool::new(false));
+        let signal = cancel.clone();
+        let stopper = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            signal.store(true, Ordering::Release);
+        });
+        let result = check_source_impl(&slow.0, Path::new("unused"), &cancel).unwrap();
+        stopper.join().unwrap();
+        assert_eq!(result.status, "stopped");
+        let closed = stub("exec 2>&-; exec /bin/sleep 20");
+        let cancel = Arc::new(AtomicBool::new(false));
+        let signal = cancel.clone();
+        let stopper = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            signal.store(true, Ordering::Release);
+        });
+        let result = check_source_impl(&closed.0, Path::new("unused"), &cancel).unwrap();
+        stopper.join().unwrap();
+        assert_eq!(result.status, "stopped");
+    }
     #[test]
     fn portrait_preview_preserves_aspect_and_height_limit() {
         let Some(ffmpeg) = std::env::var_os("TAU_TEST_FFMPEG") else {
@@ -1270,6 +1587,12 @@ mod tests {
                 .status()
                 .unwrap()
                 .success()
+        );
+        assert_eq!(
+            check_source_impl(Path::new(&ffmpeg), &source_guard.0, &AtomicBool::new(false))
+                .unwrap()
+                .status,
+            "clean"
         );
         let dependencies = Dependencies {
             tvc_encoder: PathBuf::from(tvc).display().to_string(),

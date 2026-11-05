@@ -1,0 +1,33 @@
+# 012: Source error decision and preflight
+
+## Decision and scope — 2026-11-05
+
+The initial error-decision implementation runs a separate FFmpeg source check
+before encoding unless the user has saved the always-continue preference. A
+recognized Matroska or HEVC error stops this direct child check, collects a
+bounded diagnostic and asks whether to continue; other diagnostics are offered
+after successful completion of the check. A failed check fails the job.
+Stopping the check or declining the warning occurs before any output pair is
+created. The saved preference bypasses the check; existing encoder diagnostics
+still appear after encoding. FFmpeg errors may be fatal or recoverable, and
+continuation does not establish source repair.
+
+A separate preflight avoids invoking the existing unverified Python/C
+process-tree cancellation prototype, but can cost a full extra decode. It does
+not ask about new errors that appear only during the subsequent encode. The
+Stop control is for the source check only; there is no stop control for an
+active encode. An external wrapper that keeps the diagnostic pipe open can
+leave cleanup unverified, which is reported as an error. See issue 009 for the
+remaining process supervisor and Windows Job Object work.
+
+**Host:** controlled FFmpeg substitutes exercised clean, warning, failure and
+stop cases, including a closed diagnostic pipe; the previously reported
+corrupt source produced a warning. A synthetic browser preview exercised the
+dialog and preference persistence. These do not establish long-film, native
+Windows/Linux, or Pocket behavior. Next gate: design safe live error decisions
+and cancellation across the actual encoder and all child processes, then test
+real multi-segment jobs, cleanup and error cases on each supported platform.
+
+**Cross-compile:** Windows app `cargo check` passed from macOS after adding the
+installed Homebrew LLVM tools to PATH. An initial attempt failed because
+`llvm-rc` was not on PATH; this does not establish Windows runtime behavior.

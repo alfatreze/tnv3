@@ -6,6 +6,23 @@
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { version } from '../package.json';
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
+  let alwaysContinue = false, checkingSource = false, sourceIssue = '', rememberDecision = false;
+  let resolveSourceDecision: ((value: boolean) => void) | null = null;
+  function focusDialogButton(node: HTMLButtonElement) { node.focus(); }
+  function openModal(node: HTMLDialogElement) { node.showModal(); return { destroy: () => node.close() }; }
+  type SourceCheckResult = { status: 'clean' | 'warning' | 'stopped'; details: string };
+  function saveRecoveryPreference() { try { localStorage.setItem('tau-encoder-always-continue-source-errors', String(alwaysContinue)); } catch { /* Keep this session's preference. */ } }
+  function decideSource(keepGoing: boolean) {
+    if (keepGoing && rememberDecision) { alwaysContinue = true; saveRecoveryPreference(); }
+    sourceIssue = '';
+    const resolve = resolveSourceDecision; resolveSourceDecision = null; resolve?.(keepGoing);
+  }
+  function askSourceDecision(details: string): Promise<boolean> {
+    sourceIssue = details || 'FFmpeg reported a problem while reading this source.';
+    rememberDecision = false;
+    return new Promise(resolve => { resolveSourceDecision = resolve; });
+  }
+  async function stopChecking() { try { await invoke('stop_source_check'); } catch (e) { error = String(e); } }
   let dependencyError = '';
   let mode: 'rust' | 'c' = 'c', suffix = '_C', rustAvailable = false;
   let resolution = '400', customWidth = 400, selectedLevel = 0;
@@ -96,6 +113,7 @@
   type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[] };
   onMount(() => { void invoke<boolean>('experimental_rust_encoder_available').then(value => { rustAvailable = value; }).catch(() => { rustAvailable = false; }); try {
     folder = localStorage.getItem('tau-encoder-output-folder') || '';
+    alwaysContinue = localStorage.getItem('tau-encoder-always-continue-source-errors') === 'true';
     const saved = JSON.parse(localStorage.getItem('tau-encoder-dependencies') || '{}');
     for (const field of dependencyFields) if (typeof saved?.[field.key] === 'string') dependencies[field.key] = saved[field.key];
   } catch { /* Storage may be unavailable or invalid. */ } });
@@ -126,6 +144,14 @@
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
     let unlisten: UnlistenFn | undefined;
     try {
+      if (!alwaysContinue) {
+        checkingSource = true;
+        let check: SourceCheckResult;
+        try { check = await invoke<SourceCheckResult>('check_source', { input, dependencies }); }
+        finally { checkingSource = false; }
+        if (check.status === 'stopped') { message = 'Source check stopped. No output files were created.'; return; }
+        if (check.status === 'warning' && !(await askSourceDecision(check.details))) { message = 'Encoding stopped before output files were created.'; return; }
+      }
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
       const width = outputWidth(), height = 720;
       const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
@@ -169,7 +195,7 @@
     <button class="primary" type="button" onclick={encode} disabled={busy || previewLoading || !input || !folder || !name.trim() || !validDimensions() || invalidLevel() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp) || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
     {#if busy}
       <div class="progress-area" aria-live="polite">
-        <div class="progress-heading"><strong>{progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : 'Saving files'}</strong>
+        <div class="progress-heading"><strong>{checkingSource ? 'Checking source video and audio' : progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : 'Saving files'}</strong>
           {#if progress.phase === 'video' && progress.total_frames_estimate && progress.frames < progress.total_frames_estimate}<span>~{Math.min(99, Math.floor(progress.frames / progress.total_frames_estimate * 100))}%</span>{/if}
         </div>
         {#if progress.phase === 'video' && progress.total_frames_estimate && progress.frames < progress.total_frames_estimate}
@@ -177,7 +203,8 @@
         {:else}
           <progress aria-label="Encoding progress"></progress>
         {/if}
-        <p class="progress-detail">{progressDetail(progress)}</p>
+        <p class="progress-detail">{checkingSource ? 'Checking can take as long as decoding the source. Encoding starts after the check.' : progressDetail(progress)}</p>
+        {#if checkingSource}<button type="button" onclick={stopChecking}>Stop source check</button>{/if}
       </div>
     {/if}
     {#if message}<p class="status success" role="status">{message}</p>{/if}
@@ -223,7 +250,9 @@
       <label><input type="checkbox" bind:checked={trimMp3Delay} disabled={busy} /> Test MP3 delay compensation</label>
       <p>Removes the first 1,105 audio samples (23 ms) before MP3 encoding. This may improve or worsen sync and permanently removes that audio.</p>
     </details>
+    <section class="recovery-settings" aria-label="Source error handling"><h2>Source error handling</h2><label><input type="checkbox" checked={alwaysContinue} onchange={(event) => { alwaysContinue = (event.currentTarget as HTMLInputElement).checked; saveRecoveryPreference(); }} disabled={busy} /> Always continue when source errors are found</label><p class="help">When off, the app checks the source before encoding and asks if it finds a problem. The check can take as long as decoding. When on, encoding starts without this check; errors are reported with the result.</p></section>
   {/if}
   <div class="decoder-player" hidden={page !== 'decoder'}><Player bind:this={player} /></div>
 </main>
 </div>
+{#if resolveSourceDecision}<dialog use:openModal oncancel={(event) => { event.preventDefault(); decideSource(false); }} class="source-dialog" aria-labelledby="source-dialog-title" aria-describedby="source-dialog-description"><h2 id="source-dialog-title">Source problem detected</h2><p id="source-dialog-description">FFmpeg reported a problem reading the source. Continuing may still fail.</p>{#each warningExplanations(sourceIssue) as explanation}<p>{explanation}</p>{/each}<details><summary>Show the reported error</summary><pre>{sourceIssue}</pre></details><label><input type="checkbox" bind:checked={rememberDecision} /> Always continue for source errors</label><div class="dialog-actions"><button type="button" use:focusDialogButton onclick={() => decideSource(false)}>Stop</button><button type="button" class="primary" onclick={() => decideSource(true)}>Continue encoding</button></div></dialog>{/if}

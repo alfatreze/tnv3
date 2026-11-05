@@ -1,5 +1,10 @@
 # Changelog
 
+## Tau Encoder 0.6.0 — source-check development preview
+
+- Add a stoppable source preflight, source-error decision and saved continue preference.
+- Active encode cancellation and live encoder-error decisions remain future work.
+
 ## Tau Encoder 0.5.0 — desktop preview
 
 - Select output width, including 240 and 360 pixels, and determine height from the source.
