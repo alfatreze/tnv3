@@ -408,3 +408,9 @@ and saved continue preference. **Host:** controlled process checks, the user’s
 previously reported source, and a synthetic UI preview passed. The preflight
 can require a full decode; live prompts during encoding and safe cancellation
 of encoder worker trees remain open. See issues 009 and 012.
+
+A 0.7.0 development preview adds decisions for unacknowledged source errors
+after video or audio processing and before final output publication. **Host:**
+generated tests covered stop and continue for both C workflows. Prompts are
+still deferred until a phase finishes; immediate encoder cancellation remains
+open. See issues 009 and 012.

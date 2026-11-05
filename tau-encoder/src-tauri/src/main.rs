@@ -20,6 +20,8 @@ use tauri::{Emitter, Manager};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 struct SourceCheckState(Mutex<Option<Arc<AtomicBool>>>);
+#[derive(Default)]
+struct SourceDecisionState(Mutex<Option<mpsc::SyncSender<bool>>>);
 
 #[derive(Serialize, Debug)]
 struct SourceCheckResult {
@@ -496,6 +498,7 @@ fn encode_pair(
         false,
         advanced,
         dependencies,
+        |_| Ok(()),
         progress,
     )
 }
@@ -510,6 +513,7 @@ fn encode_pair_impl(
     pure_rust: bool,
     advanced: AdvancedSettings,
     dependencies: &Dependencies,
+    mut confirm_source: impl FnMut(&str) -> Result<(), String>,
     mut progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
     if qp > 51 || !safe_name(name) {
@@ -599,6 +603,7 @@ fn encode_pair_impl(
             },
         )?;
         if !report.diagnostics.is_empty() {
+            confirm_source(&report.diagnostics)?;
             warnings.push(with_diagnostics(
                 "Source decoding reported errors; inspect the output.".into(),
                 &report.diagnostics,
@@ -702,6 +707,7 @@ fn encode_pair_impl(
                     ));
                 }
                 if !details.is_empty() {
+                    confirm_source(&details)?;
                     warnings.push(with_diagnostics(
                         "Source decoding reported errors; inspect the output.".into(),
                         &details,
@@ -808,6 +814,7 @@ fn encode_pair_impl(
                 ));
             }
             if !details.is_empty() {
+                confirm_source(&details)?;
                 warnings.push(with_diagnostics(
                     "Source decoding reported errors; inspect the output.".into(),
                     &details,
@@ -880,6 +887,7 @@ fn encode_pair_impl(
         ));
     }
     if !details.is_empty() {
+        confirm_source(&details)?;
         warnings.push(with_diagnostics(
             "Audio decoding reported errors; inspect the output.".into(),
             &details,
@@ -1194,6 +1202,69 @@ fn stop_source_check(state: tauri::State<'_, SourceCheckState>) -> Result<(), St
         Err("The source check is still starting or has already finished.".into())
     }
 }
+fn request_source_decision(app: &tauri::AppHandle, details: &str) -> Result<(), String> {
+    let state = app.state::<SourceDecisionState>();
+    let (sender, receiver) = mpsc::sync_channel(1);
+    {
+        let mut pending = state
+            .0
+            .lock()
+            .map_err(|_| "Source decision state unavailable.")?;
+        if pending.is_some() {
+            return Err("A source decision is already pending.".into());
+        }
+        *pending = Some(sender);
+    }
+    if app.get_webview_window("main").is_none()
+        || app.emit("source-error-decision", details).is_err()
+    {
+        if let Ok(mut pending) = state.0.lock() {
+            *pending = None;
+        }
+        return Err(
+            "Could not display the source error; encoding stopped before output publication."
+                .into(),
+        );
+    }
+    let result = loop {
+        match receiver.recv_timeout(std::time::Duration::from_millis(500)) {
+            Ok(true) => break Ok(()),
+            Ok(false) => break Err("Encoding stopped before output files were created.".into()),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                break Err(
+                    "Source decision was interrupted; encoding stopped before output publication."
+                        .into(),
+                );
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) if app.get_webview_window("main").is_none() => {
+                break Err(
+                    "The encoder window closed; encoding stopped before output publication.".into(),
+                );
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+        }
+    };
+    if let Ok(mut pending) = state.0.lock() {
+        *pending = None;
+    }
+    result
+}
+
+#[tauri::command]
+fn respond_source_error(
+    proceed: bool,
+    state: tauri::State<'_, SourceDecisionState>,
+) -> Result<(), String> {
+    let sender = state
+        .0
+        .lock()
+        .map_err(|_| "Source decision state unavailable.")?
+        .take()
+        .ok_or("No source decision is pending.")?;
+    sender
+        .send(proceed)
+        .map_err(|_| "The source decision has already ended.".into())
+}
 #[derive(Serialize)]
 struct OutputPreview {
     width: u32,
@@ -1294,6 +1365,7 @@ async fn encode(
     workflow: Option<String>,
     mode: Option<String>,
     workspace_mib: Option<u32>,
+    continue_source_errors: Option<bool>,
     advanced: AdvancedSettings,
     mut dependencies: Dependencies,
     busy: tauri::State<'_, Mutex<bool>>,
@@ -1365,6 +1437,8 @@ async fn encode(
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
         let reporter = app.clone();
+        let decision_app = app.clone();
+        let mut accepted = continue_source_errors.unwrap_or(false);
         encode_pair_impl(
             &ffmpeg,
             Path::new(&input),
@@ -1379,6 +1453,13 @@ async fn encode(
             pure_rust,
             advanced,
             &dependencies,
+            move |details| {
+                if !accepted {
+                    request_source_decision(&decision_app, details)?;
+                    accepted = true;
+                }
+                Ok(())
+            },
             move |event| {
                 let _ = reporter.emit("encode-progress", event);
             },
@@ -1432,11 +1513,13 @@ fn main() {
         .manage(Mutex::new(false))
         .manage(Mutex::new(None::<player::Player>))
         .manage(SourceCheckState::default())
+        .manage(SourceDecisionState::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
             check_source,
             stop_source_check,
+            respond_source_error,
             inspect_output,
             discover_tools,
             encode,
@@ -1451,6 +1534,113 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn phase_warning_can_stop_before_output_publication() {
+        use std::{io::Write, os::unix::fs::PermissionsExt};
+        let (Some(ffmpeg), Some(ffprobe), Some(script), Some(tvc), Some(tnv3)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_FFPROBE"),
+            std::env::var_os("TAU_TEST_C_SCRIPT"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        ) else {
+            return;
+        };
+        let (source, file) = temporary_file("mp4").unwrap();
+        drop(file);
+        assert!(
+            Command::new(&ffmpeg)
+                .args([
+                    "-y",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc2=size=64x48:rate=24:duration=0.25",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=440:duration=0.25",
+                    "-c:v",
+                    "mpeg4",
+                    "-c:a",
+                    "aac"
+                ])
+                .arg(&source.0)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let (wrapper, mut file) = temporary_file("sh").unwrap();
+        let escaped = PathBuf::from(&ffmpeg)
+            .display()
+            .to_string()
+            .replace('\'', "'\\''");
+        write!(file, "#!/bin/sh\nprintf '[matroska,webm @ 0] Duplicate element\\n' >&2\nexec '{escaped}' \"$@\"\n").unwrap();
+        drop(file);
+        std::fs::set_permissions(&wrapper.0, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let deps = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            ..Default::default()
+        };
+        for python in [false, true] {
+            let (reserve, file) = temporary_file("tnv3").unwrap();
+            drop(file);
+            std::fs::remove_file(&reserve.0).unwrap();
+            let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+            let tools = if python {
+                Some((Path::new(&script), Path::new(&ffprobe)))
+            } else {
+                None
+            };
+            let mut seen = false;
+            let result = encode_pair_impl(
+                &wrapper.0,
+                &source.0,
+                reserve.0.parent().unwrap(),
+                name,
+                30,
+                tools,
+                false,
+                AdvancedSettings::default(),
+                &deps,
+                |details| {
+                    seen = details.contains("Duplicate element");
+                    Err("Encoding stopped before output files were created.".into())
+                },
+                |_| {},
+            );
+            assert!(seen);
+            assert!(result.is_err());
+            assert!(!reserve.0.exists());
+            assert!(!reserve.0.with_extension("mp3").exists());
+            let mut confirmations = 0;
+            let result = encode_pair_impl(
+                &wrapper.0,
+                &source.0,
+                reserve.0.parent().unwrap(),
+                name,
+                30,
+                tools,
+                false,
+                AdvancedSettings::default(),
+                &deps,
+                |_| {
+                    confirmations += 1;
+                    Ok(())
+                },
+                |_| {},
+            )
+            .unwrap();
+            assert!(confirmations >= 2);
+            let video = Temporary(PathBuf::from(result.video));
+            let audio = Temporary(PathBuf::from(result.audio));
+            assert!(video.0.is_file() && audio.0.is_file());
+        }
+    }
     #[test]
     fn source_check_reports_configured_corrupt_source() {
         let (Some(ffmpeg), Some(source)) = (
@@ -2451,6 +2641,7 @@ mod tests {
             true,
             AdvancedSettings::default(),
             &Dependencies::default(),
+            |_| Ok(()),
             |_| {},
         )
         .unwrap();

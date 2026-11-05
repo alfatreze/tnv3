@@ -40,7 +40,7 @@ For a self-contained macOS helper bundle, run `scripts/build-ffmpeg-macos.sh`, t
 
 ## App versioning
 
-The desktop app follows semantic versioning independently of the codec format and Rust crate. Version 0.6.0 is a preview: increment the patch for compatible fixes, the minor for new functionality or breaking changes before 1.0, and the major for breaking changes after 1.0. Prereleases use a SemVer suffix such as `-alpha.1`. Update the npm, Tauri, Cargo and lockfile versions together; `npm run check-version` checks their agreement in CI. Name distributed builds `Tau-Encoder-<version>-<platform>` and document changes in the changelog.
+The desktop app follows semantic versioning independently of the codec format and Rust crate. Version 0.7.0 is a preview: increment the patch for compatible fixes, the minor for new functionality or breaking changes before 1.0, and the major for breaking changes after 1.0. Prereleases use a SemVer suffix such as `-alpha.1`. Update the npm, Tauri, Cargo and lockfile versions together; `npm run check-version` checks their agreement in CI. Name distributed builds `Tau-Encoder-<version>-<platform>` and document changes in the changelog.
 
 ## Resolution and levels
 
@@ -48,6 +48,6 @@ Choose a width of 240, 360, 400, or 800 pixels, or enter a custom even width up 
 
 ## Source error check (first stage)
 
-Unless **Always continue when source errors are found** is enabled in Settings, the app decodes the source before encoding. This can take as long as decoding the whole source. It asks whether to continue when the check detects a source problem; **Stop** leaves the output pair uncreated. The dialog can remember the continue preference, and Settings can change it later. The source check can itself be stopped. The check stops early for recognized Matroska and HEVC messages; other diagnostics are reported after the check completes. A failed check stops the job. FFmpeg can still encounter additional errors during the actual encode; those are reported afterward rather than prompting live. This feature does not repair or certify source data.
+Unless **Always continue when source errors are found** is enabled in Settings, the app decodes the source before encoding. This can take as long as decoding the whole source. It asks whether to continue when the check detects a source problem; **Stop** leaves the output pair uncreated. The dialog can remember the continue preference, and Settings can change it later. The source check can itself be stopped. The check stops early for recognized Matroska and HEVC messages; other diagnostics are reported after the check completes. A failed check stops the job. FFmpeg can still encounter additional errors during the actual encode; if no source error was already accepted for the job, the app asks at the end of the affected video or audio phase, before final files are published. It does not pause or prompt while an encoder phase is running. This feature does not repair or certify source data.
 
 Stopping a running encode and reliably terminating all Python/C worker processes are not implemented. Only the preliminary source check can be stopped. See `docs/issues/009-c-encoder-process-cancellation.md` and `docs/issues/012-source-error-preflight.md`.

@@ -101,7 +101,7 @@
     const lower = text.toLowerCase();
     const explanations: string[] = [];
     if (lower.includes('[matroska,webm') && (lower.includes('invalid as first byte') || lower.includes('duplicate element') || lower.includes('exceeds containing master'))) {
-      explanations.push('The source container has malformed or duplicate elements. FFmpeg continued reading it, but video or audio data may have been skipped or damaged; container warnings alone do not prove an audio decoding fault.');
+      explanations.push('The source container has malformed or duplicate elements. Video or audio data may be skipped or damaged; container warnings alone do not prove an audio decoding fault.');
     }
     if (lower.includes('could not find ref with poc')) {
       explanations.push('The HEVC decoder could not find reference pictures. Affected frames may have visible corruption, missing detail, or discontinuities.');
@@ -142,22 +142,30 @@
     if (!input || !folder || !name || busy || previewLoading || !validDimensions() || invalidLevel() || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))) return;
     busy = true; error = ''; message = ''; warning = '';
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
-    let unlisten: UnlistenFn | undefined;
+    let unlisten: UnlistenFn | undefined, unlistenSource: UnlistenFn | undefined;
     try {
+      let acceptedSourceErrors = alwaysContinue;
       if (!alwaysContinue) {
         checkingSource = true;
         let check: SourceCheckResult;
         try { check = await invoke<SourceCheckResult>('check_source', { input, dependencies }); }
         finally { checkingSource = false; }
         if (check.status === 'stopped') { message = 'Source check stopped. No output files were created.'; return; }
-        if (check.status === 'warning' && !(await askSourceDecision(check.details))) { message = 'Encoding stopped before output files were created.'; return; }
+        if (check.status === 'warning') {
+          if (!(await askSourceDecision(check.details))) { message = 'Encoding stopped before output files were created.'; return; }
+          acceptedSourceErrors = true;
+        }
       }
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
+      unlistenSource = await listen<string>('source-error-decision', async event => {
+        const proceed = await askSourceDecision(event.payload);
+        try { await invoke('respond_source_error', { proceed }); } catch (e) { error = String(e); }
+      });
       const width = outputWidth(), height = 720;
-      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), advanced: { roundDown, eofPass: roundDown && eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
+      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video} and ${result.audio}. Level limits may cause automatic quality reductions.`;
-    } catch (e) { error = String(e); } finally { unlisten?.(); busy = false; }
+    } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); busy = false; }
   }
 </script>
 <svelte:head><title>Tau Encoder</title></svelte:head>
@@ -211,7 +219,7 @@
     {#if warning}<div class="status warning-summary" role="alert"><strong>Output created with source warnings</strong>{#each warningExplanations(warning) as explanation}<p>{explanation}</p>{/each}<details><summary>Show original decoder messages</summary><pre class="warning">{warning}</pre></details></div>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
-  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Cancellation is not available yet.</p></aside>
+  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Stopping an active encode is not available yet.</p></aside>
   {:else if page === 'decoder'}
     <header><div><p class="eyebrow">LOCAL PREVIEW</p><h1>Decoder</h1></div></header>
     <p class="intro">Test player for local TNV3 video and matching audio files.</p>

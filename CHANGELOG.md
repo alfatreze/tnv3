@@ -1,5 +1,10 @@
 # Changelog
 
+## Tau Encoder 0.7.0 — source decision development preview
+
+- Ask about unacknowledged source errors after video or audio processing and before publishing output files.
+- The running phase still completes before the prompt; immediate encoder cancellation remains future work.
+
 ## Tau Encoder 0.6.0 — source-check development preview
 
 - Add a stoppable source preflight, source-error decision and saved continue preference.
