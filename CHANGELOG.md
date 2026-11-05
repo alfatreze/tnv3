@@ -1,5 +1,10 @@
 # Changelog
 
+## Tau Encoder 0.8.0 — cooperative stop development preview
+
+- Allow stopping an encode after the current processing phase, before final files are published.
+- Active workers finish the phase; immediate process-tree termination remains future work.
+
 ## Tau Encoder 0.7.0 — source decision development preview
 
 - Ask about unacknowledged source errors after video or audio processing and before publishing output files.

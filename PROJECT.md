@@ -414,3 +414,10 @@ after video or audio processing and before final output publication. **Host:**
 generated tests covered stop and continue for both C workflows. Prompts are
 still deferred until a phase finishes; immediate encoder cancellation remains
 open. See issues 009 and 012.
+
+A 0.8.0 development preview accepts a cooperative stop during video or audio
+processing. The current phase and its workers finish, then staged files are
+discarded before publication; requests are refused once saving starts. **Host:**
+generated stop and publication-race tests passed. Immediate worker termination,
+true live prompts and Pocket/native Windows/Linux validation remain open.
+See issues 009 and 012.

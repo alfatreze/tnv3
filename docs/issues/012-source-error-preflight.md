@@ -48,3 +48,17 @@ pending, the job stops before output publication.
 stop and continue in both C workflows; no final files were created after stop.
 Native Windows/Linux and Pocket behavior remain untested. The supervisor work
 in issue 009 remains the gate for immediate cancellation and true live prompts.
+
+## Cooperative encode stop — 2026-11-05
+
+Version 0.8.0 permits a stop request during video or audio processing. It
+waits for the current phase and its child processes to finish naturally, then
+discards staged output and exits before publishing either file. Stop and the
+start of publication are serialized: once saving starts, a stop request is
+refused. This can take the duration of an entire video phase; it is not
+immediate process-tree termination and does not resolve issue 009.
+
+**Host:** generated FFmpeg/C tests requested stop while processing both C
+workflows, confirmed that neither final file was published, and verified
+stop/publication ordering under concurrent requests. Native Windows/Linux
+runtime and Pocket remain untested.

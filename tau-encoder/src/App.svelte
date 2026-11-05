@@ -6,7 +6,7 @@
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { version } from '../package.json';
   let input = '', folder = '', name = '', qp = 30, busy = false, message = '', error = '', warning = '';
-  let alwaysContinue = false, checkingSource = false, sourceIssue = '', rememberDecision = false;
+  let alwaysContinue = false, checkingSource = false, encodeRunning = false, encodeRegistered = false, stopRequested = false, sourceIssue = '', rememberDecision = false;
   let resolveSourceDecision: ((value: boolean) => void) | null = null;
   function focusDialogButton(node: HTMLButtonElement) { node.focus(); }
   function openModal(node: HTMLDialogElement) { node.showModal(); return { destroy: () => node.close() }; }
@@ -23,6 +23,7 @@
     return new Promise(resolve => { resolveSourceDecision = resolve; });
   }
   async function stopChecking() { try { await invoke('stop_source_check'); } catch (e) { error = String(e); } }
+  async function stopAfterPhase() { try { await invoke('stop_encode'); stopRequested = true; } catch (e) { error = String(e); } }
   let dependencyError = '';
   let mode: 'rust' | 'c' = 'c', suffix = '_C', rustAvailable = false;
   let resolution = '400', customWidth = 400, selectedLevel = 0;
@@ -141,6 +142,7 @@
   async function encode() {
     if (!input || !folder || !name || busy || previewLoading || !validDimensions() || invalidLevel() || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))) return;
     busy = true; error = ''; message = ''; warning = '';
+    stopRequested = false;
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
     let unlisten: UnlistenFn | undefined, unlistenSource: UnlistenFn | undefined;
     try {
@@ -156,16 +158,17 @@
           acceptedSourceErrors = true;
         }
       }
-      unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; });
+      unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; encodeRegistered = true; });
       unlistenSource = await listen<string>('source-error-decision', async event => {
         const proceed = await askSourceDecision(event.payload);
         try { await invoke('respond_source_error', { proceed }); } catch (e) { error = String(e); }
       });
       const width = outputWidth(), height = 720;
+      encodeRunning = true;
       const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video} and ${result.audio}. Level limits may cause automatic quality reductions.`;
-    } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); busy = false; }
+    } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); encodeRunning = false; encodeRegistered = false; stopRequested = false; busy = false; }
   }
 </script>
 <svelte:head><title>Tau Encoder</title></svelte:head>
@@ -213,13 +216,14 @@
         {/if}
         <p class="progress-detail">{checkingSource ? 'Checking can take as long as decoding the source. Encoding starts after the check.' : progressDetail(progress)}</p>
         {#if checkingSource}<button type="button" onclick={stopChecking}>Stop source check</button>{/if}
+        {#if encodeRunning && encodeRegistered && progress.phase !== 'saving'}<button type="button" onclick={stopAfterPhase} disabled={stopRequested}>{stopRequested ? 'Stop requested' : 'Stop after current phase'}</button>{#if stopRequested}<p class="progress-detail">Waiting for the current video or audio phase to finish. No final files will be created.</p>{/if}{/if}
       </div>
     {/if}
     {#if message}<p class="status success" role="status">{message}</p>{/if}
     {#if warning}<div class="status warning-summary" role="alert"><strong>Output created with source warnings</strong>{#each warningExplanations(warning) as explanation}<p>{explanation}</p>{/each}<details><summary>Show original decoder messages</summary><pre class="warning">{warning}</pre></details></div>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
-  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Stopping an active encode is not available yet.</p></aside>
+  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Stopping an encode waits for its current video or audio phase.</p></aside>
   {:else if page === 'decoder'}
     <header><div><p class="eyebrow">LOCAL PREVIEW</p><h1>Decoder</h1></div></header>
     <p class="intro">Test player for local TNV3 video and matching audio files.</p>

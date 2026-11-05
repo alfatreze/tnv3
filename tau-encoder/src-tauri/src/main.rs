@@ -22,6 +22,50 @@ static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 struct SourceCheckState(Mutex<Option<Arc<AtomicBool>>>);
 #[derive(Default)]
 struct SourceDecisionState(Mutex<Option<mpsc::SyncSender<bool>>>);
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EncodePhase {
+    Working,
+    StopRequested,
+    Publishing,
+}
+struct JobControl(Mutex<EncodePhase>);
+impl Default for JobControl {
+    fn default() -> Self {
+        Self(Mutex::new(EncodePhase::Working))
+    }
+}
+impl JobControl {
+    fn request_stop(&self) -> Result<(), String> {
+        let mut phase = self.0.lock().map_err(|_| "Encoder control unavailable.")?;
+        match *phase {
+            EncodePhase::Working | EncodePhase::StopRequested => {
+                *phase = EncodePhase::StopRequested;
+                Ok(())
+            }
+            EncodePhase::Publishing => {
+                Err("Saving has started; it is too late to stop this encode.".into())
+            }
+        }
+    }
+    fn checkpoint(&self) -> Result<(), String> {
+        if *self.0.lock().map_err(|_| "Encoder control unavailable.")? == EncodePhase::StopRequested
+        {
+            Err("Encoding stopped before output files were created.".into())
+        } else {
+            Ok(())
+        }
+    }
+    fn begin_publish(&self) -> Result<(), String> {
+        let mut phase = self.0.lock().map_err(|_| "Encoder control unavailable.")?;
+        if *phase == EncodePhase::StopRequested {
+            return Err("Encoding stopped before output files were created.".into());
+        }
+        *phase = EncodePhase::Publishing;
+        Ok(())
+    }
+}
+#[derive(Default)]
+struct ActiveEncode(Mutex<Option<Arc<JobControl>>>);
 
 #[derive(Serialize, Debug)]
 struct SourceCheckResult {
@@ -498,6 +542,7 @@ fn encode_pair(
         false,
         advanced,
         dependencies,
+        &JobControl::default(),
         |_| Ok(()),
         progress,
     )
@@ -513,6 +558,7 @@ fn encode_pair_impl(
     pure_rust: bool,
     advanced: AdvancedSettings,
     dependencies: &Dependencies,
+    control: &JobControl,
     mut confirm_source: impl FnMut(&str) -> Result<(), String>,
     mut progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
@@ -539,6 +585,7 @@ fn encode_pair_impl(
     let video_path = folder.join(format!("{name}.tnv3"));
     let audio_path = folder.join(format!("{name}.mp3"));
     preflight_output_directory(folder, &video_path, &audio_path)?;
+    control.checkpoint()?;
     progress(Progress {
         phase: "probing",
         frames: 0,
@@ -603,6 +650,7 @@ fn encode_pair_impl(
             },
         )?;
         if !report.diagnostics.is_empty() {
+            control.checkpoint()?;
             confirm_source(&report.diagnostics)?;
             warnings.push(with_diagnostics(
                 "Source decoding reported errors; inspect the output.".into(),
@@ -707,6 +755,7 @@ fn encode_pair_impl(
                     ));
                 }
                 if !details.is_empty() {
+                    control.checkpoint()?;
                     confirm_source(&details)?;
                     warnings.push(with_diagnostics(
                         "Source decoding reported errors; inspect the output.".into(),
@@ -814,6 +863,7 @@ fn encode_pair_impl(
                 ));
             }
             if !details.is_empty() {
+                control.checkpoint()?;
                 confirm_source(&details)?;
                 warnings.push(with_diagnostics(
                     "Source decoding reported errors; inspect the output.".into(),
@@ -833,12 +883,14 @@ fn encode_pair_impl(
             }
         }
     };
+    control.checkpoint()?;
     progress(Progress {
         phase: "audio",
         frames: stats.frames,
         total_frames_estimate: total,
         remaining_seconds: None,
     });
+    control.checkpoint()?;
     let (audio_tmp, audio_file) = temporary_file("mp3")?;
     drop(audio_file);
     let duration = format!("{:.9}", f64::from(stats.frames) / 24.0);
@@ -887,12 +939,14 @@ fn encode_pair_impl(
         ));
     }
     if !details.is_empty() {
+        control.checkpoint()?;
         confirm_source(&details)?;
         warnings.push(with_diagnostics(
             "Audio decoding reported errors; inspect the output.".into(),
             &details,
         ));
     }
+    control.begin_publish()?;
     progress(Progress {
         phase: "saving",
         frames: stats.frames,
@@ -1265,6 +1319,14 @@ fn respond_source_error(
         .send(proceed)
         .map_err(|_| "The source decision has already ended.".into())
 }
+#[tauri::command]
+fn stop_encode(state: tauri::State<'_, ActiveEncode>) -> Result<(), String> {
+    let active = state.0.lock().map_err(|_| "Encoder control unavailable.")?;
+    active
+        .as_ref()
+        .ok_or("The encode has not started or has already finished.")?
+        .request_stop()
+}
 #[derive(Serialize)]
 struct OutputPreview {
     width: u32,
@@ -1369,6 +1431,7 @@ async fn encode(
     advanced: AdvancedSettings,
     mut dependencies: Dependencies,
     busy: tauri::State<'_, Mutex<bool>>,
+    active: tauri::State<'_, ActiveEncode>,
 ) -> Result<ResultInfo, String> {
     let chosen_ffmpeg = selected_file(&dependencies.ffmpeg, "FFmpeg")?;
     let pure_rust = workflow.is_none() && mode.as_deref() == Some("rust");
@@ -1400,6 +1463,19 @@ async fn encode(
             return Err("An encode is already running.".into());
         }
         *running = true;
+    }
+    let control = Arc::new(JobControl::default());
+    {
+        let mut job = match active.0.lock() {
+            Ok(job) => job,
+            Err(_) => {
+                if let Ok(mut running) = busy.lock() {
+                    *running = false;
+                }
+                return Err("Encoder control unavailable.".into());
+            }
+        };
+        *job = Some(control.clone());
     }
 
     let ffmpeg = chosen_ffmpeg.unwrap_or_else(|| ffmpeg_path(&app));
@@ -1453,6 +1529,7 @@ async fn encode(
             pure_rust,
             advanced,
             &dependencies,
+            &control,
             move |details| {
                 if !accepted {
                     request_source_decision(&decision_app, details)?;
@@ -1466,6 +1543,9 @@ async fn encode(
         )
     })
     .await;
+    if let Ok(mut job) = active.0.lock() {
+        *job = None;
+    }
     *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
     result.map_err(|e| format!("Encoder task stopped: {e}"))?
 }
@@ -1514,12 +1594,14 @@ fn main() {
         .manage(Mutex::new(None::<player::Player>))
         .manage(SourceCheckState::default())
         .manage(SourceDecisionState::default())
+        .manage(ActiveEncode::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
             check_source,
             stop_source_check,
             respond_source_error,
+            stop_encode,
             inspect_output,
             discover_tools,
             encode,
@@ -1534,6 +1616,33 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stop_and_publication_are_mutually_exclusive() {
+        let stopped = JobControl::default();
+        stopped.request_stop().unwrap();
+        assert!(stopped.checkpoint().is_err());
+        assert!(stopped.begin_publish().is_err());
+        let publishing = JobControl::default();
+        publishing.begin_publish().unwrap();
+        assert!(publishing.request_stop().is_err());
+        for _ in 0..100 {
+            let control = Arc::new(JobControl::default());
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+            let worker_control = control.clone();
+            let worker_barrier = barrier.clone();
+            let worker = std::thread::spawn(move || {
+                worker_barrier.wait();
+                worker_control.request_stop()
+            });
+            barrier.wait();
+            let publish = control.begin_publish();
+            let stop = worker.join().unwrap();
+            assert!(
+                !(stop.is_ok() && publish.is_ok()),
+                "stop and publication must not both be accepted"
+            );
+        }
+    }
     #[cfg(unix)]
     #[test]
     fn phase_warning_can_stop_before_output_publication() {
@@ -1607,6 +1716,7 @@ mod tests {
                 false,
                 AdvancedSettings::default(),
                 &deps,
+                &JobControl::default(),
                 |details| {
                     seen = details.contains("Duplicate element");
                     Err("Encoding stopped before output files were created.".into())
@@ -1615,6 +1725,30 @@ mod tests {
             );
             assert!(seen);
             assert!(result.is_err());
+            assert!(!reserve.0.exists());
+            assert!(!reserve.0.with_extension("mp3").exists());
+            let control = JobControl::default();
+            let result = encode_pair_impl(
+                &wrapper.0,
+                &source.0,
+                reserve.0.parent().unwrap(),
+                name,
+                30,
+                tools,
+                false,
+                AdvancedSettings::default(),
+                &deps,
+                &control,
+                |_| panic!("a requested stop should take precedence over a warning prompt"),
+                |progress| {
+                    if progress.frames > 0
+                        && (progress.phase == "video" || progress.phase == "c-video")
+                    {
+                        control.request_stop().unwrap();
+                    }
+                },
+            );
+            assert!(matches!(result, Err(message) if message.starts_with("Encoding stopped")));
             assert!(!reserve.0.exists());
             assert!(!reserve.0.with_extension("mp3").exists());
             let mut confirmations = 0;
@@ -1628,6 +1762,7 @@ mod tests {
                 false,
                 AdvancedSettings::default(),
                 &deps,
+                &JobControl::default(),
                 |_| {
                     confirmations += 1;
                     Ok(())
@@ -2641,6 +2776,7 @@ mod tests {
             true,
             AdvancedSettings::default(),
             &Dependencies::default(),
+            &JobControl::default(),
             |_| Ok(()),
             |_| {},
         )
