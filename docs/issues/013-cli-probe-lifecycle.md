@@ -1,0 +1,19 @@
+# 013: CLI probe draft cannot guarantee bounded cleanup
+
+Date: 2026-11-05. Status: open. Evidence: **code-review**, with draft parser/adapter tests on macOS **host**; no Windows, Linux or Pocket runtime evidence.
+
+The Omega CLI contract asks for source probing and measured estimates. A draft in `work/cli-contract/tau-video-cli/src/probe.rs` runs ffprobe and drains both pipes concurrently with size caps. Review found that a failed kill followed by a blocking wait can exceed its timeout. A descendant retaining a pipe can leave detached reader threads and descriptors alive, and a fixed drain grace can misclassify a successful probe under load. The draft does not measure estimates or select the output level and dimensions, and was not integrated.
+
+Expected: probing completes or reports cleanup uncertainty with bounded resource ownership, accurate diagnostics and no false estimate; repeated probes do not accumulate readers. Impact: the `probe` command remains unavailable, and consumers cannot rely on a complete Omega CLI contract. Workaround: use separately installed ffprobe directly, subject to its own process management, and treat estimates as unavailable. Next: design and test direct-child and inherited-pipe cleanup, including failed termination, oversized output, nonzero exit, scheduling delays and descendants; then implement profile-specific geometry and a defensible measured estimate. Avoid claiming full tree containment without platform-specific proof.
+
+## 2026-11-06 continuation
+
+**Code-review / host:** A second draft replaced pipe readers with private file-backed capture, bounded readback, and bounded direct-child termination polling. A real FFprobe sample and adapter tests passed on macOS, but independent review rejected integration: descendants can inherit the files and continue writing after the parent exits, including to unlinked files on Unix; polling does not enforce a hard disk cap and capture can race a surviving writer. Stale length can also hide truncation, and stderr-cap behavior was inconsistent. The draft remains isolated in `work/cli-contract/`; it does not satisfy the probe gate. A bounded nonblocking pipe approach is under investigation; process-group ownership and ID reuse must be resolved before any group signal is considered safe. No platform runtime or Pocket claim follows from this draft.
+
+## 2026-11-06 metadata probe preview
+
+**Host / code-review:** A third approach uses same-thread nonblocking pipes with hard capture limits and process-group supervision. Independent review found and prompted fixes for post-spawn ownership and signal-error handling; macOS tests cover timeout, concurrent floods, pipe-holding and escaped descendants, external wait ownership and real FFprobe. A metadata-only CLI preview is integrated. This narrows the earlier unbounded-capture problem but does not close the full issue: exclusive wait ownership is assumed, arbitrary escaped or pipe-closing descendants are not guaranteed stopped, signal/cleanup failure may leave a child, Linux runtime is untested, Windows is unsupported, and output geometry/level and measured estimates remain unavailable. Keep this issue open until platform ownership and full probe contract are addressed.
+
+## 2026-11-06 first-frame geometry preview
+
+**Host / code-review:** The preview now runs FFmpeg's default reference filter on one frame to obtain coded dimensions and a minimum geometry-fitting level. Cleanup-uncertain FFmpeg outcomes propagate as errors; ordinary geometry failures preserve source metadata and mark geometry unavailable. Synthetic malformed Y4M, odd-SAR/rotation and generated-media host tests passed. Escaped descendants, exclusive-wait assumptions and platform limits from the metadata preview still apply; size/time estimates and full probe contract remain open.

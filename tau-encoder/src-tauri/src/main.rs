@@ -1,4 +1,10 @@
+//! Staging-only Tauri integration draft copied from the read-only production
+//! entry point. It is intentionally uncompiled and is not a release candidate.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Integration destination: tau-video exposes this module to the app.
+use tau_video::source_gate::SourceGate;
+// Integration destination: this helper will live in src-tauri/src.
+mod child_supervisor;
 mod player;
 use serde::{Deserialize, Serialize};
 use std::io::BufReader;
@@ -21,34 +27,70 @@ static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 struct SourceCheckState(Mutex<Option<Arc<AtomicBool>>>);
 #[derive(Default)]
-struct SourceDecisionState(Mutex<Option<mpsc::SyncSender<bool>>>);
+struct SourceDecisionState(Mutex<Option<PendingSourceDecision>>);
+struct PendingSourceDecision {
+    job_id: String,
+    reply: mpsc::SyncSender<bool>,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EncodePhase {
     Working,
     StopRequested,
     Publishing,
 }
-struct JobControl(Mutex<EncodePhase>);
+struct JobControl {
+    phase: Mutex<EncodePhase>,
+    stop_requested: AtomicBool,
+    source_gate: Mutex<Option<Arc<SourceGate>>>,
+    source_stop: Mutex<Option<mpsc::Sender<()>>>,
+}
 impl Default for JobControl {
     fn default() -> Self {
-        Self(Mutex::new(EncodePhase::Working))
+        Self {
+            phase: Mutex::new(EncodePhase::Working),
+            stop_requested: AtomicBool::new(false),
+            source_gate: Mutex::new(None),
+            source_stop: Mutex::new(None),
+        }
     }
 }
 impl JobControl {
     fn request_stop(&self) -> Result<(), String> {
-        let mut phase = self.0.lock().map_err(|_| "Encoder control unavailable.")?;
-        match *phase {
+        {
+            let mut phase = self.phase.lock().map_err(|_| "Encoder control unavailable.")?;
+            match *phase {
             EncodePhase::Working | EncodePhase::StopRequested => {
                 *phase = EncodePhase::StopRequested;
-                Ok(())
             }
             EncodePhase::Publishing => {
-                Err("Saving has started; it is too late to stop this encode.".into())
+                return Err("Saving has started; it is too late to stop this encode.".into());
             }
+            }
+        }
+        self.stop_requested.store(true, Ordering::Release);
+        let gate_result = match self.source_gate.lock() {
+            Ok(gate) => match gate.as_ref() {
+                Some(gate) => gate.stop().map_err(|e| format!("Could not stop source decision gate: {e}")),
+                None => Ok(()),
+            },
+            Err(_) => Err("Source gate state unavailable.".to_owned()),
+        };
+        let supervisor_result = match self.source_stop.lock() {
+            Ok(stop) => {
+                if let Some(stop) = stop.as_ref() { let _ = stop.send(()); }
+                Ok(())
+            }
+            Err(_) => Err("Source supervisor state unavailable.".to_owned()),
+        };
+        match (gate_result, supervisor_result) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+            (Err(first), Err(second)) => Err(format!("{first} {second}")),
         }
     }
     fn checkpoint(&self) -> Result<(), String> {
-        if *self.0.lock().map_err(|_| "Encoder control unavailable.")? == EncodePhase::StopRequested
+        if self.stop_requested.load(Ordering::Acquire)
+            || *self.phase.lock().map_err(|_| "Encoder control unavailable.")? == EncodePhase::StopRequested
         {
             Err("Encoding stopped before output files were created.".into())
         } else {
@@ -56,12 +98,31 @@ impl JobControl {
         }
     }
     fn begin_publish(&self) -> Result<(), String> {
-        let mut phase = self.0.lock().map_err(|_| "Encoder control unavailable.")?;
-        if *phase == EncodePhase::StopRequested {
+        let mut phase = self.phase.lock().map_err(|_| "Encoder control unavailable.")?;
+        if self.stop_requested.load(Ordering::Acquire) || *phase == EncodePhase::StopRequested {
             return Err("Encoding stopped before output files were created.".into());
         }
         *phase = EncodePhase::Publishing;
         Ok(())
+    }
+    fn install_source_gate(&self, gate: Arc<SourceGate>) -> Result<(), String> {
+        *self.source_gate.lock().map_err(|_| "Source gate state unavailable.")? = Some(gate);
+        Ok(())
+    }
+    fn install_source_stop(&self, stop: mpsc::Sender<()>) -> Result<(), String> {
+        let mut current = self.source_stop.lock().map_err(|_| "Source supervisor state unavailable.")?;
+        *current = Some(stop.clone());
+        if self.stop_requested.load(Ordering::Acquire) {
+            let _ = stop.send(());
+        }
+        Ok(())
+    }
+    fn source_gate(&self) -> Result<Arc<SourceGate>, String> {
+        self.source_gate.lock().map_err(|_| "Source gate state unavailable.")?
+            .as_ref().cloned().ok_or("Native source gate is not installed.".into())
+    }
+    fn is_live_native(&self) -> bool {
+        self.source_gate.lock().ok().is_some_and(|gate| gate.is_some())
     }
 }
 #[derive(Default)]
@@ -71,6 +132,16 @@ struct ActiveEncode(Mutex<Option<Arc<JobControl>>>);
 struct SourceCheckResult {
     status: &'static str,
     details: String,
+}
+
+#[derive(Clone, Serialize)]
+struct SourceErrorDecisionEvent {
+    job_id: String,
+    details: String,
+}
+#[derive(Clone, Serialize)]
+struct SourceDecisionCancelledEvent {
+    job_id: String,
 }
 
 fn check_source_impl(
@@ -365,10 +436,15 @@ fn process_failed(status: std::process::ExitStatus, action: &str) -> String {
 }
 // Drain the entire pipe to avoid blocking FFmpeg, retaining a bounded excerpt.
 fn capture_diagnostics(
+    stderr: impl Read + Send + 'static,
+) -> std::thread::JoinHandle<io::Result<String>> {
+    capture_diagnostics_with_limit(stderr, 4096)
+}
+fn capture_diagnostics_with_limit(
     mut stderr: impl Read + Send + 'static,
+    limit: usize,
 ) -> std::thread::JoinHandle<io::Result<String>> {
     std::thread::spawn(move || {
-        const LIMIT: usize = 4096;
         let mut saved = Vec::new();
         let mut buf = [0u8; 4096];
         let mut truncated = false;
@@ -377,7 +453,7 @@ fn capture_diagnostics(
             if n == 0 {
                 break;
             }
-            let take = n.min(LIMIT.saturating_sub(saved.len()));
+            let take = n.min(limit.saturating_sub(saved.len()));
             saved.extend_from_slice(&buf[..take]);
             if take < n {
                 truncated = true;
@@ -390,6 +466,20 @@ fn capture_diagnostics(
         Ok(text)
     })
 }
+fn join_with_timeout<T>(
+    handle: std::thread::JoinHandle<T>,
+    label: &str,
+) -> Result<T, String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while !handle.is_finished() {
+        if std::time::Instant::now() >= deadline {
+            drop(handle);
+            return Err(format!("{label} did not close; cleanup is unverified."));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    handle.join().map_err(|_| format!("{label} reader panicked."))
+}
 fn finish_diagnostics(
     handle: std::thread::JoinHandle<io::Result<String>>,
 ) -> Result<String, String> {
@@ -397,6 +487,19 @@ fn finish_diagnostics(
         .join()
         .map_err(|_| "Could not collect decoder diagnostics.".to_owned())?
         .map_err(|e| format!("Could not read decoder diagnostics: {e}"))
+}
+fn finish_live_diagnostics(
+    result: io::Result<()>,
+    control: &JobControl,
+    label: &str,
+) -> Result<(), String> {
+    match result {
+        Ok(()) => Ok(()),
+        Err(error)
+            if control.stop_requested.load(Ordering::Acquire)
+                && error.to_string() == "encoding stopped" => control.checkpoint(),
+        Err(error) => Err(format!("Could not drain {label} diagnostics: {error}")),
+    }
 }
 fn with_diagnostics(message: String, details: &str) -> String {
     if details.is_empty() {
@@ -447,13 +550,52 @@ fn estimated_frames(ffmpeg: &Path, input: &Path) -> Option<u32> {
         .stderr(Stdio::piped())
         .spawn()
         .ok()?;
-    let mut buf = Vec::new();
-    if let Some(stderr) = child.stderr.take() {
-        let _ = stderr.take(65536).read_to_end(&mut buf);
-    }
+    let stderr = child.stderr.take()?;
+    let buf = read_bounded_and_drain(stderr, 65536).ok()?;
     let _ = child.wait();
     let seconds = parse_duration(&String::from_utf8_lossy(&buf))?;
     Some((seconds * 24.0).ceil() as u32)
+}
+
+fn read_bounded_and_drain(mut input: impl Read, limit: usize) -> io::Result<Vec<u8>> {
+    let mut saved = Vec::with_capacity(limit.min(8192));
+    let mut buffer = [0u8; 4096];
+    loop {
+        let count = input.read(&mut buffer)?;
+        if count == 0 {
+            return Ok(saved);
+        }
+        let take = count.min(limit.saturating_sub(saved.len()));
+        saved.extend_from_slice(&buffer[..take]);
+        // Continue reading after the retained excerpt is full to avoid closing
+        // the pipe early and blocking the child on stderr.
+    }
+}
+
+fn estimated_frames_native(ffmpeg: &Path, input: &Path, control: &JobControl) -> Result<Option<u32>, String> {
+    control.checkpoint()?;
+    let mut command = Command::new(ffmpeg);
+    command.args(["-nostdin", "-hide_banner", "-i"]).arg(input);
+    let child = child_supervisor::spawn_source(&mut command)
+        .map_err(|e| format!("Could not start supervised duration probe: {e}"))?;
+    if let Err(error) = control.install_source_stop(child.stop.clone()) {
+        let _ = child.stop.send(());
+        return match child.finished.join() {
+            Ok(Ok(_)) => Err(error),
+            _ => Err(format!("{error}; duration probe cleanup is unverified")),
+        };
+    }
+    let log = capture_diagnostics_with_limit(child.stderr, 65536);
+    let status = match child.finished.join() {
+        Ok(Ok(status)) => status,
+        Ok(Err(error)) => return Err(format!("Duration probe cleanup is unverified: {error}")),
+        Err(_) => return Err("Duration probe supervisor panicked; cleanup is unverified.".into()),
+    };
+    let details = join_with_timeout(log, "Duration probe diagnostic pipe")?
+        .map_err(|e| format!("Could not read duration probe diagnostics: {e}"))?;
+    let _ = status; // FFmpeg's metadata-only invocation normally exits nonzero.
+    control.checkpoint()?;
+    Ok(parse_duration(&details).map(|seconds| (seconds * 24.0).ceil() as u32))
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -532,6 +674,14 @@ fn encode_pair(
     dependencies: &Dependencies,
     progress: impl FnMut(Progress),
 ) -> Result<ResultInfo, String> {
+    let control = JobControl::default();
+    // This convenience wrapper has no UI decision channel; preserve its old
+    // auto-continue behaviour for direct native callers. The Tauri command
+    // installs its job-scoped live gate before entering encode_pair_impl.
+    if c_tools.is_none() {
+        let (events, _pending) = mpsc::channel();
+        control.install_source_gate(Arc::new(SourceGate::new(true, events)))?;
+    }
     encode_pair_impl(
         ffmpeg,
         input,
@@ -542,7 +692,7 @@ fn encode_pair(
         false,
         advanced,
         dependencies,
-        &JobControl::default(),
+        &control,
         |_| Ok(()),
         progress,
     )
@@ -592,7 +742,11 @@ fn encode_pair_impl(
         total_frames_estimate: None,
         remaining_seconds: None,
     });
-    let total = estimated_frames(ffmpeg, input);
+    let total = if control.is_live_native() {
+        estimated_frames_native(ffmpeg, input, control)?
+    } else {
+        estimated_frames(ffmpeg, input)
+    };
     progress(Progress {
         phase: "video",
         frames: 0,
@@ -769,6 +923,18 @@ fn encode_pair_impl(
                 }
             }
         } else {
+                // Native integration point (draft contract): replace this
+                // decoder's direct spawn with child_supervisor::spawn_source,
+                // drain its stderr through SourceGate::report, and pass the
+                // gate-wrapped Y4M reader to
+                // staged_native_orchestrator::encode_y4m_video_with_gate.
+                // Stop must set the shared AtomicBool, call gate.stop(), and
+                // signal the supervisor before waiting, so a blocked read is
+                // released. Join the diagnostic drainer, reap/check decoder
+                // status, then gate.checkpoint() before audio/publication.
+                // The Rust+C orchestrator must itself own and reap every C
+                // worker, mux/check helper, and cancellation failure; its
+                // current staged API does not yet enforce process-tree safety.
             let tvc_encoder = selected_file(&dependencies.tvc_encoder, "TVC encoder")?
                 .ok_or("The Rust C workflow requires tvc_enc; set it in Dependency settings or bundle it with the app.")?;
             let tnv3_tool = selected_file(&dependencies.tnv3_tool, "TNV3 tool")?
@@ -777,7 +943,8 @@ fn encode_pair_impl(
                 "scale={width}:{height}:force_original_aspect_ratio=decrease:force_divisible_by=2,{}",
                 advanced.fps_filter()
             );
-            let mut decoder = Command::new(ffmpeg)
+            let mut decoder_command = Command::new(ffmpeg);
+            decoder_command
                 .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
                 .arg(input)
                 .args([
@@ -794,18 +961,20 @@ fn encode_pair_impl(
                     "pipe:1",
                 ])
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
-            let stderr = decoder
-                .stderr
-                .take()
-                .ok_or("Could not capture source diagnostics.")?;
-            let log = capture_diagnostics(stderr);
-            let stdout = decoder
-                .stdout
-                .take()
-                .ok_or("Could not read FFmpeg video output.")?;
+                .stderr(Stdio::piped());
+            let gate = control.source_gate()?;
+            let decoder = child_supervisor::spawn_source(&mut decoder_command)
+                .map_err(|e| format!("Could not start supervised FFmpeg: {e}"))?;
+            if let Err(error) = control.install_source_stop(decoder.stop.clone()) {
+                let _ = decoder.stop.send(());
+                return match decoder.finished.join() {
+                    Ok(Ok(_)) => Err(error),
+                    Ok(Err(cleanup)) => Err(format!("{error}; decoder cleanup is unverified: {cleanup}")),
+                    Err(_) => Err(format!("{error}; decoder supervisor panicked, cleanup is unverified")),
+                };
+            }
+            let log = tau_video::source_gate::drain_diagnostics(decoder.stderr, gate.clone());
+            let stdout = decoder.stdout;
             // Two maximum-size Y4M segments, plus the orchestrator's reserved TVC outputs,
             // fit the default 512 MiB budget while leaving room for the merged stream.
             let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().clamp(1, 2));
@@ -815,7 +984,7 @@ fn encode_pair_impl(
                 dependencies.workspace_limit_bytes
             };
             let video_started = std::time::Instant::now();
-            let encoded = tau_video::experimental_c_orchestrator::encode_y4m_video_with_progress(
+            let encoded = tau_video::experimental_c_orchestrator::encode_y4m_video_with_gate(
                 &tau_video::experimental_c_orchestrator::Tools {
                     tvc_encoder,
                     tnv3: tnv3_tool,
@@ -831,6 +1000,8 @@ fn encode_pair_impl(
                     workspace_limit_bytes,
                     ..Default::default()
                 },
+                Some(&control.stop_requested),
+                gate.clone(),
                 |frames| {
                     let frames = u32::try_from(frames).unwrap_or(u32::MAX);
                     let seconds = video_started.elapsed().as_secs_f64();
@@ -848,14 +1019,52 @@ fn encode_pair_impl(
                 },
             );
             if encoded.is_err() {
-                let _ = decoder.kill();
+                let _ = decoder.stop.send(());
             }
-            let status = decoder
-                .wait()
-                .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
-            let details = finish_diagnostics(log)?;
-            let report = encoded
-                .map_err(|e| with_diagnostics(format!("Video encoding failed: {e}"), &details))?;
+            let status = match decoder.finished.join() {
+                Ok(Ok(status)) => status,
+                Ok(Err(error)) => return Err(format!("Could not reap supervised FFmpeg; cleanup is unverified: {error}")),
+                Err(_) => return Err("Source supervisor panicked; decoder cleanup is unverified.".into()),
+            };
+            let log_result = match join_with_timeout(log, "Source diagnostic pipe") {
+                Ok(result) => result,
+                Err(error) => {
+                    let _ = gate.stop();
+                    let _ = control.request_stop();
+                    return Err(match &encoded {
+                        Err(encode_error) => format!("{error}; video encode also failed: {encode_error}"),
+                        Ok(_) => error,
+                    });
+                }
+            };
+            if let Err(drain_error) = finish_live_diagnostics(log_result, control, "source") {
+                if let Err(encode_error) = &encoded {
+                    if control.stop_requested.load(Ordering::Acquire) {
+                        return Err(format!("Encoding stopped before output files were created: {encode_error}; diagnostic cleanup also failed: {drain_error}"));
+                    }
+                }
+                return Err(drain_error);
+            }
+            let (details, diagnostics_truncated) = gate.take_diagnostics()
+                .map_err(|e| format!("Could not collect source diagnostics: {e}"))?;
+            let details = if diagnostics_truncated {
+                format!("{details}\n[Further diagnostics omitted.]")
+            } else {
+                details
+            };
+            let report = match encoded {
+                Ok(report) => report,
+                Err(error) => {
+                    if control.stop_requested.load(Ordering::Acquire) {
+                        return Err(with_diagnostics(format!("Encoding stopped before output files were created: {error}"), &details));
+                    }
+                    let _ = gate.stop();
+                    let _ = control.request_stop();
+                    return Err(with_diagnostics(format!("Video encoding failed: {error}"), &details));
+                }
+            };
+            control.checkpoint()?;
+            gate.checkpoint().map_err(|e| format!("Source decision failed: {e}"))?;
             if !status.success() {
                 return Err(with_diagnostics(
                     process_failed(status, "Video conversion"),
@@ -894,7 +1103,8 @@ fn encode_pair_impl(
     let (audio_tmp, audio_file) = temporary_file("mp3")?;
     drop(audio_file);
     let duration = format!("{:.9}", f64::from(stats.frames) / 24.0);
-    let mut child = Command::new(ffmpeg)
+    let mut audio_command = Command::new(ffmpeg);
+    audio_command
         .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
         .arg(input)
         .args([
@@ -920,18 +1130,70 @@ fn encode_pair_impl(
         ])
         .arg(&audio_tmp.0)
         .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or("Could not capture audio diagnostics.")?;
-    let log = capture_diagnostics(stderr);
-    let status = child
-        .wait()
-        .map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
-    let details = finish_diagnostics(log)?;
+        .stderr(Stdio::piped());
+    let (status, details) = if control.is_live_native() {
+        let gate = control.source_gate()?;
+        let child = child_supervisor::spawn_source(&mut audio_command)
+            .map_err(|e| format!("Could not start supervised audio FFmpeg: {e}"))?;
+        if let Err(error) = control.install_source_stop(child.stop.clone()) {
+            let _ = child.stop.send(());
+            return match child.finished.join() {
+                Ok(Ok(_)) => Err(error),
+                Ok(Err(cleanup)) => {
+                    let audio_path = audio_tmp.0.clone();
+                    std::mem::forget(audio_tmp);
+                    Err(format!("{error}; audio child cleanup is unverified ({cleanup}); temporary output retained at {}", audio_path.display()))
+                }
+                Err(_) => {
+                    let audio_path = audio_tmp.0.clone();
+                    std::mem::forget(audio_tmp);
+                    Err(format!("{error}; audio supervisor panicked, cleanup is unverified; temporary output retained at {}", audio_path.display()))
+                }
+            };
+        }
+        let log = tau_video::source_gate::drain_diagnostics(child.stderr, gate.clone());
+        let status = match child.finished.join() {
+            Ok(Ok(status)) => status,
+            Ok(Err(error)) => {
+                let audio_path = audio_tmp.0.clone();
+                std::mem::forget(audio_tmp);
+                return Err(format!("Could not reap audio FFmpeg; cleanup is unverified: {error}; temporary output retained at {}", audio_path.display()));
+            }
+            Err(_) => {
+                let audio_path = audio_tmp.0.clone();
+                std::mem::forget(audio_tmp);
+                return Err(format!("Audio source supervisor panicked; cleanup is unverified; temporary output retained at {}", audio_path.display()));
+            }
+        };
+        let log_result = match join_with_timeout(log, "Audio diagnostic pipe") {
+            Ok(result) => result,
+            Err(error) => {
+                let audio_path = audio_tmp.0.clone();
+                std::mem::forget(audio_tmp);
+                let _ = gate.stop();
+                let _ = control.request_stop();
+                return Err(format!("{error}; audio temporary output retained at {}", audio_path.display()));
+            }
+        };
+        finish_live_diagnostics(log_result, control, "audio")?;
+        control.checkpoint()?;
+        gate.checkpoint().map_err(|e| format!("Source decision failed: {e}"))?;
+        let (details, diagnostics_truncated) = gate.take_diagnostics()
+            .map_err(|e| format!("Could not collect audio diagnostics: {e}"))?;
+        let details = if diagnostics_truncated {
+            format!("{details}\n[Further diagnostics omitted.]")
+        } else {
+            details
+        };
+        (status, details)
+    } else {
+        let mut child = audio_command.spawn()
+            .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
+        let stderr = child.stderr.take().ok_or("Could not capture audio diagnostics.")?;
+        let log = capture_diagnostics(stderr);
+        let status = child.wait().map_err(|e| format!("Could not wait for FFmpeg: {e}"))?;
+        (status, finish_diagnostics(log)?)
+    };
     if !status.success() {
         return Err(with_diagnostics(
             process_failed(status, "MP3 encoding"),
@@ -1256,7 +1518,12 @@ fn stop_source_check(state: tauri::State<'_, SourceCheckState>) -> Result<(), St
         Err("The source check is still starting or has already finished.".into())
     }
 }
-fn request_source_decision(app: &tauri::AppHandle, details: &str) -> Result<(), String> {
+fn request_source_decision(
+    app: &tauri::AppHandle,
+    job_id: &str,
+    details: &str,
+    control: &JobControl,
+) -> Result<(), String> {
     let state = app.state::<SourceDecisionState>();
     let (sender, receiver) = mpsc::sync_channel(1);
     {
@@ -1267,10 +1534,16 @@ fn request_source_decision(app: &tauri::AppHandle, details: &str) -> Result<(), 
         if pending.is_some() {
             return Err("A source decision is already pending.".into());
         }
-        *pending = Some(sender);
+        *pending = Some(PendingSourceDecision {
+            job_id: job_id.to_owned(),
+            reply: sender,
+        });
     }
     if app.get_webview_window("main").is_none()
-        || app.emit("source-error-decision", details).is_err()
+        || app.emit("source-error-decision", SourceErrorDecisionEvent {
+            job_id: job_id.to_owned(),
+            details: details.to_owned(),
+        }).is_err()
     {
         if let Ok(mut pending) = state.0.lock() {
             *pending = None;
@@ -1295,6 +1568,13 @@ fn request_source_decision(app: &tauri::AppHandle, details: &str) -> Result<(), 
                     "The encoder window closed; encoding stopped before output publication.".into(),
                 );
             }
+            Err(mpsc::RecvTimeoutError::Timeout) if control.checkpoint().is_err() => {
+                let _ = app.emit(
+                    "source-error-decision-cancelled",
+                    SourceDecisionCancelledEvent { job_id: job_id.to_owned() },
+                );
+                break Err("The encode stopped while waiting for a source decision.".into());
+            }
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
         }
     };
@@ -1306,26 +1586,52 @@ fn request_source_decision(app: &tauri::AppHandle, details: &str) -> Result<(), 
 
 #[tauri::command]
 fn respond_source_error(
+    job_id: String,
     proceed: bool,
     state: tauri::State<'_, SourceDecisionState>,
 ) -> Result<(), String> {
-    let sender = state
-        .0
-        .lock()
-        .map_err(|_| "Source decision state unavailable.")?
-        .take()
-        .ok_or("No source decision is pending.")?;
-    sender
-        .send(proceed)
+    resolve_source_decision(&state, &job_id, proceed)
+}
+fn resolve_source_decision(
+    state: &SourceDecisionState,
+    job_id: &str,
+    proceed: bool,
+) -> Result<(), String> {
+    let job_id = job_id.trim();
+    if job_id.is_empty() {
+        return Err("A source decision job ID is required.".into());
+    }
+    let mut pending = state.0.lock().map_err(|_| "Source decision state unavailable.")?;
+    let active = pending.as_ref().ok_or("No source decision is pending.")?;
+    if active.job_id != job_id {
+        return Err("This source decision belongs to a different encode.".into());
+    }
+    let active = pending.take().ok_or("No source decision is pending.")?;
+    active.reply.send(proceed)
         .map_err(|_| "The source decision has already ended.".into())
 }
+fn cancel_pending_source_decision(state: &SourceDecisionState) -> Result<(), String> {
+    if let Some(pending) = state.0.lock()
+        .map_err(|_| "Source decision state unavailable.")?.take() {
+        let _ = pending.reply.send(false);
+    }
+    Ok(())
+}
 #[tauri::command]
-fn stop_encode(state: tauri::State<'_, ActiveEncode>) -> Result<(), String> {
+fn stop_encode(
+    state: tauri::State<'_, ActiveEncode>,
+    decisions: tauri::State<'_, SourceDecisionState>,
+) -> Result<(), String> {
     let active = state.0.lock().map_err(|_| "Encoder control unavailable.")?;
     active
         .as_ref()
         .ok_or("The encode has not started or has already finished.")?
-        .request_stop()
+        .request_stop()?;
+    // Resolve an open UI prompt as Stop too. A source-gated native worker must
+    // additionally stop its gate and signal its decoder supervisor so a
+    // blocked pipe read is released; see native branch notes below.
+    cancel_pending_source_decision(&decisions)?;
+    Ok(())
 }
 #[derive(Serialize)]
 struct OutputPreview {
@@ -1420,6 +1726,7 @@ fn workspace_bytes(mib: u32) -> Result<u64, String> {
 #[allow(clippy::too_many_arguments)] // Parameters are named Tauri command arguments.
 async fn encode(
     app: tauri::AppHandle,
+    job_id: String,
     input: String,
     folder: String,
     name: String,
@@ -1433,6 +1740,9 @@ async fn encode(
     busy: tauri::State<'_, Mutex<bool>>,
     active: tauri::State<'_, ActiveEncode>,
 ) -> Result<ResultInfo, String> {
+    if job_id.trim().is_empty() {
+        return Err("An encode job ID is required.".into());
+    }
     let chosen_ffmpeg = selected_file(&dependencies.ffmpeg, "FFmpeg")?;
     let pure_rust = workflow.is_none() && mode.as_deref() == Some("rust");
     if let Some(value) = workflow.as_deref() {
@@ -1491,6 +1801,7 @@ async fn encode(
     } else {
         None
     };
+    let native_event_loop_done = Arc::new(AtomicBool::new(false));
     if workflow == "native" {
         if let Ok(dir) = app.path().resource_dir() {
             let tvc = dir.join("codec-tools/tvc_ref").join(if cfg!(windows) {
@@ -1511,11 +1822,72 @@ async fn encode(
             }
         }
     }
+    let native_event_dispatcher = if workflow == "native" {
+        let (events, pending_events) = mpsc::channel();
+        let gate = Arc::new(SourceGate::new(
+            continue_source_errors.unwrap_or(false),
+            events,
+        ));
+        control.install_source_gate(gate.clone())?;
+        let decision_app = app.clone();
+        let decision_job_id = job_id.clone();
+        let decision_control = control.clone();
+        let event_loop_done = native_event_loop_done.clone();
+        Some(std::thread::spawn(move || {
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                loop {
+                    match pending_events.recv_timeout(std::time::Duration::from_millis(100)) {
+                        Ok(details) => {
+                            // Pipe reads can split even the first diagnostic line.
+                            // Let the independent drainer collect a short excerpt
+                            // before presenting the first warning.
+                            std::thread::sleep(std::time::Duration::from_millis(50));
+                            if decision_control.checkpoint().is_err() {
+                                break;
+                            }
+                            let details = gate.diagnostics()
+                                .ok()
+                                .map(|(text, _)| text)
+                                .filter(|text| !text.is_empty())
+                                .unwrap_or(details);
+                            let response = request_source_decision(
+                                &decision_app,
+                                &decision_job_id,
+                                &details,
+                                &decision_control,
+                            );
+                            if gate.decide(response.is_ok()).is_err() || response.is_err() {
+                                let _ = decision_control.request_stop();
+                                break;
+                            }
+                        }
+                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                        Err(mpsc::RecvTimeoutError::Timeout)
+                            if event_loop_done.load(Ordering::Acquire) => break,
+                        Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                    }
+                }
+            }));
+            if outcome.is_err() {
+                let _ = decision_app.emit(
+                    "source-error-decision-cancelled",
+                    SourceDecisionCancelledEvent { job_id: decision_job_id.clone() },
+                );
+                let _ = gate.stop();
+                let _ = decision_control.request_stop();
+            }
+        }))
+    } else {
+        None
+    };
     let result = tauri::async_runtime::spawn_blocking(move || {
         let reporter = app.clone();
         let decision_app = app.clone();
-        let mut accepted = continue_source_errors.unwrap_or(false);
-        encode_pair_impl(
+        let decision_job_id = job_id.clone();
+        let callback_control = control.clone();
+        let live_native = control.is_live_native();
+        let mut accepted = continue_source_errors.unwrap_or(false) || live_native;
+        let encoded = encode_pair_impl(
             &ffmpeg,
             Path::new(&input),
             Path::new(&folder),
@@ -1531,8 +1903,14 @@ async fn encode(
             &dependencies,
             &control,
             move |details| {
+                if live_native {
+                    // Native diagnostics were gated at the point they arrived.
+                    // This callback remains the legacy post-stage policy for
+                    // Python and does not issue a duplicate native prompt.
+                    return Ok(());
+                }
                 if !accepted {
-                    request_source_decision(&decision_app, details)?;
+                    request_source_decision(&decision_app, &decision_job_id, details, &callback_control)?;
                     accepted = true;
                 }
                 Ok(())
@@ -1540,13 +1918,23 @@ async fn encode(
             move |event| {
                 let _ = reporter.emit("encode-progress", event);
             },
-        )
+        );
+        if encoded.is_err() {
+            let _ = control.request_stop();
+        }
+        encoded
     })
     .await;
+    native_event_loop_done.store(true, Ordering::Release);
+    let dispatcher_panicked = native_event_dispatcher
+        .is_some_and(|dispatcher| dispatcher.join().is_err());
     if let Ok(mut job) = active.0.lock() {
         *job = None;
     }
     *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
+    if dispatcher_panicked {
+        return Err("Native source decision dispatcher panicked.".into());
+    }
     result.map_err(|e| format!("Encoder task stopped: {e}"))?
 }
 #[tauri::command]
@@ -1616,6 +2004,248 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stop_signals_source_even_if_gate_state_is_poisoned() {
+        let control = Arc::new(JobControl::default());
+        let broken = control.clone();
+        let _ = std::thread::spawn(move || {
+            let _locked = broken.source_gate.lock().unwrap();
+            panic!("poison gate state");
+        }).join();
+        let (send, receive) = mpsc::channel();
+        control.install_source_stop(send).unwrap();
+        assert!(control.request_stop().is_err());
+        assert!(receive.recv_timeout(std::time::Duration::from_secs(1)).is_ok());
+    }
+
+    #[test]
+    fn source_decision_rejects_stale_job_id_and_keeps_pending_reply() {
+        let (reply, receiver) = mpsc::sync_channel(1);
+        let state = SourceDecisionState(Mutex::new(Some(PendingSourceDecision {
+            job_id: "current-job".into(),
+            reply,
+        })));
+        assert!(resolve_source_decision(&state, "old-job", true).is_err());
+        assert!(receiver.try_recv().is_err());
+        resolve_source_decision(&state, "current-job", true).unwrap();
+        assert!(receiver.recv().unwrap());
+    }
+
+    #[test]
+    fn stop_encode_resolves_waiting_prompt_as_decline() {
+        let (reply, receiver) = mpsc::sync_channel(1);
+        let state = SourceDecisionState(Mutex::new(Some(PendingSourceDecision {
+            job_id: "active-job".into(),
+            reply,
+        })));
+        cancel_pending_source_decision(&state).unwrap();
+        assert!(!receiver.recv().unwrap());
+        assert!(state.0.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn source_event_uses_frontend_job_id_wire_shape() {
+        let value = serde_json::to_value(SourceErrorDecisionEvent {
+            job_id: "job-123".into(),
+            details: "decoder warning".into(),
+        }).unwrap();
+        assert_eq!(value["job_id"], "job-123");
+        assert_eq!(value["details"], "decoder warning");
+        assert!(value.get("jobId").is_none());
+        let cancelled = serde_json::to_value(SourceDecisionCancelledEvent {
+            job_id: "job-123".into(),
+        }).unwrap();
+        assert_eq!(cancelled["job_id"], "job-123");
+    }
+
+    #[test]
+    fn native_source_decline_fails_gate_and_retains_error_excerpt() {
+        let (events, pending) = mpsc::channel();
+        let gate = SourceGate::new(false, events);
+        gate.report(b"[matroska] invalid as first byte").unwrap();
+        assert!(pending.recv().unwrap().contains("invalid as first byte"));
+        gate.decide(false).unwrap();
+        assert!(gate.checkpoint().is_err());
+        let (details, _) = gate.diagnostics().unwrap();
+        assert!(details.contains("invalid as first byte"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_app_gate_stop_publishes_nothing_and_continue_carries_across_video_audio() {
+        use std::{io::Write, os::unix::fs::PermissionsExt};
+        let (Some(real_ffmpeg), Some(tvc), Some(tnv3)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        ) else {
+            return;
+        };
+
+        let (source, file) = temporary_file("mp4").unwrap();
+        drop(file);
+        assert!(Command::new(&real_ffmpeg)
+            .args([
+                "-y", "-v", "error", "-f", "lavfi", "-i",
+                "testsrc2=size=64x48:rate=24:duration=0.5", "-f", "lavfi", "-i",
+                "sine=frequency=440:sample_rate=48000:duration=0.5", "-c:v", "mpeg4",
+                "-q:v", "4", "-c:a", "aac",
+            ])
+            .arg(&source.0)
+            .status()
+            .unwrap()
+            .success());
+
+        let (wrapper, mut script_file) = temporary_file("sh").unwrap();
+        let escaped_ffmpeg = PathBuf::from(&real_ffmpeg)
+            .display()
+            .to_string()
+            .replace('\'', "'\\''");
+        writeln!(
+            script_file,
+            "#!/bin/sh\nprintf '[matroska,webm @ 0] controlled source warning\\n' >&2\nexec '{escaped_ffmpeg}' \"$@\""
+        )
+        .unwrap();
+        drop(script_file);
+        std::fs::set_permissions(&wrapper.0, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(&tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(&tnv3).display().to_string(),
+            workspace_limit_bytes: 512 * 1024 * 1024,
+            ..Default::default()
+        };
+        let run_with_decision = |name: &str, proceed: bool| {
+            let (events, pending) = mpsc::channel();
+            let gate = Arc::new(SourceGate::new(false, events));
+            let control = Arc::new(JobControl::default());
+            control.install_source_gate(gate.clone()).unwrap();
+            let dispatch_gate = gate.clone();
+            let dispatch_control = control.clone();
+            let dispatcher = std::thread::spawn(move || {
+                let details = pending
+                    .recv_timeout(std::time::Duration::from_secs(30))
+                    .expect("controlled FFmpeg warning should request a decision");
+                dispatch_gate.decide(proceed).unwrap();
+                if !proceed {
+                    dispatch_control.request_stop().unwrap();
+                }
+                details
+            });
+            let (reserve, file) = temporary_file("tnv3").unwrap();
+            drop(file);
+            std::fs::remove_file(&reserve.0).unwrap();
+            let name = format!("{name}_{}", reserve.0.file_stem().unwrap().to_string_lossy());
+            let folder = reserve.0.parent().unwrap().to_path_buf();
+            let result = encode_pair_impl(
+                &wrapper.0,
+                &source.0,
+                &folder,
+                &name,
+                30,
+                None,
+                false,
+                AdvancedSettings::default(),
+                &dependencies,
+                &control,
+                |_| Ok(()),
+                |_| {},
+            );
+            let details = dispatcher.join().unwrap();
+            (result, folder.join(format!("{name}.tnv3")), folder.join(format!("{name}.mp3")), details)
+        };
+
+        let (declined, declined_video, declined_audio, decline_details) =
+            run_with_decision("declined", false);
+        assert!(decline_details.contains("controlled source warning"));
+        assert!(matches!(declined, Err(message) if message.contains("stopped")));
+        assert!(!declined_video.exists(), "Stop must not publish TNV3");
+        assert!(!declined_audio.exists(), "Stop must not publish MP3");
+
+        let (continued, video_path, audio_path, continue_details) =
+            run_with_decision("continued", true);
+        let continued = continued.expect("Continue should finish the native pair");
+        assert!(continue_details.contains("controlled source warning"));
+        assert!(continued.warnings.iter().any(|warning| warning.contains("Source decoding")));
+        assert!(continued.warnings.iter().any(|warning| warning.contains("Audio decoding")));
+        assert!(video_path.is_file() && audio_path.is_file());
+        assert!(tau_video::Tnv3Reader::open(File::open(&video_path).unwrap())
+            .unwrap()
+            .info()
+            .frame_count > 0);
+        assert!(std::fs::metadata(&audio_path).unwrap().len() > 1_000);
+        let _video = Temporary(video_path);
+        let _audio = Temporary(audio_path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_recovery_source_first_warning_decline_stops_without_pair_publication() {
+        let (Some(source), Some(real_ffmpeg), Some(tvc), Some(tnv3)) = (
+            std::env::var_os("TAU_TEST_RECOVERY_SOURCE"),
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+        ) else {
+            return;
+        };
+        let source = PathBuf::from(source);
+        if !source.is_file() {
+            return;
+        }
+        let expected_frames = estimated_frames(Path::new(&real_ffmpeg), &source);
+
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(&tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(&tnv3).display().to_string(),
+            workspace_limit_bytes: 512 * 1024 * 1024,
+            ..Default::default()
+        };
+        let (events, pending) = mpsc::channel();
+        let gate = Arc::new(SourceGate::new(false, events));
+        let control = Arc::new(JobControl::default());
+        control.install_source_gate(gate.clone()).unwrap();
+        let dispatch_gate = gate.clone();
+        let dispatch_control = control.clone();
+        let dispatcher = std::thread::spawn(move || {
+            let details = pending
+                .recv_timeout(std::time::Duration::from_secs(30))
+                .expect("native recovery decode should report the source warning");
+            dispatch_gate.decide(false).unwrap();
+            dispatch_control.request_stop().unwrap();
+            details
+        });
+
+        let (reserve, file) = temporary_file("tnv3").unwrap();
+        drop(file);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_string_lossy().into_owned();
+        let folder = reserve.0.parent().unwrap().to_path_buf();
+        let mut max_frames = 0u32;
+        let result = encode_pair_impl(
+            Path::new(&real_ffmpeg),
+            &source,
+            &folder,
+            &name,
+            30,
+            None,
+            false,
+            AdvancedSettings::default(),
+            &dependencies,
+            &control,
+            |_| Ok(()),
+            |event| max_frames = max_frames.max(event.frames),
+        );
+        let details = dispatcher.join().unwrap();
+        assert!(!details.trim().is_empty(), "source warning should not be empty");
+        assert!(matches!(result, Err(message) if message.contains("stopped")));
+        assert!(!reserve.0.exists(), "Stop must not publish TNV3");
+        assert!(!reserve.0.with_extension("mp3").exists(), "Stop must not publish MP3");
+        if let Some(expected_frames) = expected_frames {
+            assert!(max_frames < expected_frames, "declining the first event should stop before the source is fully encoded (observed {max_frames} of about {expected_frames} frames)");
+        }
+    }
     #[test]
     fn stop_and_publication_are_mutually_exclusive() {
         let stopped = JobControl::default();
@@ -1645,7 +2275,7 @@ mod tests {
     }
     #[cfg(unix)]
     #[test]
-    fn phase_warning_can_stop_before_output_publication() {
+    fn python_phase_warning_can_stop_before_output_publication() {
         use std::{io::Write, os::unix::fs::PermissionsExt};
         let (Some(ffmpeg), Some(ffprobe), Some(script), Some(tvc), Some(tnv3)) = (
             std::env::var_os("TAU_TEST_FFMPEG"),
@@ -1695,7 +2325,10 @@ mod tests {
             tnv3_tool: PathBuf::from(tnv3).display().to_string(),
             ..Default::default()
         };
-        for python in [false, true] {
+        // Rust+C uses the live gate and is covered by
+        // native_app_gate_stop_publishes_nothing_and_continue_carries_across_video_audio.
+        // Keep this test focused on the legacy Python callback behavior.
+        for python in [true] {
             let (reserve, file) = temporary_file("tnv3").unwrap();
             drop(file);
             std::fs::remove_file(&reserve.0).unwrap();

@@ -1,5 +1,17 @@
 # 009 — C encoder process-tree cancellation prototype
 
+## 2026-11-05 update: native Rust+C direct-child control
+
+**Host-tested on macOS; not confirmed on Pocket, Windows or Linux.** The
+desktop native Rust+C path now supervises its source process, direct C segment
+workers and mux/check helpers, drains diagnostics independently, and serializes
+Stop against publication. It retains the workspace when worker cleanup cannot
+be verified. The app shows the custom-tool restriction. This update does not
+supersede the rejected process-group approach below: arbitrary descendants,
+external reapers and supervisor crashes are not contained, and Python still
+stops at a phase boundary. Real FFmpeg/C tests and the source-error Stop test
+passed on the macOS host; custom wrappers and hardware playback remain gates.
+
 **Status:** isolated source prototype; integration rejected/deferred and not
 release-qualified. Host-tested on macOS arm64 only. The current process-group
 approach cannot guarantee descendant teardown or eliminate the PGID reuse race

@@ -62,3 +62,12 @@ immediate process-tree termination and does not resolve issue 009.
 workflows, confirmed that neither final file was published, and verified
 stop/publication ordering under concurrent requests. Native Windows/Linux
 runtime and Pocket remain untested.
+## 2026-11-05 update: native live source decisions
+
+**Host-tested on macOS.** Native Rust+C now requests a source decision during
+video or audio decoding, carries acceptance across the job, and honours the
+existing saved always-continue setting. Stop signals the supervised decoder
+and direct C helpers before publication. Python retains its preflight and
+phase-boundary decision behaviour described above. Tests exercised real
+FFmpeg/C tools and a stop on the previously reported source; Windows, Linux,
+Pocket playback and arbitrary custom process descendants remain unverified.

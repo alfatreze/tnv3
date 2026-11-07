@@ -1,0 +1,3 @@
+# 016 — CLI broken-output test raced the child
+
+2026-11-06. **Host:** the CLI JSON integration suite intermittently failed because the child could write its version report before the parent closed the stdout pipe. The observed exit 0 was valid for that ordering, so this was not evidence of a production broken-pipe failure. An initial attempted fixture closed stdout in a shell, but the Rust runtime reopened the missing descriptor and the test still failed. The corrected test creates a Unix socket pair, closes the reader before spawning and hands the closed-peer writer to the child. The integrated macOS CLI suite then passed. Windows is not covered by this Unix-only test. Next gate: keep the deterministic fixture and investigate any further failures on their own evidence.

@@ -4,13 +4,15 @@
 //! repairs cross-segment rate windows with `-P`, merges TVC1 chunks, then muxes and checks a
 //! video-only TNV3. It does not replace the Python workflow or invoke FFmpeg itself.
 use crate::y4m::Y4mFrameGroups;
+use crate::source_gate::{GatedReader, SourceGate};
 use std::{
     collections::VecDeque,
     fs::{self, File, OpenOptions},
     io::{self, BufRead, BufWriter, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
-    process::Command,
-    sync::atomic::{AtomicU64, Ordering},
+    process::{Command, Stdio},
+    ops::{Deref, DerefMut},
+    sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Arc},
     thread::{self, JoinHandle},
 };
 
@@ -111,6 +113,12 @@ struct TempDir {
     path: PathBuf,
     armed: bool,
 }
+struct MonitorFinish<'a>(&'a AtomicBool);
+impl Drop for MonitorFinish<'_> {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Release);
+    }
+}
 impl TempDir {
     fn new() -> io::Result<Self> {
         for _ in 0..100 {
@@ -130,10 +138,16 @@ impl TempDir {
             "could not reserve orchestration workspace",
         ))
     }
-    fn cleanup(mut self) -> io::Result<()> {
-        fs::remove_dir_all(&self.path)?;
+    fn cleanup(mut self) -> Result<(), (PathBuf, io::Error)> {
         self.armed = false;
+        if let Err(error) = fs::remove_dir_all(&self.path) {
+            return Err((self.path.clone(), error));
+        }
         Ok(())
+    }
+    fn preserve(mut self) -> PathBuf {
+        self.armed = false;
+        self.path.clone()
     }
 }
 impl Drop for TempDir {
@@ -182,22 +196,127 @@ pub fn encode_y4m_video_with_progress<R: BufRead, W: Write>(
     input: R,
     output: &mut W,
     options: Options,
+    progress: impl FnMut(u64),
+) -> Result<Report, String> {
+    encode_y4m_video_with_progress_and_quiet_children(
+        tools, input, output, options, false, progress,
+    )
+}
+
+/// As `encode_y4m_video_with_progress`, optionally suppressing child stdout for
+/// callers that reserve stdout for a machine-readable protocol.
+pub fn encode_y4m_video_with_progress_and_quiet_children<R: BufRead, W: Write>(
+    tools: &Tools,
+    input: R,
+    output: &mut W,
+    options: Options,
+    quiet_child_stdout: bool,
+    progress: impl FnMut(u64),
+) -> Result<Report, String> {
+    encode_y4m_video_with_control_and_quiet_children(
+        tools, input, output, options, None, quiet_child_stdout, progress,
+    )
+}
+
+/// Experimental cooperative cancellation. On Stop, termination of a running
+/// direct C/mux child is attempted and reaping is polled for a bounded time.
+/// Unverified cleanup retains the workspace; eventual reaping is not guaranteed.
+/// Segment workers are joined, so unrelated blocked I/O can still delay return.
+/// A blocked input read requires its source owner to stop/reap the producer.
+/// Descendants are not contained; tools must be trusted leaf executables.
+/// Callers must keep `output` staged and serialize cancellation with publication.
+pub fn encode_y4m_video_with_control<R: BufRead, W: Write>(
+    tools: &Tools,
+    input: R,
+    output: &mut W,
+    options: Options,
+    stop: Option<&AtomicBool>,
+    progress: impl FnMut(u64),
+) -> Result<Report, String> {
+    encode_y4m_video_with_control_and_quiet_children(
+        tools, input, output, options, stop, false, progress,
+    )
+}
+
+/// Combine cooperative stop with optional child-stdout suppression.
+/// The caller must supervise the producer and keep output staged until its
+/// exit status and cancellation state are verified.
+pub fn encode_y4m_video_with_control_and_quiet_children<R: BufRead, W: Write>(
+    tools: &Tools,
+    input: R,
+    output: &mut W,
+    options: Options,
+    stop: Option<&AtomicBool>,
+    quiet_child_stdout: bool,
     mut progress: impl FnMut(u64),
 ) -> Result<Report, String> {
     validate_options(options)?;
+    check_stop(stop)?;
     let temp = TempDir::new()
         .map_err(|error| format!("could not create private work directory: {error}"))?;
-    let result = encode_in_workspace(tools, input, output, options, &temp.path, &mut progress);
+    let cleanup_verified = Arc::new(AtomicBool::new(true));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        encode_in_workspace(
+            tools, input, output, options, &temp.path, stop, quiet_child_stdout, &mut progress, &cleanup_verified,
+        )
+    }))
+    .unwrap_or_else(|panic| Err(format!("orchestrator panicked: {}", panic_message(panic))));
+    if !cleanup_verified.load(Ordering::Acquire) {
+        let path = temp.preserve();
+        return Err(match result {
+            Ok(_) => format!("encode completed but child cleanup is unverified; work directory retained at {}", path.display()),
+            Err(error) => format!("{error}; child cleanup is unverified, work directory retained at {}", path.display()),
+        });
+    }
     let cleanup = temp.cleanup();
     match (result, cleanup) {
         (Ok(report), Ok(())) => Ok(report),
         (Err(error), Ok(())) => Err(error),
-        (Ok(_), Err(cleanup)) => Err(format!(
-            "encode succeeded but work directory cleanup failed: {cleanup}"
+        (Ok(_), Err((path, cleanup))) => Err(format!(
+            "encode succeeded but work directory cleanup failed: {cleanup}; remaining path: {}", path.display()
         )),
-        (Err(error), Err(cleanup)) => Err(format!(
-            "{error}; work directory cleanup also failed: {cleanup}"
+        (Err(error), Err((path, cleanup))) => Err(format!(
+            "{error}; work directory cleanup failed: {cleanup}; remaining path: {}", path.display()
         )),
+    }
+}
+
+/// Experimental live-decision entry point. The caller must run a separate
+/// diagnostic drainer and supervise the source decoder process.
+pub fn encode_y4m_video_with_gate<R: BufRead, W: Write>(
+    tools: &Tools,
+    input: R,
+    output: &mut W,
+    options: Options,
+    stop: Option<&AtomicBool>,
+    gate: Arc<SourceGate>,
+    progress: impl FnMut(u64),
+) -> Result<Report, String> {
+    encode_y4m_video_with_control(
+        tools, GatedReader { inner: input, gate }, output, options, stop, progress,
+    )
+}
+
+fn check_stop(stop: Option<&AtomicBool>) -> Result<(), String> {
+    if stop.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        Err("encoding stopped before output publication".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn call_progress(progress: &mut impl FnMut(u64), frames: u64) -> Result<(), String> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| progress(frames)))
+        .map_err(|_| "progress callback panicked; workers were cancelled and joined".to_string())
+}
+
+fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = panic.downcast_ref::<String>() {
+        message.clone()
+    } else if let Some(message) = panic.downcast_ref::<&'static str>() {
+        (*message).to_string()
+    } else {
+        "non-string panic payload".into()
     }
 }
 
@@ -239,6 +358,36 @@ struct PendingSegment {
     worker: JoinHandle<Result<(), String>>,
 }
 
+struct PendingWorkers {
+    items: VecDeque<PendingSegment>,
+    cancel: Arc<AtomicBool>,
+    cleanup_verified: Arc<AtomicBool>,
+}
+impl PendingWorkers {
+    fn new(cancel: Arc<AtomicBool>, cleanup_verified: Arc<AtomicBool>) -> Self {
+        Self { items: VecDeque::new(), cancel, cleanup_verified }
+    }
+}
+impl Deref for PendingWorkers {
+    type Target = VecDeque<PendingSegment>;
+    fn deref(&self) -> &Self::Target { &self.items }
+}
+impl DerefMut for PendingWorkers {
+    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.items }
+}
+impl Drop for PendingWorkers {
+    fn drop(&mut self) {
+        if !self.items.is_empty() {
+            self.cancel.store(true, Ordering::Release);
+        }
+        while let Some(segment) = self.items.pop_front() {
+            if segment.worker.join().is_err() {
+                self.cleanup_verified.store(false, Ordering::Release);
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 struct MergeState {
     file: Option<File>,
@@ -256,6 +405,7 @@ struct PipelineConfig {
     level: u8,
     window: usize,
     limit: u64,
+    quiet_child_stdout: bool,
 }
 
 fn encode_in_workspace<R: BufRead, W: Write>(
@@ -264,8 +414,48 @@ fn encode_in_workspace<R: BufRead, W: Write>(
     output: &mut W,
     options: Options,
     work: &Path,
+    stop: Option<&AtomicBool>,
+    quiet_child_stdout: bool,
     progress: &mut impl FnMut(u64),
+    cleanup_verified: &Arc<AtomicBool>,
 ) -> Result<Report, String> {
+    let worker_stop = Arc::new(AtomicBool::new(false));
+    let monitor_finished = AtomicBool::new(false);
+    thread::scope(|scope| {
+        let _finish = MonitorFinish(&monitor_finished);
+        if let Some(caller_stop) = stop {
+            let stop_token = Arc::clone(&worker_stop);
+            let finished = &monitor_finished;
+            scope.spawn(move || {
+                while !finished.load(Ordering::Acquire) {
+                    if caller_stop.load(Ordering::Acquire) {
+                        stop_token.store(true, Ordering::Release);
+                        break;
+                    }
+                    thread::sleep(std::time::Duration::from_millis(10));
+                }
+            });
+        }
+        let result = encode_in_workspace_inner(
+            tools, input, output, options, work, stop, quiet_child_stdout, progress, &worker_stop, cleanup_verified,
+        );
+        result
+    })
+}
+
+fn encode_in_workspace_inner<R: BufRead, W: Write>(
+    tools: &Tools,
+    input: R,
+    output: &mut W,
+    options: Options,
+    work: &Path,
+    stop: Option<&AtomicBool>,
+    quiet_child_stdout: bool,
+    progress: &mut impl FnMut(u64),
+    worker_stop: &Arc<AtomicBool>,
+    cleanup_verified: &Arc<AtomicBool>,
+) -> Result<Report, String> {
+    check_stop(stop)?;
     let mut groups = Y4mFrameGroups::new_c_compatible(input, options.frames_per_segment)
         .map_err(|error| format!("invalid Y4M stream: {error}"))?;
     let level = if options.level == 0 {
@@ -292,12 +482,16 @@ fn encode_in_workspace<R: BufRead, W: Write>(
         level,
         window,
         limit,
+        quiet_child_stdout,
     };
-    let mut workers = VecDeque::new();
+    // Workers own their C children. A failed split/merge path flips this shared
+    // token before joining, so every still-running encoder can be killed and reaped.
+    let mut workers = PendingWorkers::new(Arc::clone(worker_stop), Arc::clone(cleanup_verified));
     let mut merged = MergeState::default();
     let mut next_segment = 0u32;
     let split_result = (|| -> Result<(), String> {
         loop {
+            check_stop(stop)?;
             let y4m = work.join(format!("segment{next_segment:05}.y4m"));
             let file = OpenOptions::new()
                 .write(true)
@@ -320,6 +514,7 @@ fn encode_in_workspace<R: BufRead, W: Write>(
                 .flush()
                 .map_err(|error| format!("could not flush segment: {error}"))?;
             drop(writer);
+            check_stop(stop)?;
             validate_next_segment(merged.segments + workers.len(), MAX_SEGMENTS)?;
             if groups.total_frames() > crate::MAX_FRAMES as u64 {
                 return Err(format!(
@@ -333,16 +528,34 @@ fn encode_in_workspace<R: BufRead, W: Write>(
             let tvc = work.join(format!("segment{next_segment:05}.tvc"));
             let tvc_tool = tools.tvc_encoder.clone();
             let qp = options.qp;
+            let quiet_child_stdout = quiet_child_stdout;
             let worker_input = y4m.clone();
             let worker_output = tvc.clone();
+            let worker_stop_token = Arc::clone(worker_stop);
+            let worker_cleanup_verified = Arc::clone(cleanup_verified);
+            let worker = thread::Builder::new()
+                .name(format!("tvc-segment-{next_segment}"))
+                .spawn(move || {
+                    run_tvc(
+                        &tvc_tool,
+                        &worker_input,
+                        &worker_output,
+                        qp,
+                        level,
+                        None,
+                        &worker_stop_token,
+                        None,
+                        &worker_cleanup_verified,
+                        quiet_child_stdout,
+                    )
+                })
+                .map_err(|error| format!("could not start segment worker: {error}"))?;
             workers.push_back(PendingSegment {
                 index: next_segment,
                 frames,
                 y4m,
                 tvc,
-                worker: thread::spawn(move || {
-                    run_tvc(&tvc_tool, &worker_input, &worker_output, qp, level, None)
-                }),
+                worker,
             });
             check_workspace_capacity(
                 work,
@@ -355,19 +568,30 @@ fn encode_in_workspace<R: BufRead, W: Write>(
                 .checked_add(1)
                 .ok_or_else(|| "segment count overflow".to_string())?;
             if workers.len() >= options.jobs {
-                accept_next_segment(tools, work, &mut workers, &mut merged, config)?;
-                progress(merged.frames);
+                accept_next_segment(tools, work, &mut workers, &mut merged, config, stop, worker_stop.as_ref(), cleanup_verified)?;
+                call_progress(progress, merged.frames)?;
             }
         }
         while !workers.is_empty() {
-            accept_next_segment(tools, work, &mut workers, &mut merged, config)?;
-            progress(merged.frames);
+            check_stop(stop)?;
+            accept_next_segment(tools, work, &mut workers, &mut merged, config, stop, worker_stop.as_ref(), cleanup_verified)?;
+            call_progress(progress, merged.frames)?;
         }
         Ok(())
     })();
-    let worker_result = join_remaining(&mut workers);
-    split_result?;
-    worker_result?;
+    if split_result.is_err() {
+        worker_stop.store(true, Ordering::Release);
+    }
+    let worker_result = join_remaining(&mut workers, cleanup_verified);
+    match (split_result, worker_result) {
+        (Ok(()), Ok(())) => {}
+        (Err(split), Ok(())) => return Err(split),
+        (Ok(()), Err(workers)) => return Err(workers),
+        (Err(split), Err(workers)) => {
+            return Err(format!("{split}; outstanding worker result(s): {workers}"));
+        }
+    }
+    check_stop(stop)?;
     check_workspace_budget(work, options.workspace_limit_bytes)?;
     if merged.segments == 0 {
         return Err("Y4M stream contains no frames".into());
@@ -410,6 +634,7 @@ fn encode_in_workspace<R: BufRead, W: Write>(
         options.workspace_limit_bytes,
     )?;
     let output_path = work.join("output.tnv3");
+    check_stop(stop)?;
     run_status(
         &tools.tnv3,
         &[
@@ -420,17 +645,25 @@ fn encode_in_workspace<R: BufRead, W: Write>(
             output_path.to_str().ok_or("non-UTF8 work path")?,
         ],
         "tnv3 mux",
+        stop,
+        cleanup_verified,
+        quiet_child_stdout,
     )?;
     check_workspace_budget(work, options.workspace_limit_bytes)?;
+    check_stop(stop)?;
     run_status(
         &tools.tnv3,
         &["check", output_path.to_str().ok_or("non-UTF8 work path")?],
         "tnv3 check",
+        stop,
+        cleanup_verified,
+        quiet_child_stdout,
     )?;
     let metadata = fs::metadata(&output_path)
         .map_err(|error| format!("could not inspect checked TNV3: {error}"))?;
     let mut encoded = File::open(&output_path)
         .map_err(|error| format!("could not open checked TNV3: {error}"))?;
+    check_stop(stop)?;
     io::copy(&mut encoded, output)
         .map_err(|error| format!("could not copy checked TNV3 to output: {error}"))?;
     Ok(Report {
@@ -451,12 +684,19 @@ fn accept_next_segment(
     workers: &mut VecDeque<PendingSegment>,
     merged: &mut MergeState,
     config: PipelineConfig,
+    external_stop: Option<&AtomicBool>,
+    worker_stop: &AtomicBool,
+    cleanup_verified: &AtomicBool,
 ) -> Result<(), String> {
     let segment = workers.pop_front().ok_or("missing segment worker")?;
-    segment
-        .worker
-        .join()
-        .map_err(|_| format!("segment {} worker panicked", segment.index))??;
+    let joined = match join_worker_stop_aware(segment.worker, external_stop, worker_stop) {
+        Ok(joined) => joined,
+        Err(_) => {
+            cleanup_verified.store(false, Ordering::Release);
+            return Err(format!("segment {} worker panicked", segment.index));
+        }
+    };
+    joined?;
     let mut parsed = parse_tvc(&segment.tvc)?;
     if parsed.lengths.len() != segment.frames as usize {
         return Err(format!(
@@ -479,6 +719,10 @@ fn accept_next_segment(
             config.options.qp,
             config.level,
             Some(&previous),
+            worker_stop,
+            external_stop,
+            cleanup_verified,
+            config.quiet_child_stdout,
         )?;
         parsed = parse_tvc(&segment.tvc)?;
         if parsed.lengths.len() != segment.frames as usize {
@@ -587,19 +831,40 @@ fn append_tvc_chunks(bytes: &[u8], lengths: &[u32], output: &mut File) -> Result
     Ok(())
 }
 
-fn join_remaining(workers: &mut VecDeque<PendingSegment>) -> Result<(), String> {
-    let mut first_error = None;
+fn join_remaining(workers: &mut VecDeque<PendingSegment>, cleanup_verified: &AtomicBool) -> Result<(), String> {
+    let mut errors = Vec::new();
     while let Some(segment) = workers.pop_front() {
         let result = segment
             .worker
             .join()
-            .map_err(|_| format!("segment {} worker panicked", segment.index))
+            .map_err(|_| {
+                cleanup_verified.store(false, Ordering::Release);
+                format!("segment {} worker panicked", segment.index)
+            })
             .and_then(|result| result);
-        if first_error.is_none() {
-            first_error = result.err();
+        if let Err(error) = result {
+            errors.push(format!("segment {}: {error}", segment.index));
         }
     }
-    first_error.map_or(Ok(()), Err)
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
+fn join_worker_stop_aware(
+    worker: JoinHandle<Result<(), String>>,
+    external_stop: Option<&AtomicBool>,
+    worker_stop: &AtomicBool,
+) -> Result<Result<(), String>, Box<dyn std::any::Any + Send + 'static>> {
+    while !worker.is_finished() {
+        if external_stop.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            worker_stop.store(true, Ordering::Release);
+        }
+        thread::sleep(std::time::Duration::from_millis(10));
+    }
+    worker.join()
 }
 
 fn rate_window(header: &[u8]) -> Result<usize, String> {
@@ -643,36 +908,191 @@ fn run_tvc(
     qp: u8,
     level: u8,
     previous: Option<&str>,
+    stop: &AtomicBool,
+    external_stop: Option<&AtomicBool>,
+    cleanup_verified: &AtomicBool,
+    quiet_child_stdout: bool,
 ) -> Result<(), String> {
+    if stop.load(Ordering::Acquire) || external_stop.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        return Err("encoding stopped before starting tvc_enc".into());
+    }
     let mut command = Command::new(tool);
     command
         .arg(input)
         .arg(output)
-        .args(["-q", &qp.to_string(), "-l", &level.to_string()]);
+        .args(["-q", &qp.to_string(), "-l", &level.to_string()])
+        .stdout(if quiet_child_stdout { Stdio::null() } else { Stdio::inherit() });
     if let Some(previous) = previous {
         command.args(["-P", previous]);
     }
-    let status = command
-        .status()
+    let mut child = command
+        .spawn()
         .map_err(|error| format!("could not start tvc_enc: {error}"))?;
-    if !status.success() {
-        return Err(format!(
-            "tvc_enc failed for {} with {status}",
-            input.display()
-        ));
+    loop {
+        if stop.load(Ordering::Acquire) || external_stop.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return terminate_and_reap(child, &input, "encoding stopped", cleanup_verified);
+        }
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(status)) => {
+                return Err(format!("tvc_enc failed for {} with {status}", input.display()));
+            }
+            Ok(None) => thread::sleep(std::time::Duration::from_millis(20)),
+            Err(error) => {
+                // An uninspectable identity must not be signalled again.
+                return Err(retain_child_for_reaping(child, &format!("tvc_enc for {}", input.display()),
+                    &format!("could not inspect child: {error}"), cleanup_verified));
+            }
+        }
     }
-    Ok(())
 }
 
-fn run_status(tool: &Path, args: &[&str], label: &str) -> Result<(), String> {
-    let status = Command::new(tool)
-        .args(args)
-        .status()
-        .map_err(|error| format!("could not start {label}: {error}"))?;
-    if !status.success() {
-        return Err(format!("{label} failed with {status}"));
+/// The worker owns its child through normal completion; failed wait attempts
+/// transfer ownership to a dedicated retrying reaper and keep cleanup unverified.
+fn terminate_and_reap(
+    child: std::process::Child,
+    input: &Path,
+    reason: &str,
+    cleanup_verified: &AtomicBool,
+) -> Result<(), String> {
+    terminate_child_and_reap(child, &format!("tvc_enc for {}", input.display()), reason, cleanup_verified)
+}
+
+fn terminate_child_and_reap(
+    mut child: std::process::Child,
+    label: &str,
+    reason: &str,
+    cleanup_verified: &AtomicBool,
+) -> Result<(), String> {
+    let kill_error = child.kill().err();
+    match bounded_child_wait(&mut child, CHILD_REAP_TIMEOUT) {
+        Ok(_status) if kill_error.is_none() => Err(format!("{reason}: {label} was killed and reaped")),
+        Ok(status) if !status.success() => Err(format!("{reason}: kill failed for {label} ({:?}); child exited ({status})", kill_error)),
+        Ok(status) => Err(format!("{reason}: kill failed for {label} ({:?}); child exited with {status}", kill_error)),
+        Err(wait_error) => {
+            let detail = match kill_error {
+                Some(kill_error) => format!("kill failed ({kill_error}); wait failed ({wait_error})"),
+                None => format!("wait failed ({wait_error})"),
+            };
+            Err(retain_child_for_reaping(child, label, &format!("{reason}: {detail}"), cleanup_verified))
+        }
     }
-    Ok(())
+}
+
+const CHILD_REAP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+fn bounded_child_wait(
+    child: &mut std::process::Child,
+    timeout: std::time::Duration,
+) -> io::Result<std::process::ExitStatus> {
+    bounded_child_wait_with(|| child.try_wait(), timeout)
+}
+
+fn bounded_child_wait_with(
+    mut poll: impl FnMut() -> io::Result<Option<std::process::ExitStatus>>,
+    timeout: std::time::Duration,
+) -> io::Result<std::process::ExitStatus> {
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        match poll() {
+            Ok(Some(status)) => return Ok(status),
+            Ok(None) if std::time::Instant::now() < deadline => {
+                thread::sleep(std::time::Duration::from_millis(25));
+            }
+            Ok(None) => return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "child did not exit during bounded wait",
+            )),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted
+                && std::time::Instant::now() < deadline =>
+            {
+                thread::sleep(std::time::Duration::from_millis(25));
+            }
+            Err(error) => return Err(io::Error::new(
+                error.kind(),
+                format!("child wait failed; stopping retries: {error}"),
+            )),
+        }
+    }
+}
+
+/// Transfers an unverified direct child to a bounded private reaper. The
+/// reaper may drop a still-live Child after timeout or permanent wait failure;
+/// eventual reaping is not guaranteed. If its thread cannot be created, this
+/// function returns immediately and cleanup remains unverified.
+fn retain_child_for_reaping(
+    child: std::process::Child,
+    label: &str,
+    reason: &str,
+    cleanup_verified: &AtomicBool,
+) -> String {
+    use std::sync::Mutex;
+    cleanup_verified.store(false, Ordering::Release);
+    let owner = Arc::new(Mutex::new(Some(child)));
+    let background_owner = Arc::clone(&owner);
+    match thread::Builder::new()
+        .name("tau-native-child-reaper".into())
+        .spawn(move || {
+            let child = match background_owner.lock() {
+                Ok(mut slot) => slot.take(),
+                Err(poisoned) => poisoned.into_inner().take(),
+            };
+            if let Some(mut child) = child {
+                let _ = bounded_child_wait(&mut child, CHILD_REAP_TIMEOUT);
+            }
+        })
+    {
+        Ok(_owner) => format!("{reason}; cleanup is unverified; bounded background reaping was requested for {label}"),
+        Err(spawn_error) => {
+            let child = match owner.lock() {
+                Ok(mut slot) => slot.take(),
+                Err(poisoned) => poisoned.into_inner().take(),
+            };
+            failed_reaper_spawn(child, label, reason, &spawn_error)
+        }
+    }
+}
+
+fn failed_reaper_spawn<T>(
+    owner: Option<T>,
+    label: &str,
+    reason: &str,
+    spawn_error: &io::Error,
+) -> String {
+    drop(owner);
+    format!("{reason}; cleanup is unverified; background owner creation failed ({spawn_error}); no synchronous wait was attempted for {label}")
+}
+
+fn run_status(
+    tool: &Path,
+    args: &[&str],
+    label: &str,
+    stop: Option<&AtomicBool>,
+    cleanup_verified: &AtomicBool,
+    quiet_child_stdout: bool,
+) -> Result<(), String> {
+    if stop.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        return Err(format!("encoding stopped before starting {label}"));
+    }
+    let mut child = Command::new(tool)
+        .args(args)
+        .stdout(if quiet_child_stdout { Stdio::null() } else { Stdio::inherit() })
+        .spawn()
+        .map_err(|error| format!("could not start {label}: {error}"))?;
+    loop {
+        if stop.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return terminate_child_and_reap(child, label, "encoding stopped", cleanup_verified);
+        }
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(status)) => return Err(format!("{label} failed with {status}")),
+            Ok(None) => thread::sleep(std::time::Duration::from_millis(20)),
+            Err(error) => {
+                return Err(retain_child_for_reaping(child, label,
+                    &format!("could not inspect child: {error}"), cleanup_verified));
+            }
+        }
+    }
 }
 
 fn workspace_bytes(work: &Path) -> Result<u64, String> {
@@ -867,6 +1287,130 @@ fn worst_window(lengths: &[u32], window: usize) -> u64 {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn bounded_child_wait_stops_on_permanent_wait_error() {
+        use super::*;
+        let calls = std::cell::Cell::new(0);
+        let started = std::time::Instant::now();
+        let error = bounded_child_wait_with(|| {
+            calls.set(calls.get() + 1);
+            Err(io::Error::other("injected ECHILD"))
+        }, std::time::Duration::from_secs(2)).unwrap_err();
+        assert_eq!(calls.get(), 1);
+        assert!(started.elapsed() < std::time::Duration::from_millis(250));
+        assert!(error.to_string().contains("stopping retries"));
+    }
+
+    #[test]
+    fn bounded_child_wait_retries_interrupted_only_until_deadline() {
+        use super::*;
+        let calls = std::cell::Cell::new(0);
+        let started = std::time::Instant::now();
+        let error = bounded_child_wait_with(|| {
+            calls.set(calls.get() + 1);
+            Err(io::Error::new(io::ErrorKind::Interrupted, "injected EINTR"))
+        }, std::time::Duration::from_millis(60)).unwrap_err();
+        assert!(calls.get() >= 2);
+        assert!(started.elapsed() < std::time::Duration::from_millis(500));
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+    }
+
+    #[test]
+    fn bounded_child_wait_times_out_without_a_process_fixture() {
+        use super::*;
+        let started = std::time::Instant::now();
+        let error = bounded_child_wait_with(|| Ok(None), std::time::Duration::from_millis(60)).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < std::time::Duration::from_millis(500));
+    }
+
+    #[test]
+    fn failed_reaper_spawn_drops_fake_owner_and_marks_unverified() {
+        use super::*;
+        struct DropMarker(std::sync::Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for DropMarker {
+            fn drop(&mut self) { self.0.store(true, Ordering::SeqCst); }
+        }
+        let dropped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let message = failed_reaper_spawn(
+            Some(DropMarker(dropped.clone())),
+            "fixture",
+            "test cleanup",
+            &io::Error::other("injected thread spawn failure"),
+        );
+        assert!(dropped.load(Ordering::SeqCst));
+        assert!(message.contains("cleanup is unverified"));
+        assert!(message.contains("no synchronous wait was attempted"));
+    }
+
+    #[test]
+    fn staged_stop_before_input_leaves_writer_untouched() {
+        use super::*;
+        let stop = AtomicBool::new(true);
+        let tools = Tools { tvc_encoder: "unused".into(), tnv3: "unused".into() };
+        let mut out = Vec::new();
+        let result = encode_y4m_video_with_control(
+            &tools, std::io::Cursor::new(Vec::<u8>::new()), &mut out,
+            Options::default(), Some(&stop), |_| {},
+        );
+        assert!(result.unwrap_err().contains("stopped"));
+        assert!(out.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stop_kills_and_joins_c_worker_without_publishing_output() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::time::{Duration, Instant};
+
+        let root = std::env::temp_dir().join(format!(
+            "tau-cancel-test-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed),
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir(&root).unwrap();
+        let encoder = root.join("fake-tvc-encoder");
+        fs::write(
+            &encoder,
+            b"#!/bin/sh\ncase \"$0\" in */*) marker_dir=${0%/*};; *) marker_dir=.;; esac\nprintf started > \"$marker_dir/started\"\nwhile :; do :; done\n",
+        ).unwrap();
+        let mut permissions = fs::metadata(&encoder).unwrap().permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&encoder, permissions).unwrap();
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let signal = Arc::clone(&stop);
+        let watch_root = root.clone();
+        let watcher = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                let worker_started = fs::read(&watch_root.join("started"))
+                    .is_ok_and(|bytes| bytes == b"started");
+                if worker_started {
+                    signal.store(true, Ordering::Release);
+                    return;
+                }
+                assert!(Instant::now() < deadline, "fake encoder did not start");
+                thread::sleep(Duration::from_millis(5));
+            }
+        });
+
+        let tools = Tools { tvc_encoder: encoder, tnv3: root.join("unused-tnv3") };
+        let mut output = Vec::new();
+        let result = encode_y4m_video_with_control(
+            &tools,
+            Cursor::new(generated_y4m(1)),
+            &mut output,
+            Options { frames_per_segment: 1, ..Options::default() },
+            Some(&stop),
+            |_| {},
+        );
+        watcher.join().unwrap();
+        assert!(result.unwrap_err().contains("stopped"));
+        assert!(output.is_empty(), "cancelled staged encode published bytes");
+        fs::remove_dir_all(root).unwrap();
+    }
     use super::*;
     use std::io::{BufReader, Cursor};
 

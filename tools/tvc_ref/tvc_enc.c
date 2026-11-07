@@ -458,7 +458,10 @@ static void encode_picture(FILE *out, RC *r, int ptype, int qp, const double *of
     put32(out, (uint32_t)len); fwrite(b, 1, len, out); *total += len + 4; free(b);
 }
 
+#define TVC_ENC_TOOL_VERSION "0.1.0"
+
 int main(int argc, char **argv) {
+    if (argc == 2 && !strcmp(argv[1], "--version")) { puts("tvc_enc " TVC_ENC_TOOL_VERSION); return 0; }
     if (argc < 3) { fprintf(stderr, "usage: tvc_enc in.y4m out.tvc [-q qp] [-g gop] [-b nb] [-i iqp_off] [-o bqp_off] [-t tree] [-a aq] [-n frames] [-r recon.y4m] [-l level [-S rows] [-P prev,lens]]\n"); return 1; }
     /* defaults: look-ahead 2.0 (V-188); quarter-sample motion (V-189); scene-cut I pictures at ratio 0.7 (V-190:
      * rate-neutral, gives seek points at cuts); 2 B pictures (1 is worse, 3 about equal on 60 s segments, V-190);

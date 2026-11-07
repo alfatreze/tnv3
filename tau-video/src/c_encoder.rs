@@ -12,6 +12,63 @@ use std::{
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
+/// Failure reported by the process-backed Python/C adapter.
+///
+/// Process-tree cancellation is not provided; the lifecycle and progress
+/// callback semantics are the same as the string-error adapter.
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum EncodeError {
+    /// Invalid settings rejected before the process starts.
+    InvalidInput(String),
+    /// Python could not be started.
+    Spawn(io::Error),
+    /// Local workspace, process wait, stream or output I/O failure.
+    Io {
+        operation: &'static str,
+        source: io::Error,
+    },
+    /// The external workflow exited unsuccessfully; the failing tool is unknown.
+    ProcessFailure { status: String, diagnostics: String },
+    /// The workflow did not create the expected report file.
+    MissingReport(io::Error),
+    /// The workflow did not create the expected encoded video.
+    MissingVideo(io::Error),
+    /// A configured child-process pipe was unexpectedly unavailable.
+    PipeUnavailable(&'static str),
+    /// The external workflow produced a malformed or invalid report.
+    InvalidReport(String),
+    /// A process I/O thread failed unexpectedly.
+    Internal(String),
+}
+impl std::fmt::Display for EncodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidInput(s) | Self::InvalidReport(s) | Self::Internal(s) => f.write_str(s),
+            Self::PipeUnavailable(s) => f.write_str(s),
+            Self::Spawn(e) => write!(f, "Could not start C encoder (Python 3 is required): {e}"),
+            Self::MissingReport(e) => write!(f, "Missing encoder report: {e}"),
+            Self::MissingVideo(e) => write!(f, "Missing encoded video: {e}"),
+            Self::Io { operation, source } => write!(f, "{operation}: {source}"),
+            Self::ProcessFailure {
+                status,
+                diagnostics,
+            } => write!(f, "C encoder failed ({status}). {diagnostics}"),
+        }
+    }
+}
+impl std::error::Error for EncodeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Spawn(e)
+            | Self::MissingReport(e)
+            | Self::MissingVideo(e)
+            | Self::Io { source: e, .. } => Some(e),
+            _ => None,
+        }
+    }
+}
+
 /// Paths to the existing reference tools. Bare program names may be resolved via PATH.
 #[derive(Clone, Debug)]
 pub struct Tools {
@@ -134,7 +191,18 @@ pub fn encode_video<W: Write>(
     options: Options,
     progress: impl FnMut(u32, u32),
 ) -> Result<Report, String> {
-    encode_video_with_geometry(tools, input, output, options, 400, 360, 0, progress)
+    encode_video_typed(tools, input, output, options, progress).map_err(|e| e.to_string())
+}
+
+/// Encode using the same workflow as [`encode_video`], with typed failures.
+pub fn encode_video_typed<W: Write>(
+    tools: &Tools,
+    input: &Path,
+    output: &mut W,
+    options: Options,
+    progress: impl FnMut(u32, u32),
+) -> Result<Report, EncodeError> {
+    encode_video_with_geometry_typed(tools, input, output, options, 400, 360, 0, progress)
 }
 
 /// Encode with a maximum output size and an optional explicit TVC level (0 means automatic).
@@ -147,10 +215,30 @@ pub fn encode_video_with_geometry<W: Write>(
     width: u32,
     height: u32,
     level: u8,
-    mut progress: impl FnMut(u32, u32),
+    progress: impl FnMut(u32, u32),
 ) -> Result<Report, String> {
+    encode_video_with_geometry_typed(
+        tools, input, output, options, width, height, level, progress,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Typed-failure counterpart to [`encode_video_with_geometry`].
+#[allow(clippy::too_many_arguments)]
+pub fn encode_video_with_geometry_typed<W: Write>(
+    tools: &Tools,
+    input: &Path,
+    output: &mut W,
+    options: Options,
+    width: u32,
+    height: u32,
+    level: u8,
+    mut progress: impl FnMut(u32, u32),
+) -> Result<Report, EncodeError> {
     if options.qp > 51 || options.jobs == 0 {
-        return Err("QP must be 0–51 and jobs must be positive".into());
+        return Err(EncodeError::InvalidInput(
+            "QP must be 0–51 and jobs must be positive".into(),
+        ));
     }
     if !(2..=800).contains(&width)
         || !(2..=720).contains(&height)
@@ -158,9 +246,14 @@ pub fn encode_video_with_geometry<W: Write>(
         || height % 2 != 0
         || level > 3
     {
-        return Err("Output dimensions must be even and at most 800x720; level must be 0–3".into());
+        return Err(EncodeError::InvalidInput(
+            "Output dimensions must be even and at most 800x720; level must be 0–3".into(),
+        ));
     }
-    let tmp = temp_dir().map_err(|e| format!("Cannot create encoder workspace: {e}"))?;
+    let tmp = temp_dir().map_err(|e| EncodeError::Io {
+        operation: "Cannot create encoder workspace",
+        source: e,
+    })?;
     let video = tmp.0.join("output.tnv3");
     let work = tmp.0.join("segments");
     let mut command = Command::new(&tools.python);
@@ -205,18 +298,14 @@ pub fn encode_video_with_geometry<W: Write>(
             command.args(["--fps-round-down", "--fps-eof-pass"]);
         }
     }
-    let mut child = command
-        .spawn()
-        .map_err(|e| format!("Could not start C encoder (Python 3 is required): {e}"))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or("Could not capture encoder diagnostics")?;
+    let mut child = command.spawn().map_err(EncodeError::Spawn)?;
+    let stderr = child.stderr.take().ok_or(EncodeError::PipeUnavailable(
+        "Could not capture encoder diagnostics",
+    ))?;
     let thread = std::thread::spawn(move || capture(stderr));
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or("Could not capture encoder progress")?;
+    let stdout = child.stdout.take().ok_or(EncodeError::PipeUnavailable(
+        "Could not capture encoder progress",
+    ))?;
     for line in BufReader::new(stdout).lines().map_while(Result::ok) {
         if let Some(part) = line.split("encoded ").nth(1) {
             let mut tokens = part.split_whitespace();
@@ -229,38 +318,76 @@ pub fn encode_video_with_geometry<W: Write>(
             }
         }
     }
-    let status = child
-        .wait()
-        .map_err(|e| format!("Could not wait for C encoder: {e}"))?;
+    let status = child.wait().map_err(|e| EncodeError::Io {
+        operation: "Could not wait for C encoder",
+        source: e,
+    })?;
     let diagnostics = thread
         .join()
-        .map_err(|_| "Encoder diagnostics thread failed")?
-        .map_err(|e| format!("Could not read encoder diagnostics: {e}"))?;
+        .map_err(|_| EncodeError::Internal("Encoder diagnostics thread failed".into()))?
+        .map_err(|e| EncodeError::Io {
+            operation: "Could not read encoder diagnostics",
+            source: e,
+        })?;
     if !status.success() {
-        return Err(format!("C encoder failed ({status}). {diagnostics}"));
+        return Err(EncodeError::ProcessFailure {
+            status: status.to_string(),
+            diagnostics,
+        });
     }
-    let json: serde_json::Value = serde_json::from_reader(
-        File::open(video.with_extension("json"))
-            .map_err(|e| format!("Missing encoder report: {e}"))?,
-    )
-    .map_err(|e| format!("Invalid encoder report: {e}"))?;
-    let number = |key: &str| -> Result<u32, String> {
+    let json: serde_json::Value =
+        serde_json::from_reader(File::open(video.with_extension("json")).map_err(|e| {
+            if e.kind() == io::ErrorKind::NotFound {
+                EncodeError::MissingReport(e)
+            } else {
+                EncodeError::Io {
+                    operation: "Missing encoder report",
+                    source: e,
+                }
+            }
+        })?)
+        .map_err(|e| {
+            if let Some(kind) = e.io_error_kind() {
+                EncodeError::Io {
+                    operation: "Invalid encoder report",
+                    source: io::Error::new(kind, e),
+                }
+            } else {
+                EncodeError::InvalidReport(format!("Invalid encoder report: {e}"))
+            }
+        })?;
+    let number = |key: &str| -> Result<u32, EncodeError> {
         json[key]
             .as_u64()
             .and_then(|x| u32::try_from(x).ok())
-            .ok_or_else(|| format!("Invalid encoder report: {key}"))
+            .ok_or_else(|| EncodeError::InvalidReport(format!("Invalid encoder report: {key}")))
     };
     let frames = number("frames")?;
-    let level = u8::try_from(number("level")?).map_err(|_| "Invalid encoder level")?;
+    let level = u8::try_from(number("level")?)
+        .map_err(|_| EncodeError::InvalidReport("Invalid encoder level".into()))?;
     if json["valid"] != true || frames == 0 || !(1..=3).contains(&level) {
-        return Err("Encoder did not report a valid video".into());
+        return Err(EncodeError::InvalidReport(
+            "Encoder did not report a valid video".into(),
+        ));
     }
     let reencoded = number("pictures_raised_for_level")?;
     io::copy(
-        &mut File::open(video).map_err(|e| format!("Missing encoded video: {e}"))?,
+        &mut File::open(video).map_err(|e| {
+            if e.kind() == io::ErrorKind::NotFound {
+                EncodeError::MissingVideo(e)
+            } else {
+                EncodeError::Io {
+                    operation: "Missing encoded video",
+                    source: e,
+                }
+            }
+        })?,
         output,
     )
-    .map_err(|e| format!("Could not copy encoded video: {e}"))?;
+    .map_err(|e| EncodeError::Io {
+        operation: "Could not copy encoded video",
+        source: e,
+    })?;
     Ok(Report {
         frames,
         level,

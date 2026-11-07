@@ -6,6 +6,12 @@ index layout, and reads individual index entries through `Read + Seek`. It also 
 and video-only TNV3 muxing. It does not fully validate chunks, subtitles or
 index consistency and is not a complete TNV3 checker. Do not use it to certify files.
 
+`Tnv3Reader::read_picture(n)` returns one indexed TVC picture without decoding
+it. It checks local chunk bounds, adjacent chunk offsets, picture type flags,
+TAC frame lengths, padding and the full chunk CRC when enabled. TAC bytes are
+streamed without retaining them. This is a bounded picture-access API, not a
+full validation of picture syntax, audio, timing, references or the container.
+
 ```sh
 cargo test
 cargo run --bin tau-video --features cli -- info input.tnv3
@@ -16,6 +22,11 @@ Enable the opt-in `c-encoder` feature for the safe process-based adapter to the
 existing C/Python reference workflow; that adapter uses `serde_json`. Rust
 1.85 is the minimum. The library forbids unsafe code. The C adapter requires
 external programs and temporary disk space; it is not a native C FFI binding.
+`c_encoder::encode_video_typed` and `encode_video_with_geometry_typed` expose
+typed adapter failures; the original string-error functions remain available.
+These APIs retain the existing Python workflow's process and cleanup limits:
+they do not provide process-tree cancellation, and callers must keep progress
+callbacks non-panicking and return promptly.
 
 For local, non-redistributable reference vectors, set `TAU_VIDEO_VECTOR_DIR`
 to the local `tools/tnv3_ref/vectors` folder under `local-media` before running
@@ -148,3 +159,32 @@ The experimental API and its compression decisions are not at parity with C.
 ## Experimental C orchestrator
 
 The opt-in Cargo feature `experimental-c-orchestrator` enables `experimental_c_orchestrator::encode_y4m_video`. This vertical slice accepts already-decoded explicit 8-bit 4:2:0 Y4M, writes bounded frame groups, schedules up to six C reference encoder jobs, retries segment boundaries with the same `-P` rate-window context, merges TVC1 incrementally, and calls `tnv3 mux` plus `tnv3 check` before writing the result. At most `jobs` segment inputs are pending. Once a segment passes its rate-window check, its chunks are appended to the seekable merged TVC and its Y4M/TVC files are deleted; the merged TVC remains until mux completes. It emits video-only TNV3; source probing, FFmpeg decoding, MP3 encoding, and desktop integration remain outside scope. Frame-rate numerator/denominator must fit TVC's 16-bit fields. C-compatible Y4M header and FRAME lines are capped at 511 and 127 bytes including newline; the Rust Y4M writer enforces 128 MiB per segment including header and metadata, enough for 480 frames at the desktop profile maximum of 400x360. C TVC outputs above 16 MiB are rejected after each child exits. `Options.workspace_limit_bytes` is a projected workspace budget (512 MiB by default), checked before jobs and after child outputs; it is not a hard filesystem quota, so a C child may transiently exceed its reservation before the parent can inspect the completed file. The budget now covers the merged TVC and mux output as well as at most `jobs` pending segments; compressed output grows with the film, so longer jobs can still be refused. The backend also caps inputs at 432,000 frames and 4,096 segments. If the caller supplies FFmpeg stdout, EOF is not success: keep the TNV3 in private staged storage and publish it only after waiting for FFmpeg and checking its exit status. This backend has only been host-tested on macOS; Windows path handling and runtime behavior are unverified. Generated-media byte parity against the repository's `tools/tnv3_ref/encode_film.py` is opt-in by setting `TAU_TEST_PYTHON`, `TAU_TEST_C_SCRIPT`, `TAU_TEST_FFMPEG`, `TAU_TEST_FFPROBE`, `TAU_TEST_TVC`, and `TAU_TEST_TNV3`; the normal test suite does not need those programs.
+
+### Bounded chunk structure scan
+
+`check_chunk_structure` scans indexed picture chunks through the process-free
+reader and returns typed findings, retaining at most 64 while counting omitted
+findings. It aborts on I/O or implementation-limit errors. The input must remain
+stable for the duration of the scan. It checks chunk structure and enabled CRCs;
+it does not validate timing, references, subtitles, full payload syntax or
+complete container conformance.
+
+`Tnv3Reader::check_cross_frame` additionally checks anchor ordering, display
+timestamps, chunk/index consistency and selected TAC reset/seek metadata. The
+input must remain stable throughout its multiple passes. It also validates audio interleaving and rolling picture and chunk byte-rate
+limits. It does not validate subtitles or complete TVC/TAC syntax, and must
+not be presented as full container conformance.
+
+`check_subtitle_structure` validates the subtitle area separately after opening
+the TNV3 reader. It returns an empty report if there are no subtitle tracks,
+and reports an implementation limit for areas larger than 64 MiB. It does not
+validate video/audio chunks or establish full container conformance.
+
+`check_container_preview` combines the partial cross-frame and subtitle checks
+on an already-open reader. It reports `Valid`, `Invalid`, or `Indeterminate`;
+valid means only that these implemented checks passed on stable input. It does
+not decode TVC/TAC payloads or establish full format conformance.
+
+The experimental Rust+C orchestrator bounds its direct-child termination and
+reaper waits. Unverified cleanup retains the workspace; children may outlive
+the bounded reaper, and descendant/process-tree cleanup is not guaranteed.

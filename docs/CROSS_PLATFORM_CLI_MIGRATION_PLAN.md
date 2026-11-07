@@ -1,8 +1,127 @@
 # Cross-platform CLI migration plan: process-backed workflow to native C API
 
-**Status:** proposed plan; no implementation or platform validation is claimed.  
+**Status:** migration in progress; individual host results and remaining gates are recorded below.
 **Date:** 2026-11-01  
 **Scope:** incrementally migrate the current Python/C process workflow to a cross-platform CLI and eventually a C library with a narrow Rust FFI. Preserve the desktop TNV3 + MP3 output pair and make the Rust crate core process-free as a migration goal.
+
+## Current roadmap checkpoint — 2026-11-07
+
+The dated [development status](CLI_DEVELOPMENT_STATUS_2026-11-07.md) is the current handoff; the continuation notes below are historical where they conflict with it. Evidence is macOS host-only unless specifically stated.
+
+**Closed for the current staged scope:** schema-1 CLI event baseline and both C-backed workflow smokes; explicit scoped structural checks and sampled `--quick`; reference-geometry probe and optional measured video sample; versioned existing sidecar profile; scoped capability/file-identity handshake and opt-in raw version responses; source-level C tool version endpoints; bounded exceptional cleanup and Unix SIGINT for native Rust+C; typed elementary-stream diagnostics while preserving the legacy error enum; and generated TauV card output through explicit non-atomic copy. These are scoped milestones, not full Omega contract completion or Pocket playback proof.
+
+**Remaining, in order:** (1) complete checker semantics and honest invalid/unsupported/I/O reporting, including TVC/TAC payload validation and finding aggregation; (2) safely cancel Python workflow children and complete native/Windows cancellation semantics; (3) finish tool compatibility/identity binding, stable errors and supported Host preview/Custom profiles; (4) measure defensible full-pair size and end-to-end estimates; (5) integrated current-source, Windows/Linux runtime and Pocket checks, including [open issue 019](issues/019-progress-stream-test-intermittent.md). C library/FFI extraction remains conditional on a demonstrated need. **Resume is parked until the final format is complete and frozen** and is excluded from the present staged scope; the original full contract remains incomplete.
+
+Incomplete full-estimate and Python-cancellation drafts are isolated in Tau V's ignored `work/`; their agents stopped at the session usage limit. They require completion and independent review before integration. The existing local test build predates these latest changes.
+
+## Consumer reconciliation — 2026-11-05
+
+The owner-approved revision in `Tau Omega/docs/TAU_VIDEO_CRATE_REQUIREMENTS.md`
+section 0 supersedes the earlier assumption that Omega requires the encoder
+itself to be pure Rust and process-free. Its in-process reader, checker, decoder
+and player still need a process-free safe Rust core; Omega invokes the encoder
+as an external CLI from its host layer. The current TNV3 plus temporary MP3
+sidecar is a best-effort pair, with TAC and subtitles to follow. The CLI contract
+now requests a versioned JSON-lines event stream, stable exit codes, native
+tool discovery, cancellation and deterministic resume, profiles, probe,
+check and info. These are requirements, not claims of current support.
+
+The old scope, alternatives and gates below remain as historical decision
+evidence. Native Rust+C application recovery has since gained host-tested
+direct-child cancellation, but it does not contain arbitrary descendants or
+establish Windows/Linux runtime or Pocket playback. The Python CLI remains the
+rollback path. Deterministic resume, a complete container checker, independent
+validation and native platform qualification remain open. The decision to
+extract a C library remains conditional on a demonstrated need.
+
+**Host update:** the CLI now has a preliminary `--json-events` interface with
+schema-1 plan, progress, warning, done and error records. Generated media was
+encoded through both C workflows on macOS, with stdout parsed as JSON and
+TNV3, MP3 and output hashes checked. I/O classification from legacy string
+errors is incomplete; full process-tree cancellation, deterministic resume and
+the other Omega CLI requirements above are not implemented. A Windows cross-target compile
+is not a Windows runtime test.
+
+**Host continuation:** the CLI now exposes `--version --json` for its own
+package and linked TNV3 container version; external tool versions remain
+unprobed. The Python/C adapter adds typed error variants without changing its
+existing string API or its process-lifecycle limitations. The native C
+orchestrator still reports string errors, so complete stable error mapping is
+not yet established. Opt-in native stdin-EOF cancellation is host-tested on
+macOS for trusted directly owned leaf tools; Python, SIGINT, arbitrary
+descendants, external reapers and process crashes are outside its guarantee.
+Unverified cleanup is reported and can retain staging.
+
+**Host continuation, CLI contract:** `info FILE --json` exposes header metadata
+and declared-layout checks only; it does not inspect index entries or chunks and
+is not the required complete `check`. Adjacent tool discovery was added with
+explicit selections taking priority. A draft `probe` was not integrated: review
+found unbounded waits after failed child termination and potentially leaked
+reader threads when descendants inherit pipes. Missing discovered dependencies
+still report usage code 2, so complete error classification remains open.
+Resume, profiles, version handshake and full platform qualification remain gates.
+
+**Host continuation (2026-11-06):** A process-free cross-frame reader method
+checks anchor order, timing and indexed audio/reset fields against stable
+input, including audio interleaving and rolling picture/chunk rate bounds.
+Subtitle structure is checked separately with a 64 MiB implementation limit;
+full TVC/TAC payload semantics remain unchecked. Local C reference positive
+vectors passed on macOS; this remains a partial checker.
+
+**Earlier scoped-check continuation (2026-11-06):** The CLI exposes `check FILE --scope
+chunk-structure --json`; a completed scope check is not full conformance.
+
+**Earlier continuation (2026-11-06):** The Rust reader offers a bounded
+chunk-structure scan with typed findings and I/O failures. The CLI reports
+requested workflow parameters and distinguishes dependency discovery from
+usage errors. These are partial steps: the scan excludes cross-frame and
+subtitle conformance, scripts may ignore requested parameters, and the full
+Omega error contract remains incomplete. A second probe draft using regular
+files was rejected after review found that descendants can retain output
+handles and consume disk after the parent exits. Process containment and
+bounded capture must be proven before integrating `probe`.
+
+**Probe continuation (2026-11-06):** An experimental standalone `probe`
+now exposes source metadata with bounded nonblocking capture on macOS/Linux.
+macOS host tests cover normal, timeout and descendant cases; Linux is untested
+at runtime and Windows is unsupported. It assumes exclusive child-wait
+ownership and cannot contain arbitrary escaped descendants. Default-reference
+coded geometry and minimum geometry-fitting level can be
+probed from one decoded FFmpeg frame; custom settings may differ. Output size
+and measured time estimates are not implemented, so this is not the complete
+Omega probe contract.
+
+**Publication continuation (2026-11-06):** The macOS/Linux CLI now
+publishes each synced file with no-replace rename or hard link and fails
+closed if neither is available. This replaces the previously card-tested
+copy fallback, which could expose partial files; direct card/exFAT compatibility
+must be revalidated. An explicit `--allow-nonatomic-copy` option permits the
+previous exclusive-copy tradeoff, with a partial-file warning. Pair publication
+is still non-atomic; Windows requires this opt-in and remains unverified.
+
+**Combined check continuation (2026-11-06):** A container-preview scope
+combines cross-frame and subtitle checks with distinct valid, invalid and
+indeterminate outcomes. It needs a stable regular file and does not decode
+TVC/TAC payloads or assert full conformance. A 30-vector local C comparison
+and independent Python vector suite passed on macOS; platform and broader
+conformance gates remain open.
+
+**Tool identity continuation (2026-11-06):** `tool-identity --json` hashes
+explicit selected regular files without executing them. It does not establish
+semantic versions or bind later execution to the queried bytes; it is not a
+complete Omega version handshake. Descriptor metadata checks and documented
+limits do not replace an immutable snapshot.
+
+**Cleanup continuation (2026-11-06):** Exceptional direct-child reaping
+now has bounded retries; failure to create a reaper no longer waits
+synchronously. Cleanup remains explicitly unverified and may leave a child
+running or unreaped; this does not establish process-tree cancellation.
+
+**Rust+C cleanup continuation (2026-11-06):** Direct-worker termination and
+exceptional reaping use bounded polling. Unverified cleanup retains the
+workspace; children may remain running or unreaped. Worker joins can still
+wait on blocked I/O, and no whole-operation or process-tree cancellation
+guarantee is claimed.
 
 ## Starting point and decision
 

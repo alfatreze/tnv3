@@ -11,6 +11,7 @@
   function focusDialogButton(node: HTMLButtonElement) { node.focus(); }
   function openModal(node: HTMLDialogElement) { node.showModal(); return { destroy: () => node.close() }; }
   type SourceCheckResult = { status: 'clean' | 'warning' | 'stopped'; details: string };
+  type SourceDecisionEvent = { job_id: string; details: string };
   function saveRecoveryPreference() { try { localStorage.setItem('tau-encoder-always-continue-source-errors', String(alwaysContinue)); } catch { /* Keep this session's preference. */ } }
   function decideSource(keepGoing: boolean) {
     if (keepGoing && rememberDecision) { alwaysContinue = true; saveRecoveryPreference(); }
@@ -144,10 +145,15 @@
     busy = true; error = ''; message = ''; warning = '';
     stopRequested = false;
     progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
-    let unlisten: UnlistenFn | undefined, unlistenSource: UnlistenFn | undefined;
+    let unlisten: UnlistenFn | undefined, unlistenSource: UnlistenFn | undefined, unlistenSourceCancelled: UnlistenFn | undefined;
+    const jobId = crypto.randomUUID();
+    let sourceDecisionCancelled = false;
     try {
       let acceptedSourceErrors = alwaysContinue;
-      if (!alwaysContinue) {
+      // The native path reports source errors during decoding. Keep the
+      // existing preflight for the Python and experimental Rust paths until
+      // their live recovery integration is complete.
+      if (!alwaysContinue && !(mode === 'c' && workflow === 'native')) {
         checkingSource = true;
         let check: SourceCheckResult;
         try { check = await invoke<SourceCheckResult>('check_source', { input, dependencies }); }
@@ -159,16 +165,23 @@
         }
       }
       unlisten = await listen<Progress>('encode-progress', event => { progress = event.payload; encodeRegistered = true; });
-      unlistenSource = await listen<string>('source-error-decision', async event => {
-        const proceed = await askSourceDecision(event.payload);
-        try { await invoke('respond_source_error', { proceed }); } catch (e) { error = String(e); }
+      unlistenSource = await listen<SourceDecisionEvent>('source-error-decision', async event => {
+        if (event.payload.job_id !== jobId || sourceDecisionCancelled) return;
+        const proceed = await askSourceDecision(event.payload.details);
+        if (sourceDecisionCancelled) return;
+        try { await invoke('respond_source_error', { jobId, proceed }); } catch (e) { error = String(e); }
+      });
+      unlistenSourceCancelled = await listen<{ job_id: string }>('source-error-decision-cancelled', event => {
+        if (event.payload.job_id !== jobId) return;
+        sourceDecisionCancelled = true;
+        if (resolveSourceDecision) decideSource(false);
       });
       const width = outputWidth(), height = 720;
       encodeRunning = true;
-      const result = await invoke<ResultInfo>('encode', { input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
+      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video} and ${result.audio}. Level limits may cause automatic quality reductions.`;
-    } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); encodeRunning = false; encodeRegistered = false; stopRequested = false; busy = false; }
+    } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); unlistenSourceCancelled?.(); encodeRunning = false; encodeRegistered = false; stopRequested = false; busy = false; }
   }
 </script>
 <svelte:head><title>Tau Encoder</title></svelte:head>
@@ -194,7 +207,7 @@
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
     {#if mode === 'c'}
       <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (default)</option><option value="native">Experimental Python-free Rust + C</option></select>
-        {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{:else}<p class="workflow-note">Rust handles orchestration; the same C video encoder still performs compression. Python is not required. This experimental workflow tracks a projected temporary workspace budget; long films may need a higher value. Encoding stops when the projected workspace exceeds this budget, though actual disk use can vary. Video progress updates as segments finish.</p>
+        {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{:else}<p class="workflow-note">Rust handles orchestration; the same C video encoder still performs compression. Python is not required. This experimental workflow tracks a projected temporary workspace budget; long films may need a higher value. Encoding stops when the projected workspace exceeds this budget, though actual disk use can vary. Video progress updates as segments finish. Custom tools must not launch other processes, because Stop cannot guarantee cleanup of their descendants.</p>
           <label class="workspace-label" for="workspace-mib">Projected workspace budget <small>MiB</small></label><input class="workspace-input" id="workspace-mib" type="number" min="1" max="16384" step="1" bind:value={workspaceMib} disabled={busy} />
         {/if}
       </div>
@@ -216,14 +229,14 @@
         {/if}
         <p class="progress-detail">{checkingSource ? 'Checking can take as long as decoding the source. Encoding starts after the check.' : progressDetail(progress)}</p>
         {#if checkingSource}<button type="button" onclick={stopChecking}>Stop source check</button>{/if}
-        {#if encodeRunning && encodeRegistered && progress.phase !== 'saving'}<button type="button" onclick={stopAfterPhase} disabled={stopRequested}>{stopRequested ? 'Stop requested' : 'Stop after current phase'}</button>{#if stopRequested}<p class="progress-detail">Waiting for the current video or audio phase to finish. No final files will be created.</p>{/if}{/if}
+        {#if encodeRunning && encodeRegistered && progress.phase !== 'saving'}<button type="button" onclick={stopAfterPhase} disabled={stopRequested}>{stopRequested ? 'Stop requested' : mode === 'c' && workflow === 'native' ? 'Stop encoding' : 'Stop after current phase'}</button>{#if stopRequested}<p class="progress-detail">{mode === 'c' && workflow === 'native' ? 'Stopping and waiting for running tools to exit. No final files will be created.' : 'Waiting for the current video or audio phase to finish. No final files will be created.'}</p>{/if}{/if}
       </div>
     {/if}
     {#if message}<p class="status success" role="status">{message}</p>{/if}
     {#if warning}<div class="status warning-summary" role="alert"><strong>Output created with source warnings</strong>{#each warningExplanations(warning) as explanation}<p>{explanation}</p>{/each}<details><summary>Show original decoder messages</summary><pre class="warning">{warning}</pre></details></div>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
-  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. Stopping an encode waits for its current video or audio phase.</p></aside>
+  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. The Python workflow stops after the current phase; the native workflow requests that its running tools stop.</p></aside>
   {:else if page === 'decoder'}
     <header><div><p class="eyebrow">LOCAL PREVIEW</p><h1>Decoder</h1></div></header>
     <p class="intro">Test player for local TNV3 video and matching audio files.</p>
@@ -262,7 +275,7 @@
       <label><input type="checkbox" bind:checked={trimMp3Delay} disabled={busy} /> Test MP3 delay compensation</label>
       <p>Removes the first 1,105 audio samples (23 ms) before MP3 encoding. This may improve or worsen sync and permanently removes that audio.</p>
     </details>
-    <section class="recovery-settings" aria-label="Source error handling"><h2>Source error handling</h2><label><input type="checkbox" checked={alwaysContinue} onchange={(event) => { alwaysContinue = (event.currentTarget as HTMLInputElement).checked; saveRecoveryPreference(); }} disabled={busy} /> Always continue when source errors are found</label><p class="help">When off, the app checks the source before encoding and asks if it finds a problem. The check can take as long as decoding. When on, encoding starts without this check; errors are reported with the result.</p></section>
+    <section class="recovery-settings" aria-label="Source error handling"><h2>Source error handling</h2><label><input type="checkbox" checked={alwaysContinue} onchange={(event) => { alwaysContinue = (event.currentTarget as HTMLInputElement).checked; saveRecoveryPreference(); }} disabled={busy} /> Always continue when source errors are found</label><p class="help">When off, the native C workflow asks when it finds a source problem. The Python workflow checks the source before encoding, which can take as long as decoding. When on, the app continues without asking and reports errors with the result.</p></section>
   {/if}
   <div class="decoder-player" hidden={page !== 'decoder'}><Player bind:this={player} /></div>
 </main>

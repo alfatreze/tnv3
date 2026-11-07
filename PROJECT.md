@@ -1,9 +1,15 @@
 # TNV3 codec tools
 
 An alpha host toolkit extracted from Tau V. It contains TVC video, TAC audio and
-TNV3 container reference tools; the pure-Rust `tau-video` crate is planned, not
-yet implemented. Upstream provenance and MIT notices are retained in
+TNV3 container reference tools and a partial safe Rust `tau-video` crate. The
+crate reads TNV3 structure and decodes TVC video; it is not yet a complete
+container checker. The C encoder remains the reference, while the pure-Rust
+encoder is experimental. Upstream provenance and MIT notices are retained in
 `NOTICE.md` and `LICENSE`.
+
+## Current development checkpoint — 2026-11-07
+
+The current CLI and Rust codec status, tested scope, local test-build age and remaining work are recorded in [CLI development status](docs/CLI_DEVELOPMENT_STATUS_2026-11-07.md). Unix SIGINT is supported for the native Rust+C CLI, the source probe offers optional video-only sample projections, and explicit tool version responses and a sampled quick check are available. These are host-scoped features; the full checker, Python/process-tree cancellation, full-pair estimates and tool compatibility remain open. Deterministic resume is deferred until the final format is complete and frozen. Older dated milestone notes below are historical where superseded by this checkpoint.
 
 The default serial encoder and opt-in parallel-slice encoder have passed host
 checks on macOS ARM64, and the standalone smoke passes on GitHub-hosted Ubuntu
@@ -14,10 +20,83 @@ player is maintained in Tau V; this repository's release candidate makes no
 new Pocket hardware claim. Full native Linux and Windows gates, long-film, comprehensive
 allocation-failure and worker-budget validation remain open.
 
-Next: establish a pinned conformance-vector set with reviewed redistribution
-rights, implement the Rust container reader/checker first, then the decoder and
-segmented encoder, and validate cross-platform worker integration. See
-`docs/REPOSITORY_BOUNDARIES.md` and `docs/RUST_ROADMAP.md`.
+Tau Encoder 0.9.0 is a macOS host-tested preview. Its native Rust+C path asks
+about source errors during video or audio processing and can stop directly owned
+tools; custom descendants remain outside its cleanup guarantee. Windows and
+Linux runtime, full-film operation, and Pocket playback remain unverified.
+
+The CLI offers a preliminary schema-1 JSON-lines event stream for either C
+workflow; generated-media tests checked TNV3/MP3 outputs and hashes on macOS.
+Its error mapping is not yet complete. Opt-in native stdin-EOF cancellation
+covers trusted directly owned leaf tools on macOS; Python, SIGINT, full
+process-tree cancellation and resume remain unsupported. A Windows cross-target
+check is build evidence only.
+
+The CLI's `--version --json` reports its package and TNV3 container versions;
+external tool versions are explicitly unprobed. The C process adapter exposes
+typed errors while retaining its original string API. Its existing Python
+process-tree and callback-cleanup limitations are unchanged.
+
+Current development adds `info FILE --json` for header metadata and declared
+layout bounds, explicitly leaving index entries and chunks unchecked. The CLI
+also discovers tools beside its executable, while explicit tool and checkout
+choices take priority. A draft `probe` was withheld after lifecycle review;
+resume, full checking and stable error classification remain incomplete.
+
+The process-free reader also offers a partial cross-frame check for anchor
+order, timing and indexed audio/reset metadata. It requires stable input and
+does not establish full format conformance. Audio interleaving and rolling
+rate bounds are checked; subtitle structure is checked separately. Complete
+codec syntax remains open. Local reference vectors
+were compared against the C checker on macOS.
+
+The CLI exposes `check` scopes for chunk structure, cross-frame rules and
+subtitle structure; they explicitly decline to claim full conformance.
+
+Current contract work adds bounded chunk-structure scans, typed dependency
+errors, and a plan event describing requested workflow settings and native job
+caps. The chunk scan is not a full container check; the plan is not a measured
+output report. Probe process containment and deterministic resume remain open.
+
+An experimental `probe` command reports source metadata and, when FFmpeg can
+decode a frame, the default reference coded geometry and minimum fitting
+level on macOS. Size and time estimates remain unavailable. Its bounded process
+supervisor has direct/process-group limitations; Linux runtime and Windows
+support remain unverified or unavailable.
+
+On macOS/Linux, individual CLI outputs now use atomic no-replace rename or
+hard link, failing with retained staging if neither is supported. The pair
+remains non-atomic. An explicit `--allow-nonatomic-copy` restores an
+exclusive-copy option for filesystems without atomic methods; interruption
+can leave partial files. TauV exFAT rejected hard links and no-replace
+rename. A generated TNV3/MP3 test on TauV confirmed the opt-in and host
+reference checks; Pocket playback and Windows opt-in remain unverified.
+
+A combined container-preview scope reports valid, invalid or indeterminate
+for the implemented cross-frame and subtitle checks on a stable regular file.
+It does not decode TVC/TAC payloads or claim full format conformance. Local
+30-vector C-reference comparisons and the independent Python vector suite
+passed on macOS; native Linux/Windows runtime gates remain open.
+
+The CLI can query SHA-256 identities of explicitly selected tools; hashes
+describe bytes read at query time, not semantic versions or later execution.
+A complete version handshake remains open.
+
+The CLI direct-child cleanup fallback now stops retrying permanent wait errors
+and avoids a blocking caller wait when a reaper thread cannot start. Cleanup
+uncertainty still retains staging and can leave a child running; eventual
+reaping and process-tree containment are not guaranteed.
+
+Rust+C worker termination and exceptional reaping are now bounded as well.
+If cleanup cannot be verified, the workspace is retained and a child can
+still be running; this does not establish process-tree cancellation.
+
+Next: continue the process-free reader/checker and the separate C-backed CLI
+for Omega's revised consumer contract, including a versioned machine interface,
+safe cancellation and deterministic resume. These remain incomplete; see
+`docs/CROSS_PLATFORM_CLI_MIGRATION_PLAN.md` and `docs/RUST_ROADMAP.md`.
+
+## Earlier milestone records
 
 Historical codec research, format studies and measurement data accompany the
 four specification snapshots; see `docs/RESEARCH_INDEX.md` for their scope and
@@ -316,10 +395,10 @@ error tests passed; this does not prove the folder is writable until the final
 files are created. A unique generated `create_new`/sync probe on the TauV
 exFAT card succeeded and was removed; no existing media was touched.
 
-The CLI falls back to exclusive create-and-copy where no-replace rename is
-unsupported. **Host/card:** a generated TNV3/MP3 pair was written and
+An earlier CLI used an exclusive create-and-copy fallback where no-replace
+rename was unsupported; that fallback was later removed to avoid partial files. **Host/card:** a generated TNV3/MP3 pair was written and
 validated on TauV exFAT, then removed; this did not test Pocket playback.
-On fallback, failures can leave partial new files. See issue 008.
+That earlier fallback could leave partial new files. See issue 008.
 
 **Host/card:** the integrated release CLI encoded a generated one-second
 TNV3/MP3 pair directly to TauV exFAT using the no-replace fallback; the C
@@ -368,8 +447,8 @@ cover the workflows; long-film, Pocket, and Windows/Linux runtime validation
 remain open. See `docs/issues/004-desktop-preview-validation.md` and
 `docs/issues/009-c-encoder-process-cancellation.md`.
 
-The desktop app uses independent semantic versions; its current preview is
-0.5.0. Version checks cover npm, Tauri, Cargo and their lockfiles. This does
+The desktop app uses independent semantic versions; the 0.5.0 preview introduced
+version checks covering npm, Tauri, Cargo and their lockfiles. This does
 not change codec-format or crate versions.
 
 **Host:** Tau Encoder 0.2.0 did not report intermediate progress for the

@@ -72,3 +72,32 @@ valid, FFprobe reported 48 kHz stereo MP3, and a repeat attempt refused to
 overwrite either output. The generated files and empty test directory were
 removed. This confirms this workflow on the tested card, not Pocket playback
 or general crash consistency.
+
+## 2026-11-06: fail closed on unsupported atomic publication
+
+The macOS/Linux CLI no longer uses the create-and-copy fallback described above: it first tries no-replace rename, then a no-replace hard link when rename reports unsupported. If both fail, it reports the failure and retains staging rather than exposing a partially copied final file. This reverses the earlier fallback for the stronger per-file publication requirement; pair publication is still not atomic. The previously tested TauV exFAT card rejected no-replace rename, and hard-link support on that card has not been measured. Direct card output may therefore fail; encode to a supported filesystem and copy the completed pair to the card if necessary. Windows remains copy-based and unverified. Host unit tests cover simulated unsupported operations and conflicts, but this revised path has not been tested on the card or Pocket.
+
+
+## 2026-11-06: explicit card compatibility option
+
+A generated temporary-file test on the mounted TauV card confirmed hard links
+return `ENOTSUP`; an earlier test established no-replace rename is unsupported.
+The CLI now keeps atomic publication as the default and offers explicit
+`--allow-nonatomic-copy` to permit exclusive create-and-copy after atomic methods
+fail. This option can expose a partial final file after interruption or I/O
+failure; staging is retained and the path reported on failure. The revised
+option has not been exercised on the card: TauV and a later Pock mount both
+disconnected before the generated-media test could create its temporary
+directory. No test files were created by those attempts. Windows requires the
+explicit opt-in, uses system-temp staging, and remains runtime/ACL unverified.
+
+
+## 2026-11-06: revised opt-in tested on TauV
+
+**Host/card:** With the mounted TauV volume, a uniquely named temporary test
+folder received a generated half-second TNV3/MP3 pair. Strict publication
+failed safely with no final TNV3; `--allow-nonatomic-copy` succeeded and
+emitted its warning. The C reference checker accepted the video and FFprobe
+opened the MP3. Only the generated test folder was removed. This demonstrates
+the revised host/card path, not crash safety, Pocket playback, or other exFAT
+implementations.
