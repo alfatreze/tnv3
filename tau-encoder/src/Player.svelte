@@ -5,13 +5,16 @@
   type Info = { width: number; height: number; fps_num: number; fps_den: number; frames: number; audio: string | null; audio_source: string | null; subtitles: SubtitleTrack[] };
   type SubtitleTrack = { index: number; language: string; default: boolean; forced_track: boolean; variants: [number, number][] };
   let info: Info | null = null, path = '', playing = false, done = false, loading = false, playPending = false, error = '', frame = 0;
-  let scale = 1;
+  // Display scale: "fit" (default) makes the output window as large as the available space allows; or a fixed factor.
+  let scaleChoice: string = 'fit', viewportW = 0, windowH = 0;
   // Subtitles: the output window is 800x720 with the picture centred at its own size (container spec 6.4); the
   // overlay is drawn by the backend from the file's subtitle area and refreshed from the playback clock.
   const GRID_W = 800, GRID_H = 720;
   let subOn = true, subTrack = 0, subSize = 0, hideSdh = false, overlay: HTMLCanvasElement;
   let knownKey = 0, overlayBusy = false;
   $: stage = (info?.subtitles?.length ?? 0) > 0;
+  $: fitScale = Math.max(0.25, Math.min(viewportW > 0 ? viewportW / stageW : 1, windowH > 0 ? Math.max(200, windowH - 260) / stageH : 1));
+  $: scale = scaleChoice === 'fit' ? fitScale : Number(scaleChoice);
   $: stageW = stage ? GRID_W : (info?.width || 400);
   $: stageH = stage ? GRID_H : (info?.height || 226);
   $: picLeft = stage ? Math.floor((GRID_W - (info?.width || 400)) / 2) : 0;
@@ -124,6 +127,7 @@
     if (!info.audio) pausedAt = (performance.now() - origin) / 1000;
   }
 </script>
+<svelte:window bind:innerHeight={windowH} />
 <section aria-label="Local preview" class="preview">
   <h2>Local preview</h2><p class="help">Open a TNV3 file to preview it with its matching MP3 sidecar.</p>
   <div class="player-actions"><button type="button" onclick={choose} disabled={loading}>{loading ? 'Loading…' : 'Open video'}</button><button type="button" onclick={toggle} disabled={!info || done || loading || playPending}>{playPending ? 'Starting…' : playing ? 'Pause' : 'Play'}</button></div>
@@ -137,9 +141,9 @@
     </div>
     <p class="help">Output window 800×720 with the picture centred, as the Pocket draws it. With Subtitles off only forced lines show. Delay, vertical offset and box settings are not available here.</p>
   {/if}
-  <label class="preview-scale" for="preview-scale">Display scale <select id="preview-scale" bind:value={scale}><option value={0.5}>0.5× — fit the window</option><option value={1}>1× — actual size</option><option value={2}>2×</option><option value={4}>4×</option></select></label>
+  <label class="preview-scale" for="preview-scale">Display scale <select id="preview-scale" bind:value={scaleChoice}><option value="fit">Fit the window (default)</option><option value="0.5">0.5×</option><option value="1">1× — actual size</option><option value="2">2×</option><option value="4">4×</option></select></label>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex: the viewport needs keyboard focus for scrolling. -->
-  <div class="preview-viewport" tabindex="0" role="region" aria-label="Video preview; scroll to see enlarged video"><div class="stage" style:width="{stageW * scale}px" style:height="{stageH * scale}px"><canvas bind:this={canvas} width={info?.width || 400} height={info?.height || 226} style:left="{picLeft * scale}px" style:top="{picTop * scale}px" style:width="{(info?.width || 400) * scale}px" style:height="{(info?.height || 226) * scale}px" aria-label="Decoded video preview"></canvas><canvas class="overlay" bind:this={overlay} width={GRID_W} height={GRID_H} style:display={stage ? 'block' : 'none'} style:width="{GRID_W * scale}px" style:height="{GRID_H * scale}px" aria-hidden="true"></canvas></div></div>
+  <div class="preview-viewport" class:fit={scaleChoice === 'fit'} bind:clientWidth={viewportW} tabindex="0" role="region" aria-label="Video preview; scroll to see enlarged video"><div class="stage" class:crisp={scale >= 2} style:width="{stageW * scale}px" style:height="{stageH * scale}px"><canvas bind:this={canvas} width={info?.width || 400} height={info?.height || 226} style:left="{picLeft * scale}px" style:top="{picTop * scale}px" style:width="{(info?.width || 400) * scale}px" style:height="{(info?.height || 226) * scale}px" aria-label="Decoded video preview"></canvas><canvas class="overlay" bind:this={overlay} width={GRID_W} height={GRID_H} style:display={stage ? 'block' : 'none'} style:width="{GRID_W * scale}px" style:height="{GRID_H * scale}px" aria-hidden="true"></canvas></div></div>
   <audio bind:this={audio} preload="metadata"></audio>
   {#if info}<p class="help">Frame {frame} / {info.frames}{done ? ' · Finished' : ''}. Seeking is not available yet.</p>{/if}
   {#if error}<p class="status error" role="alert">{error}</p>{/if}

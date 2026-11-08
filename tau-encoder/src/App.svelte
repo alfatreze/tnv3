@@ -218,7 +218,7 @@
     <span class="badge">PREVIEW · v{version}</span>
   </nav>
   <span class="sr-only" aria-live="polite" aria-atomic="true">{page === 'encoder' ? 'Encoder page' : page === 'decoder' ? 'Decoder page' : 'Settings page'}</span>
-  <main>
+  <main class:wide={page === 'decoder'}>
   {#if page === 'encoder'}
   <header><div><p class="eyebrow">VIDEO CONVERSION</p><h1>Encoder</h1></div></header>
   <p class="intro">Convert a video into a Tau video file with its audio inside.</p>
