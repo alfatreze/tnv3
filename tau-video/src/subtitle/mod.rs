@@ -121,6 +121,27 @@ impl Options {
     }
 }
 
+/// The built-in default fonts: Roboto Regular as the default face and Roboto Italic as its italic face
+/// (SIL Open Font License 1.1, `LICENSES/OFL-Roboto.txt`). Use them when the caller gives no font.
+pub fn default_fonts() -> Vec<FontSpec> {
+    vec![
+        FontSpec {
+            family: String::new(),
+            style: Style::Regular,
+            data: include_bytes!("../../assets/fonts/Roboto-Regular.ttf").to_vec(),
+            label: "Roboto-Regular.ttf (built in)".into(),
+            scale: None,
+        },
+        FontSpec {
+            family: String::new(),
+            style: Style::Italic,
+            data: include_bytes!("../../assets/fonts/Roboto-Italic.ttf").to_vec(),
+            label: "Roboto-Italic.ttf (built in)".into(),
+            scale: None,
+        },
+    ]
+}
+
 /// Builds the subtitle area. Warnings (placement clamps, clipped glyphs, missing characters, ...) are
 /// returned in [`BuildInfo::warnings`], never dropped.
 pub fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
@@ -130,6 +151,19 @@ pub fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn built_in_fonts_load_and_cover_basic_latin() {
+        let fonts = default_fonts();
+        assert_eq!(fonts.len(), 2);
+        let (_, info) = build_area(&Options::new(
+            vec![TrackInput { name: "a.srt".into(), text: "1\n00:00:01,000 --> 00:00:02,000\nHello <i>there</i> \u{e9}\n".into(), language: "eng".into(), default: false, forced: false }],
+            fonts,
+            (400, 224),
+        ))
+        .unwrap();
+        assert!(info.warnings.is_empty(), "{:?}", info.warnings);
+        assert_eq!(info.tracks[0].variants[0].faces, 2, "regular and italic faces both used");
+    }
     #[test]
     fn font_argument_forms_are_parsed() {
         let dir = std::env::temp_dir().join(format!("tau-font-arg-{}", std::process::id()));

@@ -177,11 +177,7 @@ pub fn build(
 }
 
 fn find_font() -> Option<String> {
-    env::var_os("TAU_SUBTITLE_FONT")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("TAU_V_ROOT").map(|r| PathBuf::from(r).join("tools/tst_ref/fonts/Roboto-Regular.ttf")))
-        .filter(|p| p.is_file())
-        .map(|p| p.display().to_string())
+    env::var_os("TAU_SUBTITLE_FONT").map(PathBuf::from).filter(|p| p.is_file()).map(|p| p.display().to_string())
 }
 
 fn parse_sizes(s: &str) -> Result<Vec<(u32, u32)>, String> {
@@ -246,12 +242,14 @@ fn build_native(
 ) -> Result<BuildReport, (u8, String)> {
     use tau_video::subtitle::{self, FontSpec, TrackInput};
     let usage = |e: String| (2u8, e);
-    let font_args: Vec<String> = if req.fonts.is_empty() {
-        vec![find_font().ok_or_else(|| usage("A subtitle font is required: pass --font FILE.ttf (or set TAU_SUBTITLE_FONT).".into()))?]
+    // Fonts: those given; else TAU_SUBTITLE_FONT; else the built-in Roboto Regular + Italic.
+    let fonts = if !req.fonts.is_empty() {
+        req.fonts.iter().map(|a| FontSpec::from_argument(a.as_str()).map_err(|e| usage(e.to_string()))).collect::<Result<Vec<_>, _>>()?
+    } else if let Some(p) = find_font() {
+        vec![FontSpec::from_argument(&p).map_err(|e| usage(e.to_string()))?]
     } else {
-        req.fonts.clone()
+        subtitle::default_fonts()
     };
-    let fonts = font_args.iter().map(|a| FontSpec::from_argument(a.as_str()).map_err(|e| usage(e.to_string()))).collect::<Result<Vec<_>, _>>()?;
     let mut tracks = Vec::new();
     let mut extracted = Vec::new();
     let result = (|| {

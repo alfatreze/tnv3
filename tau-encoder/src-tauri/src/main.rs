@@ -1451,14 +1451,14 @@ fn build_tnv3_with_tac(
     let (area_guard, area_file) = temporary_file("bin")?;
     drop(area_file);
     if let Some(track) = subtitle_track {
-        let font_path = selected_file(&dependencies.subtitle_font, "Subtitle font")?
+        // Font: the one chosen in settings, else TAU_SUBTITLE_FONT, else the built-in Roboto.
+        let fonts = match selected_file(&dependencies.subtitle_font, "Subtitle font")?
             .or_else(|| std::env::var_os("TAU_SUBTITLE_FONT").map(PathBuf::from).filter(|p| p.is_file()))
-            .or_else(|| {
-                std::env::var_os("TAU_V_ROOT")
-                    .map(|r| PathBuf::from(r).join("tools/tst_ref/fonts/Roboto-Regular.ttf"))
-                    .filter(|p| p.is_file())
-            })
-            .ok_or("Subtitles need a font: choose a .ttf file as the subtitle font in Dependency settings.")?;
+        {
+            Some(path) => vec![tau_video::subtitle::FontSpec::from_argument(&path.display().to_string())
+                .map_err(|e| e.to_string())?],
+            None => tau_video::subtitle::default_fonts(),
+        };
         let (srt_guard, srt_file) = temporary_file("srt")?;
         drop(srt_file);
         let mut extract = Command::new(ffmpeg);
@@ -1473,8 +1473,6 @@ fn build_tnv3_with_tac(
         control.checkpoint()?;
         let text = std::fs::read_to_string(&srt_guard.0)
             .map_err(|e| format!("Could not read the extracted subtitles: {e}"))?;
-        let font = tau_video::subtitle::FontSpec::from_argument(&font_path.display().to_string())
-            .map_err(|e| e.to_string())?;
         let mut options = tau_video::subtitle::Options::new(
             vec![tau_video::subtitle::TrackInput {
                 name: "subtitles.srt".into(),
@@ -1483,7 +1481,7 @@ fn build_tnv3_with_tac(
                 default: true,
                 forced: false,
             }],
-            vec![font],
+            fonts,
             (picture_w, picture_h),
         );
         options.fps = Some((fps_n, fps_d));
@@ -3614,29 +3612,22 @@ mod tests {
         assert!(info.flags & 4 != 0 && info.subtitle_length > 0, "subtitle area present");
         let check = Command::new(&tnv3).arg("check").arg(&video.0).output().unwrap();
         assert!(String::from_utf8_lossy(&check.stdout).contains("valid"), "{check:?}");
-        // a missing font fails before anything is published
-        let no_builder = Dependencies { subtitle_font: String::new(), ..dependencies.clone() };
+        // with no font configured the built-in Roboto is used
+        let builtin = Dependencies { subtitle_font: String::new(), ..dependencies.clone() };
         let (reserve2, f) = temporary_file("tnv3").unwrap();
         drop(f);
         std::fs::remove_file(&reserve2.0).unwrap();
         let name2 = reserve2.0.file_stem().unwrap().to_str().unwrap();
-        let prior = (std::env::var_os("TAU_SUBTITLE_FONT"), std::env::var_os("TAU_V_ROOT"));
-        // SAFETY: tests that touch these variables run in this single test only.
-        unsafe {
-            std::env::remove_var("TAU_SUBTITLE_FONT");
-            std::env::remove_var("TAU_V_ROOT");
+        let prior = std::env::var_os("TAU_SUBTITLE_FONT");
+        // SAFETY: only this test touches the variable.
+        unsafe { std::env::remove_var("TAU_SUBTITLE_FONT") };
+        let again = encode_pair(Path::new(&ffmpeg), &src.0, folder, name2, 30, None, settings, &builtin, |_| {}).unwrap();
+        if let Some(p) = prior {
+            unsafe { std::env::set_var("TAU_SUBTITLE_FONT", p) };
         }
-        let error = encode_pair(Path::new(&ffmpeg), &src.0, folder, name2, 30, None, settings, &no_builder, |_| {}).unwrap_err();
-        unsafe {
-            if let Some(p) = prior.0 {
-                std::env::set_var("TAU_SUBTITLE_FONT", p);
-            }
-            if let Some(p) = prior.1 {
-                std::env::set_var("TAU_V_ROOT", p);
-            }
-        }
-        assert!(error.contains("font"), "{error}");
-        assert!(!reserve2.0.exists());
+        let video2 = Temporary(PathBuf::from(&again.video));
+        let info2 = tau_video::Tnv3Reader::open(File::open(&video2.0).unwrap()).unwrap().info().clone();
+        assert!(info2.flags & 4 != 0 && info2.subtitle_length > 0, "built-in font authored subtitles");
     }
     #[test]
     fn real_media_selected_audio_track_is_the_one_encoded() {

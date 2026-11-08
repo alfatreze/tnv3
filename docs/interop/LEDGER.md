@@ -26,3 +26,4 @@
 | TV/005 F-3, 006 (their) | n22 vector pinned; 800 failure is their decoder size limit | Tau V | CLOSED here (to-tau-v/006) |
 | Pure-Rust subtitle builder (owner 2026-11-08) | native default; matches Tau V events byte-for-byte | owner | DONE; default font decision, R-4 clamp open |
 | R-4 clamp case | what the spec says when the stack does not fit above row 0 | Tau V | OPEN (we follow their tool) |
+| Default subtitle font (owner 2026-11-08) | Roboto Regular+Italic bundled in `tau-video/assets/fonts` (OFL); Google Fonts chooser is a future request | owner | DONE; chooser OPEN (future) |
