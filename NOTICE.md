@@ -7,10 +7,11 @@ Development began from upstream commit
 
 Tau V preserves the upstream Git history. This extracted codec repository
 starts from a source snapshot; `SOURCE_MANIFEST.json` records its provenance.
-HarpMudd's original copyright notice remains in `LICENSE`, alongside the notice
-for Tau's later modifications. The MIT license applies to HarpMudd's MIT-licensed original work
-and to Tau's own MIT-licensed additions; it does not replace licenses attached
-to third-party components.
+HarpMudd's original copyright notice remains in `LICENSES/MIT-HarpMudd.txt`,
+alongside the notice for Tau's earlier modifications. Since 2026-11-08 Tau-authored code and
+documentation in this repository is licensed under the Apache License 2.0 (`LICENSE`); HarpMudd's
+MIT-licensed original work keeps its MIT terms, and neither replaces licenses attached
+to third-party components. See `LICENSES/README.md`.
 
 ## Original project
 
@@ -18,14 +19,14 @@ to third-party components.
 - Author: HarpMudd
 - Source: <https://github.com/harpmudd/HarpMudd.mp3player>
 - Tau baseline: v1.4.0 / commit `7ef8f0fb84abd4ae5a6a187805fd910351ae57dc`
-- License: MIT, preserved in `LICENSE`
+- License: MIT, preserved in `LICENSES/MIT-HarpMudd.txt`
 
 ## Tau
 
 - Project direction, identity, artwork, packaging, documentation, and
   modifications after the baseline: alfatreze
 - Source: <https://github.com/alfatreze/Tau-Alpha>
-- License for Tau-authored code and documentation: MIT
+- License for Tau-authored code and documentation: Apache-2.0 (MIT before 2026-11-08)
 
 ## Components with separate terms
 

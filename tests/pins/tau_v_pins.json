@@ -1,0 +1,214 @@
+{
+  "schema": 1,
+  "purpose": "Pins to Tau V files, referenced in place and not copied (Tau V convention, docs/interop/README.md). Verify with tests/pins/check_pins.py.",
+  "source_repo": "tau-nu/.claude/worktrees/codec-alternatives",
+  "source_commit": "f930a740 (committed 2026-11-08; the 04d2a61d base plus the subtitle work)",
+  "source_tree_state": "committed; all 10 pinned hashes unchanged by the commit (verified)",
+  "pinned": "2026-11-08",
+  "owner_go": "2026-11-08 (user: yes you can pin)",
+  "files": [
+    {
+      "path": "docs/TST_OUTLINE_BAKED_V1_5.md",
+      "sha256": "95841969aa3fd152117366efdddb17bcbc7aebd9b026c649ebfd5eec37fceec5",
+      "bytes": 3689,
+      "kind": "spec",
+      "why": "draft 1.5 text (authoritative source of the format change)"
+    },
+    {
+      "path": "docs/TST_SUBTITLES_V0.md",
+      "sha256": "a5f0c4f7d28f6b890c31289e4930201562a27f6d3a073f267fa37cadfe1beb60",
+      "bytes": 15448,
+      "kind": "spec",
+      "why": "Tau V subtitle tool/spec notes"
+    },
+    {
+      "path": "tools/tst_ref/tst_build.py",
+      "sha256": "0c9088b4f3f6aa2ca8d08e6b92282686a2ac7c880c3e54673793329d18a9ce78",
+      "bytes": 39215,
+      "kind": "reference-tool",
+      "why": "reference subtitle builder"
+    },
+    {
+      "path": "tools/tst_ref/tst_render.py",
+      "sha256": "e4deeda602a478253f81998d2a8ea0033d8174cddcd43a99ef8f959a57b6a666",
+      "bytes": 19286,
+      "kind": "reference-tool",
+      "why": "reference renderer, fit_voffset (F-007)"
+    },
+    {
+      "path": "tools/tst_ref/tst_golden.py",
+      "sha256": "a7418a0b15c8d4b36f1b66364080ecc78ca9a10983b958f0d7c880b33a51c902",
+      "bytes": 16684,
+      "kind": "golden",
+      "why": "22 golden cases incl. c21/c22 offset fit"
+    },
+    {
+      "path": "tools/tst_ref/test_tst.py",
+      "sha256": "5fbc24c3596060fdc6ee1ff7714e8c814c623a6f42d4e067ba591c575c5539fa",
+      "bytes": 40433,
+      "kind": "golden",
+      "why": "builder and format tests (mutation style)"
+    },
+    {
+      "path": "fw/tst_core.h",
+      "sha256": "9c3b5936ae2b224a4ed68613f7cc31ba4060de111d5089f1910a5621d7c3e180",
+      "bytes": 16389,
+      "kind": "reference-tool",
+      "why": "player-side core (tst_fit_voffset)"
+    },
+    {
+      "path": "work/films/tensei06/area_bar2.bin",
+      "sha256": "41cdeccc09a3b61133b931f7fff8bd629f66c02c98da2b22f8625d4fd8e078ca",
+      "bytes": 762916,
+      "kind": "vector",
+      "why": "real draft 1.5 area, 4 variants, outline 2,3,3,4"
+    },
+    {
+      "path": "work/films/tensei06/tensei06_400_subs2.tnv3",
+      "sha256": "1e52f5803dcd04a177c102a923195030844026d87c0b49205c4208a87a7576fc",
+      "bytes": 56283276,
+      "kind": "film",
+      "why": "400x224 film with subtitle area, 56,283,276 B"
+    },
+    {
+      "path": "work/films/tensei06/tensei06_subs2.tnv3",
+      "sha256": "dcc0828a7657ead7a0974b8fbc4e2abd71bd7170a42a4462a5d02ac57197f11c",
+      "bytes": 102221196,
+      "kind": "film",
+      "why": "800x450 level-2 film with subtitle area, 102,221,196 B"
+    },
+    {
+      "path": "tools/tac_ref/vectors/fx_dump_expected.txt",
+      "sha256": "69b63273e47651915e73bcb9bb2831b839e1f663fcafdb878a4a6acc9583169c",
+      "bytes": 465,
+      "kind": "tac-expected",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/fx_expected.txt",
+      "sha256": "3cec57ace88ee61cc51d7692caf5c006fd0e31918096dd3a945497b58d66590c",
+      "bytes": 465,
+      "kind": "tac-expected",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/manifest.txt",
+      "sha256": "9e9040aefbf8b66f7a6a7cc4ec3a0002a836b0fcbd64dd76d0fdd07a96a2592d",
+      "bytes": 834,
+      "kind": "tac-expected",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t01_synth_stereo_96k.ref.wav",
+      "sha256": "e6edd520b42a0d567c3bb1fd104a773aaceeb31531ebc75ecafe50104757d509",
+      "bytes": 384044,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t01_synth_stereo_96k.tac",
+      "sha256": "4f5c9ea13ea69dc2000329991b3b79941c5bf65d6f05c75e6d3e336fc9371303",
+      "bytes": 24552,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t02_film_action_96k.ref.wav",
+      "sha256": "2d02623fdcd173c661ec90524904b05893803f8738998d97011e238b810ab78c",
+      "bytes": 576044,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t02_film_action_96k.tac",
+      "sha256": "1a8177f4b309523ce59fe345463b872ba13d09c4f7e16338583fff82327c1951",
+      "bytes": 36674,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t03_film_dialog_128k.ref.wav",
+      "sha256": "22a0702fae2f2f84891f0653021bd56e356b7553de653d24fbbb9faf2db495ab",
+      "bytes": 576044,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t03_film_dialog_128k.tac",
+      "sha256": "c43d64bdf8508be72f4dcdc40265adc720cca9065b465b0a64fabdbcf30f732b",
+      "bytes": 48798,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t04_tv_mono_64k.ref.wav",
+      "sha256": "47dacaee08c89fdcfc3503829ee19b8585ab23aa1d5e3f3007e83a741aa385bd",
+      "bytes": 288044,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t04_tv_mono_64k.tac",
+      "sha256": "94f52e95aa03106cfb1e4d135aec58e0daa811451e1537e642a6c5059580db93",
+      "bytes": 24563,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t05_synth_lr_dense_clicks.ref.wav",
+      "sha256": "85e918087b829befc8d4171112175abf96d91f7b539b005788556fa7290d50f6",
+      "bytes": 384044,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t05_synth_lr_dense_clicks.tac",
+      "sha256": "9292b48f639f4d4e0361eb32eeca17b8a0e88517f27920b4de41488ffad73387",
+      "bytes": 24539,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t06_synth_ms_all_320k.ref.wav",
+      "sha256": "fb86db19aa0a64b5aef7aa11e0ef928cb59c9679033ca8ad15d9ec604ba0b5f2",
+      "bytes": 384044,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t06_synth_ms_all_320k.tac",
+      "sha256": "2c91889acbd508cb799509c8e60730bea7fd2263ab2bab9f003004de13e00beb",
+      "bytes": 81293,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t07_stress_fullscale_hi.ref.wav",
+      "sha256": "09da2370de5822921fcffb77b5cc3ce309575a71fdcc482233a7267498ba7585",
+      "bytes": 576044,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t07_stress_fullscale_hi.tac",
+      "sha256": "2d5519cfc023c0d57ccff05796bb01b2528e7163a44cfab73a984116306ea546",
+      "bytes": 84362,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t08_crafted_limits.ref.wav",
+      "sha256": "9befcd3a127c798fbb4beeefed295b61765a0731924ede10eb5fe6d19b679490",
+      "bytes": 45100,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tac_ref/vectors/t08_crafted_limits.tac",
+      "sha256": "4bb97e2d7fdc191758e5984e087660cd711771b48f1d27ad46ac5917f5349d22",
+      "bytes": 610,
+      "kind": "tac-vector",
+      "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    }
+  ]
+}

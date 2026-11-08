@@ -1,4 +1,5 @@
 mod check;
+mod decode_audio;
 mod child_supervisor;
 mod info;
 mod probe;
@@ -1100,6 +1101,10 @@ struct Args {
     tvc_encoder: Option<PathBuf>,
     tnv3_tool: Option<PathBuf>,
     qp: u8,
+    /// Maximum output width in pixels (default 400); height is 9/10 of it, even.
+    width: u32,
+    /// TVC level 1..=3, or 0 for the smallest level that fits.
+    level: u8,
     jobs: usize,
     workspace_mib: u64,
     pocket_sidecar: bool,
@@ -1212,7 +1217,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1511,6 +1516,25 @@ impl From<&str> for RunError {
     }
 }
 
+/// Maximum output height for a requested width: 9/10 of it, rounded down to even
+/// (400 -> 360, 800 -> 720, the TVC level 3 maximum).
+fn max_height_for_width(width: u32) -> u32 {
+    (width * 9 / 10) & !1
+}
+
+fn profile_filter(width: u32) -> String {
+    format!(
+        "scale={width}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24",
+        max_height_for_width(width)
+    )
+}
+
+/// Frames per segment: 480 at 400x360, fewer for larger pictures (as in the C-encoder path).
+fn segment_frames(width: u32) -> usize {
+    let h = max_height_for_width(width);
+    ((480u32 * 400 * 360 / (width * h).max(1)).clamp(1, 480)) as usize
+}
+
 fn classify_c_encoder_error(error: c_encoder::EncodeError) -> RunError {
     match error {
         c_encoder::EncodeError::InvalidInput(message) => RunError::invalid_input(message),
@@ -1563,13 +1587,13 @@ fn effective_settings(args: &Args) -> serde_json::Value {
         "video": {
             "requested_qp": args.qp,
             "qp_may_be_raised_for_level": true,
-            "max_width": 400,
-            "max_height": 360,
+            "max_width": args.width,
+            "max_height": max_height_for_width(args.width),
             "scaling": "aspect-fit-even",
             "fps_num": 24,
             "fps_den": 1,
-            "level": "automatic",
-            "frames_per_segment": 480,
+            "level": if args.level == 0 { serde_json::json!("automatic") } else { serde_json::json!(args.level) },
+            "frames_per_segment": segment_frames(args.width),
             "requested_jobs": args.jobs,
             "worker_jobs_limit": if args.rust_c_orchestrator {args.jobs.clamp(1, 6)} else {args.jobs}
         },
@@ -1671,6 +1695,8 @@ where
     let mut tvc_encoder = None;
     let mut tnv3_tool = None;
     let mut qp = 30;
+    let mut width = 400u32;
+    let mut level = 0u8;
     let mut jobs = 1;
     let mut workspace_mib = 512u64;
     let mut workspace_mib_explicit = false;
@@ -1747,6 +1773,20 @@ where
                     .parse()
                     .map_err(|_| "QP must be an integer from 0 to 51")?
             }
+            "--width" => {
+                width = value
+                    .to_str()
+                    .ok_or("width must be UTF-8")?
+                    .parse()
+                    .map_err(|_| "width must be an even integer from 16 to 800")?
+            }
+            "--level" => {
+                level = value
+                    .to_str()
+                    .ok_or("level must be UTF-8")?
+                    .parse()
+                    .map_err(|_| "level must be 0 (automatic), 1, 2, or 3")?
+            }
             "--jobs" => {
                 jobs = value
                     .to_str()
@@ -1759,6 +1799,9 @@ where
     }
     if qp > 51 || jobs == 0 {
         return Err("QP must be 0–51 and jobs must be positive".into());
+    }
+    if !(16..=800).contains(&width) || width % 2 != 0 || level > 3 {
+        return Err("width must be an even integer from 16 to 800 and level 0 (automatic), 1, 2, or 3".into());
     }
     if workspace_mib == 0 {
         return Err("workspace size must be a positive integer in MiB".into());
@@ -1845,6 +1888,8 @@ where
             )
         }),
         qp,
+        width,
+        level,
         jobs,
         workspace_mib,
         pocket_sidecar,
@@ -2027,7 +2072,7 @@ fn run(args: Args) -> Result<(), RunError> {
                 "0:v:0",
                 "-an",
                 "-vf",
-                probe::POCKET_PROFILE_FILTER,
+                profile_filter(args.width).as_str(),
                 "-pix_fmt",
                 "yuv420p",
                 "-f",
@@ -2129,8 +2174,9 @@ fn run(args: Args) -> Result<(), RunError> {
             RustCOptions {
                 qp: args.qp,
                 jobs: args.jobs.clamp(1, 6),
-                // Match encode_film.py's default --seg 480.
-                frames_per_segment: 480,
+                // 480 at the default size, scaled down for larger pictures.
+                frames_per_segment: segment_frames(args.width),
+                level: args.level,
                 workspace_limit_bytes: args.workspace_mib * 1024 * 1024,
                 ..RustCOptions::default()
             },
@@ -2142,7 +2188,7 @@ fn run(args: Args) -> Result<(), RunError> {
                         if slot.is_none() {
                             if let Err(error) = emit_event(serde_json::json!({
                                 "schema": 1, "event": "progress", "frames": frames, "total": null,
-                                "segment": frames.div_ceil(480), "bytes": null, "elapsed": started.elapsed().as_secs_f64()
+                                "segment": frames.div_ceil(segment_frames(args.width) as u64), "bytes": null, "elapsed": started.elapsed().as_secs_f64()
                             })) {
                                 *slot = Some(error);
                             }
@@ -2269,7 +2315,7 @@ fn run(args: Args) -> Result<(), RunError> {
         )
     } else {
         let progress_error_slot = std::sync::Arc::clone(&progress_error);
-        let report = c_encoder::encode_video_typed(
+        let report = c_encoder::encode_video_with_geometry_typed(
             &tools,
             &args.input,
             staged.writer(),
@@ -2278,6 +2324,9 @@ fn run(args: Args) -> Result<(), RunError> {
                 jobs: args.jobs,
                 ..Options::default()
             },
+            args.width,
+            max_height_for_width(args.width),
+            args.level,
             |done, total| {
                 if args.json_events {
                     if let Ok(mut slot) = progress_error_slot.lock() {
@@ -2556,6 +2605,12 @@ fn main() -> ExitCode {
     if argv.first().is_some_and(|arg| arg == OsStr::new("check")) {
         return check::run(&argv);
     }
+    if argv
+        .first()
+        .is_some_and(|arg| arg == OsStr::new("decode-audio"))
+    {
+        return decode_audio::run(&argv);
+    }
     if argv.first().is_some_and(|arg| arg == OsStr::new("info")) {
         return run_info(&argv);
     }
@@ -2812,6 +2867,36 @@ mod tests {
         );
         std::fs::remove_dir_all(root).unwrap();
     }
+    #[test]
+    fn width_and_level_options_are_parsed_validated_and_reported() {
+        let parse = |extra: &[&str]| {
+            let mut argv = vec!["encode", "in.mp4", "out.tnv3"];
+            argv.extend_from_slice(extra);
+            parse_args(argv.into_iter().map(OsString::from))
+        };
+        let default = parse(&[]).unwrap().unwrap();
+        assert_eq!((default.width, default.level), (400, 0));
+        let settings = effective_settings(&default);
+        assert_eq!(settings["video"]["max_width"], 400);
+        assert_eq!(settings["video"]["max_height"], 360);
+        assert_eq!(settings["video"]["level"], "automatic");
+        assert_eq!(segment_frames(400), 480);
+
+        let wide = parse(&["--width", "800", "--level", "2"]).unwrap().unwrap();
+        let settings = effective_settings(&wide);
+        assert_eq!(settings["video"]["max_width"], 800);
+        assert_eq!(settings["video"]["max_height"], 720);
+        assert_eq!(settings["video"]["level"], 2);
+        assert_eq!(segment_frames(800), 120);
+        assert_eq!(
+            profile_filter(800),
+            "scale=800:720:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24"
+        );
+        for bad in [["--width", "802"], ["--width", "15"], ["--width", "x"], ["--level", "4"]] {
+            assert!(parse(&bad).is_err(), "{bad:?}");
+        }
+    }
+
     #[test]
     fn effective_plan_distinguishes_requested_and_clamped_jobs() {
         let argv = [
@@ -3108,6 +3193,8 @@ mod tests {
             tvc_encoder: Some(tvc),
             tnv3_tool: Some(tnv3),
             qp: 30,
+            width: 400,
+            level: 0,
             jobs: 1,
             workspace_mib: 512,
             pocket_sidecar: false,
@@ -3167,6 +3254,8 @@ mod tests {
             tvc_encoder: Some(tvc),
             tnv3_tool: Some(tnv3),
             qp: 30,
+            width: 400,
+            level: 0,
             jobs: 1,
             workspace_mib: 512,
             pocket_sidecar: false,

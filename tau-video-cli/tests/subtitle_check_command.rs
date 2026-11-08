@@ -14,7 +14,7 @@ fn put32(b: &mut [u8], at: usize, v: u32) {
 }
 
 fn minimal_tnv3(with_subtitles: bool, malformed: bool) -> Vec<u8> {
-    let area = if with_subtitles {
+    let area: Vec<u8> = if with_subtitles {
         // One eng track; one 2x1 variant; one event; one glyph.
         let mut a = vec![0; 110];
         a[0] = 1;
@@ -42,6 +42,10 @@ fn minimal_tnv3(with_subtitles: bool, malformed: bool) -> Vec<u8> {
     } else {
         Vec::new()
     };
+    wrap_area(with_subtitles, area)
+}
+
+fn wrap_area(with_subtitles: bool, area: Vec<u8>) -> Vec<u8> {
     let mut file = vec![0; 80 + area.len()];
     file[..4].copy_from_slice(b"TNV3");
     put16(&mut file, 4, 0);
@@ -142,4 +146,112 @@ fn subtitle_scope_reports_valid_malformed_and_absent_areas() {
     assert_eq!(json["findings_count"], 0);
     assert_eq!(json["limit"]["code"], "E-TNV3-LIMIT");
     fs::remove_dir_all(dir).unwrap();
+}
+
+/// Draft 1.5 area: one 2x1 variant with outline_w = 1. `mode` 0 = valid,
+/// 1 = outline plane not the dilation of the fill plane, 2 = nonzero outline
+/// padding bits, 3 = two-line event at y = 719 (ends at row 721), 4 = outline_w 5.
+fn outline_area(mode: u8) -> Vec<u8> {
+    let refs: &[u16] = if mode == 3 { &[0, 0xFFFF] } else { &[0] };
+    let el = 20 + 2 * refs.len();
+    let go = (80 + el + 3) & !3;
+    let mut a = vec![0; go + 12];
+    a[0] = 1;
+    a[4..7].copy_from_slice(b"eng");
+    a[9] = 1;
+    a[60] = 3;
+    a[61] = 1;
+    a[62] = if mode == 4 { 5 } else { 1 };
+    put32(&mut a, 64, 80);
+    put32(&mut a, 68, el as u32);
+    put32(&mut a, 72, go as u32);
+    put32(&mut a, 76, 12);
+    put32(&mut a, 80, 1);
+    put32(&mut a, 84, 10);
+    put32(&mut a, 88, 20);
+    put16(&mut a, 92, 20);
+    put16(&mut a, 94, if mode == 3 { 719 } else { 30 });
+    put16(&mut a, 98, refs.len() as u16);
+    for (k, r) in refs.iter().enumerate() {
+        put16(&mut a, 100 + 2 * k, *r);
+    }
+    put16(&mut a, go, 1);
+    a[go + 2] = 3;
+    a[go + 3] = 1;
+    a[go + 4] = 3;
+    a[go + 5] = 0x30; // fill row (3x1): pixel 2 = 3
+    a[go + 6..go + 12].copy_from_slice(&[0xC0, 0x00, 0xF0, 0x03, 0xC0, 0x00]);
+    match mode {
+        1 => a[go + 10] = 0x00,
+        2 => a[go + 7] = 0x0C,
+        _ => {}
+    }
+    a
+}
+
+#[test]
+fn draft_1_5_baked_outline_is_checked() {
+    let dir = std::env::temp_dir().join(format!(
+        "tau-subtitle-outline-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&dir).unwrap();
+    let expect = [
+        (0u8, None),
+        (1, Some("differs from the dilation")),
+        (2, Some("padding bits must be zero")),
+        (3, Some("below the 720-row grid")),
+        (4, Some("outline width")),
+    ];
+    for (mode, error) in expect {
+        let path = dir.join(format!("outline-{mode}.tnv3"));
+        let area = outline_area(mode);
+        fs::write(&path, wrap_area(true, area)).unwrap();
+        let out = invoke(&path);
+        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        match error {
+            None => {
+                assert_eq!(out.status.code(), Some(0), "{json}");
+                assert_eq!(json["variants_checked"], 1);
+            }
+            Some(text) => {
+                assert_eq!(out.status.code(), Some(1), "mode {mode}: {json}");
+                assert!(
+                    json["findings"][0]["message"].as_str().unwrap().contains(text),
+                    "mode {mode}: {json}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn nonzero_video_codec_id_is_rejected_before_other_checks() {
+    let dir = std::env::temp_dir().join(format!(
+        "tau-codec-id-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&dir).unwrap();
+    for (offset, value, code) in [(22usize, 1u8, "E-TNV3-032"), (23, 1, "E-TNV3-005")] {
+        let mut file = minimal_tnv3(false, false);
+        file[offset] = value;
+        let crc = tau_video::crc32(&file[..60]);
+        put32(&mut file, 60, crc);
+        let path = dir.join(format!("codec-{offset}.tnv3"));
+        fs::write(&path, &file).unwrap();
+        let out = invoke(&path);
+        assert_ne!(out.status.code(), Some(0), "offset {offset}");
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(text.contains(code), "offset {offset}: {text}");
+    }
+    // codec id 0 stays valid
+    let ok = dir.join("ok.tnv3");
+    fs::write(&ok, minimal_tnv3(false, false)).unwrap();
+    assert_eq!(invoke(&ok).status.code(), Some(0));
 }

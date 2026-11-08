@@ -83,18 +83,38 @@ static const char *why;
 #define BAD(msg) do { why = msg; return 0; } while (0)
 
 /* one variant: event list (section 6.2) against its glyph table */
-static int check_variant(const uint8_t *s, uint32_t sl, const uint8_t *g, uint32_t gl, uint32_t vcw, uint32_t vch) {
+static int check_variant(const uint8_t *s, uint32_t sl, const uint8_t *g, uint32_t gl, uint32_t vcw, uint32_t vch, uint32_t ow) {
     if (gl < 4) BAD("glyph table too short");
     uint32_t gc = rd16(g), cw = g[2], chh = g[3], rowb = (cw + 3) / 4;
     if (gc < 1 || gc > 0xFFE0 || cw < 1 || chh < 1) BAD("glyph table header");
     if (cw != vcw || chh != vch) BAD("variant cell size differs from its glyph table");
-    if ((uint64_t)gl != 4 + (uint64_t)gc * (1 + chh * rowb)) BAD("glyph table length");
+    /* draft 1.5: with outline width ow > 0 each glyph carries a second plane of (chh + 2 ow) rows of ceil((cw + 2 ow) / 4) bytes */
+    uint32_t orows = ow ? chh + 2 * ow : 0, orowb = ow ? (cw + 2 * ow + 3) / 4 : 0, rec = 1 + chh * rowb + orows * orowb;
+    if ((uint64_t)gl != 4 + (uint64_t)gc * rec) BAD("glyph table length");
     for (uint32_t i = 0; i < gc; i++) {
-        const uint8_t *q = g + 4 + i * (1 + chh * rowb);
+        const uint8_t *q = g + 4 + (size_t)i * rec;
         if (q[0] < 1 || q[0] > cw) BAD("glyph advance");
         if (cw & 3)
             for (uint32_t r = 0; r < chh; r++)
                 if (q[1 + r * rowb + rowb - 1] >> (2 * (cw & 3))) BAD("glyph padding bits");
+        if (ow) {
+            const uint8_t *op = q + 1 + chh * rowb;
+            for (uint32_t oy = 0; oy < orows; oy++)
+                for (uint32_t ox = 0; ox < orowb * 4; ox++) {
+                    uint32_t got = op[oy * orowb + ox / 4] >> (2 * (ox & 3)) & 3;
+                    if (ox >= cw + 2 * ow) { if (got) BAD("outline padding bits"); continue; }
+                    uint32_t m = 0;
+                    for (int dy = -(int)ow; dy <= (int)ow; dy++)
+                        for (int dx = -(int)ow; dx <= (int)ow; dx++) {
+                            if (dx * dx + dy * dy > (int)(ow * ow)) continue;
+                            int fx = (int)ox - (int)ow + dx, fy = (int)oy - (int)ow + dy;
+                            if (fx < 0 || fy < 0 || fx >= (int)cw || fy >= (int)chh) continue;
+                            uint32_t v = q[1 + fy * rowb + fx / 4] >> (2 * (fx & 3)) & 3;
+                            if (v > m) m = v;
+                        }
+                    if (m != got) BAD("outline plane differs from the dilation of the fill plane");
+                }
+        }
     }
     if (sl < 4) BAD("event list too short");
     uint32_t cnt = rd32(s), pos = 4, last = 0;
@@ -108,11 +128,14 @@ static int check_variant(const uint8_t *s, uint32_t sl, const uint8_t *g, uint32
         last = st;
         pos += 16;
         if ((uint64_t)pos + 2 * n > sl) BAD("event list truncated");
+        uint32_t lines = 1;
         for (uint32_t k = 0; k < n; k++) {
             uint32_t id = rd16(s + pos + 2 * k);
+            if (id == 0xFFFF) lines++;
             if (id >= 0xFFF0 && id != 0xFFFF) BAD("reserved glyph reference code");
             if (id < 0xFFE0 && id >= gc) BAD("glyph id out of range");
         }
+        if (y + lines * vch > 720) BAD("subtitle event extends below the 720-row grid");
         pos += 2 * n;
     }
     if (pos != sl) BAD("event list length");
@@ -148,14 +171,15 @@ static int check_area(const uint8_t *a, uint32_t al) {
         for (uint32_t v = 0; v < nv; v++) {
             const uint8_t *d = e + 56 + 20 * v;
             uint32_t cw = d[0], chh = d[1], eo = rd32(d + 4), el = rd32(d + 8), go = rd32(d + 12), gl = rd32(d + 16);
-            if (rd16(d + 2)) BAD("variant reserved");
+            uint32_t ow = d[2];
+            if (ow > 4 || d[3]) BAD("variant outline width / reserved");
             if (chh <= prevh) BAD("variant cell heights not increasing");
             prevh = chh;
             if (eo != next || (uint64_t)eo + el > al) BAD("event list offset");
             size_t gpos = align4((size_t)eo + el);
             for (size_t z = (size_t)eo + el; z < gpos && z < al; z++) if (a[z]) BAD("non-zero subtitle padding");
             if (go != gpos || (uint64_t)go + gl > al) BAD("glyph table offset");
-            if (!check_variant(a + eo, el, a + go, gl, cw, chh)) return 0;
+            if (!check_variant(a + eo, el, a + go, gl, cw, chh, ow)) return 0;
             next = align4((size_t)go + gl);
             if (next > (size_t)go + gl) for (size_t z = (size_t)go + gl; z < next && z < al; z++) if (a[z]) BAD("non-zero subtitle padding");
             if (t + 1 == nt && v + 1 == nv && (size_t)go + gl != al) BAD("subtitle area length");
@@ -176,7 +200,8 @@ static int parse(const Buf *b, Tnv *t) {
     t->level = p[20]; t->ch = p[21]; t->rate = rd32(p + 24); t->nf = rd32(p + 28); t->nsamp = rd32(p + 32);
     t->ntac = rd32(p + 36); t->idx = rd32(p + 40); t->so = rd32(p + 44); t->sl = rd32(p + 48);
     int audio = t->flags >> 1 & 1, subs = t->flags >> 2 & 1;
-    if (t->flags >> 3 || rd16(p + 22) || rd32(p + 52) || rd32(p + 56)) BAD("reserved header bits");
+    if (p[22]) BAD("unsupported video codec id (only 0 = TVC is defined)");
+    if (t->flags >> 3 || p[23] || rd32(p + 52) || rd32(p + 56)) BAD("reserved header bits");
     if (!t->w || !t->h || !t->fn || !t->fd || t->fn > 65535 || t->fd > 65535) BAD("size / frame rate");
     if (t->level < 1 || t->level > 3) BAD("level");
     if (t->nf < 1) BAD("frame count");

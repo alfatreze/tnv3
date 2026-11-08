@@ -1,0 +1,180 @@
+# Codec audit and correction plan — 2026-11-07
+
+Scope: handoff ([CLI_DEVELOPMENT_STATUS_2026-11-07.md](CLI_DEVELOPMENT_STATUS_2026-11-07.md)), the four normative specs (TVC draft 5, TNV3 draft 1.4, TAC draft 1.2, TST draft 1), the C reference tools, the `tau-video` crate, the CLI, and the test and CI setup. Everything marked **verified** was run today on macOS arm64. Nothing was changed except this file.
+
+## 1. Verdict
+
+The stream has drifted. Since 2026-11-01 the effort has gone into CLI process hardening: cancellation, probe supervision, SHA-256 tool handshakes, exFAT publication fallbacks, cooperative stops and issues 007–020. The CLI is about 6,900 lines against 1,800 lines of C reference codec tools. Meanwhile the things that decide whether the codec ships are open:
+
+- The formats are not frozen and cannot be fully checked as written (section 3).
+- Hardware playback is unexplained: choppy playback with Rust output, and a C-encoded file that freezes (issue 003).
+- A/V sync of the interim MP3 sidecar path is unmeasured (issues 005/006). TAC is now the primary path (section 6).
+- The Rust encoder is far from the C encoder: 148 KB against 51 KB on the same clip (`RUST_C_ENCODER_PARITY.md`).
+
+The decoder-side core is in good shape. TVC decode in Rust matches the C decoder on all local vectors, and the C reference passes its smoke test. The problem is what surrounds it: the conformance evidence is not in the repo, the specs are not self-consistent, and several guarantees are only claimed.
+
+**Recommendation:** freeze CLI feature work and fix bugs only. Spend the next stretch on spec consolidation, the conformance suite and the hardware timing question. Resume the CLI (checker, resume, estimates) only after the error semantics in section 3 exist.
+
+## 2. Verified findings
+
+| # | Finding | Evidence |
+|---|---|---|
+| V1 | `make all` fails to link on this machine. The Command Line Tools SDK (`MacOSX27.2.sdk`) has a `libSystem.B.tbd` that Xcode's `ld` rejects ("unknown architecture arm64e.x1-macos"). | `make all`. Setting `SDKROOT` to Xcode's `MacOSX.sdk` works around it. |
+| V2 | With that workaround, `tests/smoke.py` passes (serial and slice encoder, TAC, TNV3 check). `tau-video` passes 57 lib tests plus its integration suites. The CLI passes 72 unit tests plus its integration suites. | Run today. |
+| V3 | `tests/check_manifest.py` fails: 27 of 519 pinned files no longer match `SOURCE_MANIFEST.json` (CHANGELOG.md, PROJECT.md, tvc_enc.c, tnv3.c, `tau-video/src/tvc/stream.rs` and others). `make test` and `ci.yml` run this script first, so that CI job should be red. I could not see CI status. | `python3 tests/check_manifest.py` |
+| V4 | About 25 Rust tests exit early and report "ok" unless `TAU_VIDEO_VECTOR_DIR`, `TAU_TVC_VECTOR_DIR`, `TAU_TVC_DECODER`, `TAU_TNV3_TOOL` or `TAU_TEST_TNV3` are set. No workflow in `.github/` sets them. In a default `cargo test` or in CI, all vector, C-decoder and checker comparisons are skipped silently. They do pass when pointed at `local-media/`. | `grep` of the tests and workflows. Run with the env vars set. |
+| V5 | The conformance assets the specs cite are not in this repo. The vectors (tvc 21 valid + 3 negative, tnv3 9 + 21, tac t01–t08) sit in git-ignored `local-media/`. The independent Python decoders (`tvc_dec.py`, `tac_dec.py`, `tac_fx.py`, `tnv3_demux.py`), `make_vectors.py`, `mutants.py` and `tst_ref/` exist only in the sibling `tau-nu` tree. | `git ls-files`, `find`. |
+| V6 | The Rust decoder does not enforce every level rule: slice minimum for level 3 and the vector-range limit are absent. `stream.rs` says so itself. There is no Rust TAC decoder and no Rust subtitle support. | `stream.rs` docs, source search, `RUST_ROADMAP.md`. |
+| V7 | A flaky test is unexplained (issue 019: output filename published although the progress stream broke). It is the publication-ordering guarantee, so it is a correctness question, not only test noise. | Issue 019. |
+
+## 3. Format-definition gaps
+
+These are the "format not fully defined" items. They must be settled before a full checker (issues 017/020) or a freeze is meaningful.
+
+**F1. Spec hygiene.**
+- TVC is titled "draft 2" but describes draft 5.
+- TVC section 7b is numbered 1–3, 10–13, 4–9, 14–15, 17, 16, 19, 18.
+- TAC's header says "not reviewed by an independent implementation", while its 7b says an independent decoder matches.
+- TNV3 says "15 must-reject files"; the vector set has 21.
+- TNV3 cites `tools/tst_ref/` and `tools/tnv3_ref/py/`, neither of which is in this repo.
+- TST says "Bitmap events: later draft."
+- There is no changelog per spec and no single "current normative revision".
+
+**F2. No versioning or extension model.**
+- TNV3 `version` is fixed at 0.
+- TVC features are toggled per picture (`qpel`, `t4ok`, `sliced`) with no stream-level profile.
+- TVC 7b.14 says a conforming encoder uses the same `qpel` value throughout, but nothing enforces or checks it.
+- "Reserved must be 0" means every later extension breaks old decoders.
+- No criteria say what counts as "final and frozen", which is the condition under which resume was parked.
+
+**F3. "Valid stream" is not defined at the bit level.**
+- The range decoder returns 0 past the end of data. There is no flush or termination rule, no trailing-byte rule and no check that a slice consumed its length.
+- TVC section 9 says a corrupt picture is "undefined behaviour", while TNV3 section 7 says demuxers "must reject" invalid files.
+- Several rejection cases are unspecified: EG `k > 24`; a slice-length table that does not sum to the picture length; `rows = 0`; reserved flag bits 4–7; vectors over the level limit (spec only says the decoder reports failure); picture type 3; a B picture whose anchors are missing.
+- Without this list, "decode succeeded" cannot mean "conformant", which is what issue 020 found.
+
+**F4. No decoder cost or buffering model.**
+- Levels bound bytes, macroblocks per second and slices. They do not bound entropy bins per picture or per second, the intra share, the B-run length, or the read-ahead buffer (TNV3 section 9 "Open").
+- Issue 003 fits an unbounded worst case: a 93.8%-intra stream at 24 fps stutters, and a C stream freezes after a long run.
+- Until the player has a cost model, "level 3 conformant" does not mean "plays".
+
+**F5. Audio contract is split.**
+- TNV3 defines audio as TAC with the TAC sample counter as master clock.
+- The shipping path is an MP3 sidecar outside the container, with unmeasured delay (issue 006).
+- TAC has no Rust decoder, no hardware decoder, and its own open items (short-window grouping, lower rates).
+- A normative sync definition for the sidecar is needed, or the Pocket pair must be declared interim.
+
+**F6. Subtitle scope.** TST is defined and checked by the C tool only. Decide whether it is in v1.
+
+## 4. Test gaps
+
+- **T1.** The Rust decoder is checked only against the C decoder (same author, same design). The independent Python decoders exist but are not part of the Rust gate.
+- **T2.** No negative vectors exist for the F3 cases (TVC has 3 negatives, all level-related). TAC has no negative vectors for its 7b.8 invalid-stream list.
+- **T3.** No fuzzing or mutation corpus for the Rust decoder. Issue 020 states panic safety, CPU time and memory are not established.
+- **T4.** The encoder is evaluated on short clips (4–12 cases). There are no long-film runs, no equal-quality rate curves, and no hardware decode-time data per picture.
+- **T5.** Linux and Windows runtime are untested. CI only proves builds. Python and process-tree cancellation are unsupported.
+- **T6.** The Rust encoder's compliance with level 3 (two slices minimum) is not covered by a test I could find. Verify it as part of the work in section 5.
+
+## 5. Correction plan
+
+Each phase has an exit criterion. Sizes: S ≈ under a day, M ≈ a few days, L ≈ a week or more.
+
+**Phase 0 — repo hygiene (S)**
+1. Document the macOS SDK workaround and add an `SDKROOT` fallback to the Makefile. Verify the Ubuntu and macOS CI jobs.
+2. Regenerate `SOURCE_MANIFEST.json`, or remove it from `make test` until it is automated.
+3. Make vector-dependent tests fail loudly. Either require the env vars under a `conformance` feature, or print and count skips. CI must set them.
+4. Fix or explain issue 019 by recording stderr and event order when it recurs.
+
+*Exit:* a clean checkout runs `make test` and `cargo test` green in CI, and the number of skipped comparisons is visible.
+
+**Phase 1 — spec consolidation, "v0 release candidate" (M)**
+1. Relabel and renumber TVC, TAC and TNV3, and add a per-spec changelog.
+2. Add a normative "Errors and termination" section to TVC: the exact reject list from F3, a flush and trailing-byte rule, and `k` and vector bounds.
+3. Add a feature and profile model: a stream-level flag set (or drop the per-picture flexibility), a version policy and an extension rule.
+4. Write the freeze checklist: what must be true before "final and frozen".
+5. Record the audio contract (TAC primary; MP3 sidecar optional and outside the core spec) and decide the subtitle scope (F6).
+6. Decide how a future video codec id is reserved in TNV3 (section 7B.1).
+
+*Exit:* each spec has one current revision, and every "must reject" has a testable condition.
+
+**Phase 2 — conformance suite in the repo (M–L)**
+1. Move vectors, `make_vectors.py`, the Python independent decoders and `mutants.py` from `tau-nu` into this repo, with provenance. Keep generated media small.
+2. Add negative vectors for every Phase 1 reject rule, for TVC, TAC and TNV3.
+3. Run C, Rust and Python decoders against every vector in CI (three-way agreement).
+4. Add a bounded fuzz and mutation run for the Rust decoder: no panic, bounded time and memory.
+
+*Exit:* all three decoders agree on the full set, and the fuzz run finds no panic.
+
+**Phase 3 — finish the Rust checker (M, after Phases 1–2)**
+Implement issues 017 and 020 against the Phase 1 error list: typed invalid, unsupported, I/O and limit outcomes with offsets, and the missing level rules (slice minimum, vector range). Only then enable an unqualified `check`.
+
+**Phase 4 — playback and timing evidence (M–L, needs hardware)**
+1. Instrument the player (issue 003): decode time per picture, bins per picture, dropped frames.
+2. Reproduce the freeze and the pause behaviour.
+3. Measure MP3 delay on the real decoder (issue 006).
+4. Use the data to add a decoder cost bound to the levels (F4).
+
+*Exit:* the Pocket playback issues are closed with data, and the level table has a cost limit.
+
+**Phase 5 — encoder decision (M)**
+Choose between a safe-Rust binding to the C encoder and a full Rust port. Rust is currently 2.9× the C size at similar PSNR. Measure equal-quality rate curves on long films first. Stop adding Rust encoder experiments in the meantime.
+
+**Phase 1b — architecture seams (M, after Phase 0, parallel with Phase 2)**
+Implement section 7A (audio interface, `mp3-sidecar` feature) and the section 7B seams (codec id enum, decoder/encoder/level traits, backend description) with TVC as the only codec. Exit: the build without `mp3-sidecar` has no MP3 code, and all existing tests pass unchanged with and without the feature.
+
+**Phase 6 — CLI resume (deferred)**
+Take up resume, full-pair estimates and Python cancellation only after the format freeze. Do not copy the incomplete `work/` drafts without re-review.
+
+**Freeze now (bug fixes only):** cooperative stop, SIGINT and stdin-EOF cancellation, tool-handshake hashing, probe sample estimates, schema-1 events, the exFAT non-atomic fallback.
+
+## 6. Owner decisions
+
+Decided 2026-11-07:
+1. **Audio:** TAC is the primary audio path. The MP3 sidecar stays as an advanced, flag-based option that can be dropped from a build (section 7).
+2. **Future video codecs:** keep the option of an AV1 specialised variant and MPEG-4 (from the earlier Tau V builds). Nothing is implemented now; the architecture must make adding them modular (section 7).
+
+Settled by the interop documents (2026-11-08; Omega's `TAU_VIDEO_CRATE_REQUIREMENTS.md` revision 2026-11-05 and `VIDEO_SYNC_PLAN.md`):
+3. **Rust encoder:** not a product goal. The C encoder is the reference, wrapped by the CLI; Omega drives the CLI as a sidecar. Stop Rust encoder experiments (Phase 5 reduces to maintaining the C wrapper).
+4. **Consumer needs that change this plan:** Omega needs a Rust TAC decoder in-process for its player (not only for the checker), never-panic decoding (fuzzing, Phase 2), pinned vectors with SHA-256 and a mutation test per checker rule (Phase 2), and no LGPL MPEG-4 material in the crate (applies to section 7B: future codecs go in separate, optional, feature-gated code). Omega defers subtitles to a later release.
+
+Still for the owner to decide (Omega's questions are in its own documents; no reply has been sent to Omega):
+5. **Subtitles in v1: DECIDED 2026-11-08, yes.** Container draft 1.5 (baked outline) adopted into `TNV3_CONTAINER_V0.md` and the Rust subtitle checker (done, tested; checker accepts Tau V's real 4-size film). Still to do: C reference checker `tools/tnv3_ref/tnv3.c` (still 1.4), 1.5 vectors with SHA-256, and authoring (next item).
+5b. **Authoring: DECIDED 2026-11-08.** Subtitle authoring lives in the CLI and the crate, for built-in subtitles and for external ones (an imported SRT/ASS or a prebuilt area). Not started: the reference is Tau V's `tools/tst_ref/tst_build.py` (915 lines, fonts, wrapping, outline bake, F-006 centring, variant list 32x44/40x54/48x64/56x76 as default). Needs a design: font source and licence, Rust rasteriser, and whether to port or call the Python tool first.
+5c. **CLI `--width` and `--level`: DONE 2026-11-08.** Default stays 400 (box 400x360), level automatic; `--width` up to 800 (box 800x720) and `--level 0..3` are opt-in, so 800p feasibility can be tested without changing defaults. Not yet applied to `probe` estimates.
+5d. **Area size:** no format limit beyond 32 bits; the 1 MB limit is documented as Tau V's player profile (spec 6.1).
+5e. **TAC decoding: C-tool wrapper, DECIDED 2026-11-08; pure-Rust TAC decoder PARKED until the TNV3 format is closed (then reconsidered).** Reason: quicker build, less duplication, less testing. Done: `tau_video::c_audio` (feature `c-audio-decoder`) and `tau-codecs-cli decode-audio IN.tnv3 OUT.wav [--model integer|reference]` run `tnv3 demux` then `tac_fx dec` (integer model, hardware oracle) or `tac dec` (double reference). Verified end to end on Tau V's 23-minute film: integer vs reference max diff 1, RMS 0.220 (spec 0.222); both C decoders reproduce the pinned vectors t01-t08 (`tests/pins/check_tac_vectors.py`; t08 integer max 3, RMS 0.107, as in the spec). Limits: this is the C reference, not an independent decoder; the output JSON says `independent_decoder: false`; no cancellation or timeout; needs the C tools at run time (Omega's in-process requirement D3 is therefore NOT met until the Rust decoder is built).
+5f. **C reference checker `tnv3` updated to draft 1.5/1.6 (2026-11-08):** outline plane, dilation check, 720 bound, codec id. It accepts both of Tau V's films (an implementation independent of the Rust checker).
+6. **Freeze order and criteria** (Omega's Q2). Proposal: container, TVC, TAC, TST last; criteria come from Phase 1.
+7. **Poster/index format.** Proposal: none in TNV3; host-side only.
+8. **Conformance assets: DECIDED 2026-11-08 (go given), partly done.** Tau V's subtitle material is pinned in place by SHA-256 (`tests/pins/tau_v_pins.json`, verified by `tests/pins/check_pins.py`, missing files fail rather than skip). Not yet pinned: the TNV3/TVC/TAC vectors and Python references that Omega expects (Phase 2), and no assets are copied into this repo.
+9. **MP3 sidecar: PARKED 2026-11-08.** Not needed for TNV3 (TAC is the audio path); may return if an MP4 or AV1 alternative build is revived. The CLI's `pocket-sidecar@1` profile is still the default encode output only because the CLI cannot write TAC yet; no new work goes into it and it is to be moved behind the `mp3-sidecar` Cargo feature, off by default, when TAC encode lands in the CLI. Not yet gated in code.
+10. **Codec id: DECIDED and DONE 2026-11-08.** Container draft 1.6: header byte 22 = `video_codec` (0 = TVC, 1..255 reserved, readers reject with `E-TNV3-032`); byte 23 stays reserved. Existing files are unchanged and the version stays 0. Applied to the spec, the Rust reader, the C checker (source only, not rebuilt against vectors) and a test.
+11. **`.tnv3` extension: FINAL (2026-11-08). Crate licence: Apache-2.0, transversal across Tau V and Tau codecs (2026-11-08).** Applied here: `LICENSE` is Apache-2.0, upstream HarpMudd MIT notice kept at `LICENSES/MIT-HarpMudd.txt`, `NOTICE.md` updated, Cargo licence fields set. Tau V's own repository must make the same change; third-party components keep their own licences (Helix RPSL 1.0, OFL).
+
+## 7. Architecture requirements (design only, no implementation now)
+
+**Current state (verified by code search).**
+- The MP3 sidecar is not isolated. `tau-video-cli/src/main.rs` has 77 MP3/sidecar references, the CLI has no Cargo features, and the profile is the CLI default. The crate has an `mp3-cli` feature, but only for the separate `tau-mp3` binary.
+- TNV3 has no video-codec identifier. TVC is implied. The header has reserved space (bytes 22–23, 52–59) and a fixed `version = 0`. Adding a codec id later is a format change with a version bump unless the field is reserved now.
+- Rust codec code lives in one crate with TVC hard-wired into the container reader, the stream decoder and the encoder.
+
+**A. Audio: TAC primary, MP3 optional**
+1. Define an internal audio-track interface (encode to a stream of packets plus timing metadata). TAC and MP3 are two implementations. The CLI workflow talks to the interface, not to MP3 directly.
+2. Move all MP3/sidecar code (FFmpeg MP3 encode, pair publication, `pocket-sidecar` profile, delay options, `tau-mp3`) behind one Cargo feature, for example `mp3-sidecar`, default off or default on by your choice. Building without it must compile with no MP3 references and no behaviour change for TAC output.
+3. The same flag removes the sidecar CLI options, JSON event fields and tests. `handshake --json` capabilities report whether it is compiled in.
+4. The default profile becomes TNV3 with embedded TAC. The MP3 pair is selected explicitly, as an advanced profile.
+5. Prerequisite for the default switch: a Rust TAC encoder or a supervised call to the C `tac` tool, plus the TAC checks of Phase 2. The Rust TAC decoder is needed for the checker, not for encoding.
+6. Document the sidecar sync definition (issue 006) inside the feature only; the core spec stays TAC-only.
+
+**B. Video: room for AV1 and MPEG-4 later**
+1. **Codec identity.** Reserve a video codec id in the next TNV3 revision, with TVC = 0. Until the format is revised, keep the id as an internal enum in the Rust container reader so no code assumes "video means TVC". Decide in Phase 1 whether to spend a header reserved field now or wait for a version bump.
+2. **Trait seams.** Introduce the interfaces in `tau-video` and the CLI before any new codec exists, with TVC as the only implementation:
+   - `VideoDecoder`: feed a picture, get frames in display order.
+   - `VideoEncoder`: frames in, pictures out, with a codec-specific rate/level object.
+   - `LevelProfile`: limits and checks per codec (TVC levels become one implementation).
+   - A codec registry keyed by the id, each codec behind its own Cargo feature.
+3. **Container independence.** The TNV3 reader should expose pictures and timing, not TVC syntax. Container-level checks stay in the container module; codec checks (slice minimum, vector limits, payload validity) move behind the codec interface so the checker can call the right one.
+4. **Encoder workflow.** The CLI's segmenting, rate-window and FFmpeg ingest steps currently assume the C `tvc_enc` tool and TVC level names. Put the codec behind a "backend" description (tool or library, supported levels, options) so a different backend can be selected without changing publication, staging or events.
+5. **Spec layout.** Keep one normative document per codec (`TVC_…`, later `TAV1_…`, `TMP4_…`), one container spec, one audio spec. Shared pieces (range coder, level concept) should be referenced, not copied.
+6. **Hardware reality.** AV1 and MPEG-4 were hardware decoder studies on Tau V (`CODEC_AV1_*`, `ENCODER_DAV1D.md`). A codec only enters the container once its player-side cost fits the decoder cost model from Phase 4. The id reservation costs nothing; the codec does not enter the format until then.
+7. **Rule for now:** no code for AV1 or MPEG-4 in this repo. The only work is the seams above, each verified by the existing TVC tests passing unchanged.

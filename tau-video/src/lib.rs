@@ -297,6 +297,61 @@ fn sub_u32(b: &[u8], at: usize) -> u32 {
 fn add_base(base: u64, at: usize) -> u64 {
     base.saturating_add(at as u64)
 }
+/// Checks one glyph's baked outline plane (draft 1.5): padding bits zero and
+/// equal to the grey-scale dilation of the fill plane over the disc
+/// `dx^2 + dy^2 <= w^2`, unclipped. `at` is the start of the fill rows.
+fn check_outline_plane(
+    a: &[u8],
+    base: u64,
+    at: usize,
+    cw: usize,
+    ch: usize,
+    w: usize,
+) -> Result<(), Error> {
+    let row_bytes = (cw + 3) / 4;
+    let ow = cw + 2 * w;
+    let oh = ch + 2 * w;
+    let o_row_bytes = (ow + 3) / 4;
+    let o_at = at + ch * row_bytes;
+    let fill = |x: i64, y: i64| -> u8 {
+        if x < 0 || y < 0 || x >= cw as i64 || y >= ch as i64 {
+            0
+        } else {
+            (a[at + y as usize * row_bytes + x as usize / 4] >> (2 * (x as usize & 3))) & 3
+        }
+    };
+    let wi = w as i64;
+    for oy in 0..oh {
+        for ox in 0..o_row_bytes * 4 {
+            let got = (a[o_at + oy * o_row_bytes + ox / 4] >> (2 * (ox & 3))) & 3;
+            if ox >= ow {
+                if got != 0 {
+                    return Err(sub_invalid(
+                        add_base(base, o_at + oy * o_row_bytes + ox / 4),
+                        "Outline row padding bits must be zero.",
+                    ));
+                }
+                continue;
+            }
+            let mut m = 0u8;
+            for dy in -wi..=wi {
+                for dx in -wi..=wi {
+                    if dx * dx + dy * dy <= wi * wi {
+                        m = m.max(fill(ox as i64 - wi + dx, oy as i64 - wi + dy));
+                    }
+                }
+            }
+            if m != got {
+                return Err(sub_invalid(
+                    add_base(base, o_at + oy * o_row_bytes + ox / 4),
+                    "Outline plane differs from the dilation of the fill plane.",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn align4_sub(n: usize) -> Option<usize> {
     n.checked_add(3).map(|v| v & !3)
 }
@@ -395,10 +450,11 @@ fn validate_subtitle_area(a: &[u8], base: u64) -> Result<SubtitleStructureReport
             let at = dp + 56 + 20 * v;
             let cw = a[at];
             let ch = a[at + 1];
-            if cw == 0 || ch <= previous_h || sub_u16(a, at + 2) != 0 {
+            let outline_w = usize::from(a[at + 2]);
+            if cw == 0 || ch <= previous_h || outline_w > 4 || a[at + 3] != 0 {
                 return Err(sub_invalid(
                     add_base(base, at),
-                    "Invalid variant cell size, order, or reserved field.",
+                    "Invalid variant cell size, order, outline width, or reserved field.",
                 ));
             }
             previous_h = ch;
@@ -448,13 +504,14 @@ fn validate_subtitle_area(a: &[u8], base: u64) -> Result<SubtitleStructureReport
                 ));
             }
             let row_bytes = (usize::from(gw) + 3) / 4;
-            let glyph_bytes = 1usize
-                .checked_add(
-                    usize::from(gh)
-                        .checked_mul(row_bytes)
-                        .ok_or_else(|| sub_invalid(add_base(base, go), "Glyph size overflow."))?,
-                )
-                .ok_or_else(|| sub_invalid(add_base(base, go), "Glyph size overflow."))?;
+            let fill_bytes = usize::from(gh) * row_bytes;
+            let o_rows = if outline_w > 0 { usize::from(gh) + 2 * outline_w } else { 0 };
+            let o_row_bytes = if outline_w > 0 {
+                (usize::from(gw) + 2 * outline_w + 3) / 4
+            } else {
+                0
+            };
+            let glyph_bytes = 1usize + fill_bytes + o_rows * o_row_bytes;
             let expected = 4u64 + gc as u64 * glyph_bytes as u64;
             if expected != gl as u64 {
                 return Err(sub_invalid(
@@ -480,6 +537,16 @@ fn validate_subtitle_area(a: &[u8], base: u64) -> Result<SubtitleStructureReport
                             ));
                         }
                     }
+                }
+                if outline_w > 0 {
+                    check_outline_plane(
+                        a,
+                        base,
+                        gp + 1,
+                        usize::from(gw),
+                        usize::from(gh),
+                        outline_w,
+                    )?;
                 }
             }
             if el < 4 {
@@ -552,6 +619,15 @@ fn validate_subtitle_area(a: &[u8], base: u64) -> Result<SubtitleStructureReport
                             "Glyph id is outside the glyph table.",
                         ));
                     }
+                }
+                let lines = 1 + (0..nr)
+                    .filter(|&k| sub_u16(a, p + 2 * k) == 0xFFFF)
+                    .count();
+                if usize::from(y) + lines * usize::from(ch) > 720 {
+                    return Err(sub_invalid(
+                        add_base(base, p - 6),
+                        "Subtitle event extends below the 720-row grid.",
+                    ));
                 }
                 p = refs_end;
                 report.events_checked += 1;
@@ -674,10 +750,17 @@ impl<R: Read + Seek> Tnv3Reader<R> {
         if crc32(&h[..60]) != u32le(&h, 60) {
             return Err(invalid("E-TNV3-004", 60, "Header CRC mismatch."));
         }
-        if u16le(&h, 22) != 0 || h[52..60].iter().any(|&x| x != 0) {
+        if h[22] != 0 {
+            return Err(invalid(
+                "E-TNV3-032",
+                22,
+                "Unsupported video codec id (only 0 = TVC is defined).",
+            ));
+        }
+        if h[23] != 0 || h[52..60].iter().any(|&x| x != 0) {
             return Err(invalid(
                 "E-TNV3-005",
-                22,
+                23,
                 "Reserved header bytes are nonzero.",
             ));
         }
@@ -1278,6 +1361,8 @@ pub mod container;
 /// Optional safe adapter to the external reference C encoder workflow.
 #[cfg(feature = "c-encoder")]
 pub mod c_encoder;
+#[cfg(feature = "c-audio-decoder")]
+pub mod c_audio;
 
 /// Experimental Y4M-to-C segment orchestration, disabled by default.
 #[cfg(feature = "experimental-c-orchestrator")]

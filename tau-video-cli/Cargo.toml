@@ -2,9 +2,10 @@
 name = "tau-codecs-cli"
 version = "0.3.0"
 edition = "2024"
+license = "Apache-2.0"
 
 [dependencies]
-tau-video = { path = "../tau-video", features = ["c-encoder", "experimental-c-orchestrator"] }
+tau-video = { path = "../tau-video", features = ["c-encoder", "experimental-c-orchestrator", "c-audio-decoder"] }
 serde_json = "1"
 sha2 = "0.10"
 
