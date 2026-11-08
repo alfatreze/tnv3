@@ -100,7 +100,7 @@
       if (file) { dependencies = { ...dependencies, [key]: file }; saveDependencies(); }
     } catch (e) { dependencyError = String(e); }
   }
-  type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null };
+  type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'subtitles' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null };
   let progress: Progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
   function timeLabel(seconds: number): string {
     if (seconds < 60) return `${seconds} sec`;
@@ -238,7 +238,7 @@
     <button class="primary" type="button" onclick={encode} disabled={busy || previewLoading || !input || !folder || !name.trim() || !validDimensions() || invalidLevel() || qp == null || qp < 0 || qp > 51 || !Number.isInteger(qp) || (mode === 'c' && workflow === 'native' && (!Number.isInteger(Number(workspaceMib)) || Number(workspaceMib) < 1 || Number(workspaceMib) > 16_384))}>{busy ? 'Encoding…' : 'Encode video and audio'}</button>
     {#if busy}
       <div class="progress-area" aria-live="polite">
-        <div class="progress-heading"><strong>{checkingSource ? 'Checking source video and audio' : progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : 'Saving files'}</strong>
+        <div class="progress-heading"><strong>{checkingSource ? 'Checking source video and audio' : progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : progress.phase === 'subtitles' ? 'Drawing subtitles' : 'Saving files'}</strong>
           {#if progress.phase === 'video' && progress.total_frames_estimate && progress.frames < progress.total_frames_estimate}<span>~{Math.min(99, Math.floor(progress.frames / progress.total_frames_estimate * 100))}%</span>{/if}
         </div>
         {#if progress.phase === 'video' && progress.total_frames_estimate && progress.frames < progress.total_frames_estimate}

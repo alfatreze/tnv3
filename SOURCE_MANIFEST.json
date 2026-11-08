@@ -1455,7 +1455,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "2a86c1452fe487b0dc18658ec3339fe8e4af68e8c9cd2f83cf99d8970bbd2c66",
+      "sha256": "93558247552dfb775cee5b2ddef91d4b16b8933d9c7587c6d2c8d91642c27857",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/index.html": {
@@ -1470,7 +1470,7 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "1a8ed2782db0c3abeddd6cd849082020de59d5b99dc2b874f81cd8d3769bb29c",
+      "sha256": "444047a9894c790259d942c5c164ccb96349c8e96c1bdb2f0cba65fd37d9fff9",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/main.ts": {
@@ -1480,11 +1480,11 @@
       "sha256": "0ecfffb7d5f56008bc478b1d2f17f8e098b64ea7065a190e763befb504dc6014"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
-      "sha256": "9a392700c18879df95f007ada791af5bffd866b9d23101ccc0d4d4eaf06651ca",
+      "sha256": "21d3bae669dc92bf1a0ada14dfd414c075a03edf90f9bf687112d68f1b0c31fc",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "139ca55c84eb7dcae4740f27cd5daa78e9838e2834de50e7e7fb5a9e97314f9a",
+      "sha256": "456e21e34974e1fd128a707fed6455783a61fa850f21c15d0ba882c1f06bc03d",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/build.rs": {
@@ -1509,7 +1509,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "21c8ede14c5ec3a88111b86d2a523652c33adc731eef03e56f5a54fc120b854b",
+      "sha256": "76f2d747d174a3e2160687ed536c39f9be6c1c4e935c8a9d75347c5a5b415680",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {

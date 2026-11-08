@@ -5,6 +5,7 @@
 use tau_video::source_gate::SourceGate;
 // Integration destination: this helper will live in src-tauri/src.
 mod child_supervisor;
+mod dock_icon;
 mod player;
 use serde::{Deserialize, Serialize};
 use std::io::BufReader;
@@ -515,6 +516,7 @@ fn with_diagnostics(message: String, details: &str) -> String {
 /// Shows the encode progress on the app's Dock icon (macOS), the taskbar button (Windows) or the launcher
 /// (Linux); `None` clears it. Video counts for 0..90 %, then audio 92 %, saving 98 %; probing and unknown
 /// totals show as indeterminate.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn show_system_progress(app: &tauri::AppHandle, progress: Option<&Progress>) {
     use tauri::window::{ProgressBarState, ProgressBarStatus};
     let Some(window) = app.get_webview_window("main") else { return };
@@ -528,6 +530,7 @@ fn show_system_progress(app: &tauri::AppHandle, progress: Option<&Progress>) {
     let _ = window.set_progress_bar(state);
 }
 
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn system_progress_percent(p: &Progress) -> Option<u64> {
     match (p.phase, p.total_frames_estimate) {
         ("video" | "c-video", Some(total)) if total > 0 => {
@@ -536,6 +539,18 @@ fn system_progress_percent(p: &Progress) -> Option<u64> {
         ("audio", _) => Some(92),
         ("saving", _) => Some(98),
         _ => None,
+    }
+}
+
+/// What the animated Dock icon shows for a progress event (video fraction, audio and subtitles shimmer).
+fn icon_phase(p: &Progress) -> dock_icon::IconPhase {
+    use dock_icon::IconPhase;
+    match p.phase {
+        "video" | "c-video" => IconPhase::Video(p.total_frames_estimate.filter(|&t| t > 0).map(|t| p.frames.min(t) as f32 / t as f32)),
+        "audio" => IconPhase::Audio,
+        "subtitles" => IconPhase::Subtitles,
+        "saving" => IconPhase::Saving,
+        _ => IconPhase::Probing,
     }
 }
 
@@ -1037,9 +1052,9 @@ fn encode_pair_impl(
             }
             let log = tau_video::source_gate::drain_diagnostics(decoder.stderr, gate.clone());
             let stdout = decoder.stdout;
-            // Two maximum-size Y4M segments, plus the orchestrator's reserved TVC outputs,
-            // fit the default 512 MiB budget while leaving room for the merged stream.
-            let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().clamp(1, 2));
+            // Four parallel segments fit the default 512 MiB budget (checked with the CLI at 400 and 800 wide: peak
+            // 150 MB resident, no budget error) and cut the wall time of a film by about a quarter against two.
+            let jobs = std::thread::available_parallelism().map_or(1, |n| n.get().clamp(1, 4));
             let workspace_limit_bytes = if dependencies.workspace_limit_bytes == 0 {
                 512u64 * 1024 * 1024
             } else {
@@ -1288,6 +1303,9 @@ fn encode_pair_impl(
             input,
             ffmpeg,
             advanced.subtitle_track,
+            &mut |phase| {
+                progress(Progress { phase, frames: stats.frames, total_frames_estimate: total, remaining_seconds: None })
+            },
         )?;
         warnings.extend(sub_warnings);
         Some((guard, file))
@@ -1442,6 +1460,7 @@ fn build_tnv3_with_tac(
     input: &Path,
     ffmpeg: &Path,
     subtitle_track: Option<u32>,
+    on_phase: &mut dyn FnMut(&'static str),
 ) -> Result<(Temporary, File, Vec<String>), String> {
     let tac = resolve_tool(&dependencies.tac_tool, "TAC encoder", fallbacks)?;
     control.checkpoint()?;
@@ -1477,6 +1496,7 @@ fn build_tnv3_with_tac(
     let (area_guard, area_file) = temporary_file("bin")?;
     drop(area_file);
     if let Some(track) = subtitle_track {
+        on_phase("subtitles");
         // Font: the one chosen in settings, else TAU_SUBTITLE_FONT, else the built-in Roboto.
         let fonts = match selected_file(&dependencies.subtitle_font, "Subtitle font")?
             .or_else(|| std::env::var_os("TAU_SUBTITLE_FONT").map(PathBuf::from).filter(|p| p.is_file()))
@@ -2288,6 +2308,9 @@ async fn encode(
         None
     };
     let dock_app = app.clone();
+    let has_subtitles = advanced.subtitle_track.is_some();
+    let dock = std::sync::Arc::new(dock_icon::DockIcon::start(&app, has_subtitles));
+    let progress_dock = dock.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let reporter = app.clone();
         let decision_app = app.clone();
@@ -2324,7 +2347,11 @@ async fn encode(
                 Ok(())
             },
             move |event| {
-                show_system_progress(&reporter, Some(&event));
+                if cfg!(target_os = "macos") {
+                    progress_dock.set(icon_phase(&event));
+                } else {
+                    show_system_progress(&reporter, Some(&event));
+                }
                 let _ = reporter.emit("encode-progress", event);
             },
         );
@@ -2334,7 +2361,11 @@ async fn encode(
         encoded
     })
     .await;
-    show_system_progress(&dock_app, None);
+    if cfg!(target_os = "macos") {
+        dock.finish(matches!(&result, Ok(Ok(_))));
+    } else {
+        show_system_progress(&dock_app, None);
+    }
     native_event_loop_done.store(true, Ordering::Release);
     let dispatcher_panicked = native_event_dispatcher
         .is_some_and(|dispatcher| dispatcher.join().is_err());

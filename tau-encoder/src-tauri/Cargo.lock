@@ -3105,6 +3105,10 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 name = "tau-encoder"
 version = "0.9.0"
 dependencies = [
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "png 0.17.16",
  "serde",
  "serde_json",
  "tau-video",

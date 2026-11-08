@@ -16,7 +16,7 @@ The app currently requires a source audio track. Output is 24 fps and 48 kHz ste
 
 The macOS Apple Silicon archive includes FFmpeg 9.0.2, FFprobe and the C tools. Python 3 remains separate for the default workflow. The macOS app is ad-hoc signed and not notarized.
 
-Windows and Linux executable-only builds are **not runtime-tested**, are not installers, and do not bundle dependencies. Install FFmpeg and FFprobe with libmp3lame, Python 3 for the Python workflow, and matching `encode_film.py`, `tvc_enc` and `tnv3` tools separately. Configure their full paths in Settings; the Python-free workflow needs FFmpeg and both C tools. The operating system also needs the Tauri runtime (WebView2 on Windows; WebKitGTK and other Tauri libraries on Linux). A CI build is not a runtime or Pocket playback test.
+On macOS the Dock icon shows the encode progress as an amber bar drawn on the icon (video three quarters, audio one eighth, subtitles one eighth; audio and subtitles shimmer while they run, the bar turns green when done and red on failure); Windows and Linux use the system progress bar. Windows and Linux executable-only builds are **not runtime-tested**, are not installers, and do not bundle dependencies. Install FFmpeg and FFprobe with libmp3lame, Python 3 for the Python workflow, and matching `encode_film.py`, `tvc_enc` and `tnv3` tools separately. Configure their full paths in Settings; the Python-free workflow needs FFmpeg and both C tools. The operating system also needs the Tauri runtime (WebView2 on Windows; WebKitGTK and other Tauri libraries on Linux). A CI build is not a runtime or Pocket playback test.
 
 ## Dependency settings
 

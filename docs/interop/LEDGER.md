@@ -40,3 +40,4 @@
 | Subtitles in the player (owner 2026-11-08) | overlay from the Rust reader, menu, forced-only when off; real window not driven | owner | DONE in code; open question for Tau V: does the Pocket scale a 400-wide picture? |
 | Speed comparison (owner 2026-11-08) | Rust+C = Python+C; Tau V's encode_film.py is slower and 2.9% larger because their tvc_enc.c is older | owner | DONE; tell Tau V their tvc_enc copy is older |
 | Dock progress (owner 2026-11-08) | native progress bar during encode, cleared at the end | owner | DONE in code, Dock not seen |
+| Progress on the icon (owner 2026-11-08) | segmented amber bar drawn on the Dock icon (video 3/4, audio 1/8, subtitles 1/8, shimmer, end flashes); Dock not seen live | owner | DONE in code |
