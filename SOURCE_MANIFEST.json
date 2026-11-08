@@ -1470,14 +1470,14 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "9b7a7968f7f5fdcfc1e6d5875101817980bf5543743d717e8badb85b6b09f6b7",
+      "sha256": "15a10a4b69f0f06e2185b0ef98820434d96bfe6b1bb222a4523303893031dddf",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/main.ts": {
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "beca5429d97a46a1d3abe3d56254b591a08bd6529b0ffeaeddf8ac69e081ed55"
+      "sha256": "be204a3c93ad483e1d4177eaa21132821ac656ed0d459a5746270ecb1d393665"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
       "sha256": "9a392700c18879df95f007ada791af5bffd866b9d23101ccc0d4d4eaf06651ca",
@@ -1494,19 +1494,19 @@
       "sha256": "d353dff1d600b1dddf85ff6d474173084284de2449ffa1f7f8edd8022ffa6ee7"
     },
     "tau-encoder/src-tauri/icons/128x128.png": {
-      "sha256": "10d3ce30e0ed4c1405bb2fecaff84a2287631731d0371340b17d3f09c29db134"
+      "sha256": "c427519d230bdf094b449bf63b3f094ca1c20cb456ff09d105173cc43c234a4e"
     },
     "tau-encoder/src-tauri/icons/128x128@2x.png": {
-      "sha256": "64e151382ea666ef72b9ed518885e4d8c39ac0212b8a2545c3a0e7c43a873a02"
+      "sha256": "d0985c865a404763a1205fd6362579bbf759a2ff48ad26f02259ab774a0b8f6d"
     },
     "tau-encoder/src-tauri/icons/32x32.png": {
-      "sha256": "9fab31b1ebcee4886c7aab233eba36b35284e4bc07ac27c67792e729ed9a4535"
+      "sha256": "edccb5d373dbc8d6ece0ca8ad32e6562b1946533b7b5a4e0ebdb6d4605978836"
     },
     "tau-encoder/src-tauri/icons/icon.icns": {
-      "sha256": "760dd564cd345211940885a407680b0ec1cc2340d563086b6feaef077754b10b"
+      "sha256": "31fa964b69dc2fcba987a3b3033912f8f1cfaeea6133ae8c09d97445c5b5817a"
     },
     "tau-encoder/src-tauri/icons/icon.ico": {
-      "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
+      "sha256": "f831cb679fb7fd748f280375272965ba7ac45a4bdd5999da5af725929896ea63"
     },
     "tau-encoder/src-tauri/src/main.rs": {
       "sha256": "8be4acd9800a6bfb2e37a9857dd630eb16ee492e8f0483d0a2d86fa9d306b90f",

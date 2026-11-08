@@ -204,7 +204,7 @@
 <svelte:head><title>Tau Encoder</title></svelte:head>
 <div class="app-shell">
   <nav class="side-nav" aria-label="Main navigation">
-    <div class="nav-brand"><span class="mark">τ</span><div><p class="eyebrow">TAU VIDEO TOOLS</p><strong>Tau Encoder</strong></div></div>
+    <div class="nav-brand"><img class="mark logo" src="/tau-encoder-logo.svg" alt="" width="40" height="40" /><div><p class="eyebrow">TAU VIDEO TOOLS</p><strong>Tau Encoder</strong></div></div>
     <div class="nav-items" role="group" aria-label="Pages">
       <button type="button" class:active={page === 'encoder'} aria-current={page === 'encoder' ? 'page' : undefined} onclick={() => navigate('encoder')}>Encoder</button>
       <button type="button" class:active={page === 'decoder'} aria-current={page === 'decoder' ? 'page' : undefined} onclick={() => navigate('decoder')}>Decoder</button>
