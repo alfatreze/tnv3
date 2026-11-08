@@ -277,10 +277,13 @@ fn build_native(
                 quiet_font_fallback: quiet.contains(&path),
             });
         }
-        let mut o = subtitle::Options::new(tracks, fonts, video);
+        // Defaults are the Pocket sizes (32x44, 40x54, 48x64, 56x76; outline 2, 3, 3, 4; bar placement). Giving
+        // --sizes switches to a single outline width of 2 unless --outline-width says otherwise.
+        let mut o = subtitle::Options::pocket(tracks, fonts, video);
         o.fps = fps;
         if let Some(sz) = &req.sizes {
             o.cells = parse_sizes(sz).map_err(usage)?;
+            o.outline_widths = vec![2];
         }
         if let Some(w) = &req.outline_width {
             o.outline_widths = w.split(',').map(|x| x.parse::<u8>().map_err(|_| usage("--outline-width is W or W,W,... (0..4)".into()))).collect::<Result<_, _>>()?;

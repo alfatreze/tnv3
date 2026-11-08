@@ -483,6 +483,12 @@ fn build_variant(
             return Err(Error::new("time exceeds 32 bits"));
         }
         let h = (lines.len() * ch) as i64;
+        if h > GRID_H as i64 {
+            return Err(Error::new(format!(
+                "The event at {st_ms} ms has {} lines of {ch} rows, which do not fit the {GRID_H}-row grid; use a smaller size or shorter text.",
+                lines.len()
+            )));
+        }
         active.retain(|a| a.0 > s0);
         let mut bot = base_bottom - if o.center_single && lines.len() == 1 && active.is_empty() { (ch / 2) as i64 } else { 0 };
         let mut moved = true;
@@ -689,6 +695,11 @@ pub(crate) fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
     let area = pack_area(&packed)?;
     crate::validate_subtitle_area(&area, 0).map_err(|e| Error::new(format!("area failed the container check: {e}")))?;
     let bytes = area.len();
+    if bytes > super::POCKET_AREA_LIMIT {
+        warnings.push(format!(
+            "warning: the subtitle area is {bytes} bytes; the Tau V Pocket player accepts about 1 MB. Use fewer sizes, fewer text styles (each bold or italic face adds glyphs) or shorter text."
+        ));
+    }
     Ok((area, BuildInfo { tracks: infos, bytes, warnings }))
 }
 

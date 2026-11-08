@@ -101,7 +101,24 @@ pub struct Options {
     /// Baked outline radius 0..4: one value for every size, or one per size.
     pub outline_widths: Vec<u8>,
 }
+/// Size variants Tau V settled on after watching on the Pocket (their interop messages 001 F-004 and 002 F-009;
+/// the first test sizes 16x24, 20x28 and 26x36 were judged too small): cell sizes and the baked outline width of each.
+pub const POCKET_CELLS: [(u32, u32); 4] = [(32, 44), (40, 54), (48, 64), (56, 76)];
+pub const POCKET_OUTLINES: [u8; 4] = [2, 3, 3, 4];
+/// Above this size the Tau V Pocket player may refuse the area (informative; the format itself allows far more).
+pub const POCKET_AREA_LIMIT: usize = 1_000_000;
+
 impl Options {
+    /// The Pocket defaults: the four sizes of [`POCKET_CELLS`] with outlines [`POCKET_OUTLINES`] and `bar`
+    /// placement (text in the bottom bar with upward stacking; `picture` placement cannot fit sizes this large).
+    pub fn pocket(tracks: Vec<TrackInput>, fonts: Vec<FontSpec>, video: (u32, u32)) -> Self {
+        let mut o = Self::new(tracks, fonts, video);
+        o.cells = POCKET_CELLS.to_vec();
+        o.outline_widths = POCKET_OUTLINES.to_vec();
+        o.placement = Placement::Bar;
+        o
+    }
+
     /// Defaults of the reference builder for the given inputs.
     pub fn new(tracks: Vec<TrackInput>, fonts: Vec<FontSpec>, video: (u32, u32)) -> Self {
         Options {

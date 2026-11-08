@@ -41,3 +41,6 @@
 | Speed comparison (owner 2026-11-08) | Rust+C = Python+C; Tau V's encode_film.py is slower and 2.9% larger because their tvc_enc.c is older | owner | DONE; tell Tau V their tvc_enc copy is older |
 | Dock progress (owner 2026-11-08) | native progress bar during encode, cleared at the end | owner | DONE in code, Dock not seen |
 | Progress on the icon (owner 2026-11-08) | segmented amber bar drawn on the Dock icon (video 3/4, audio 1/8, subtitles 1/8, shimmer, end flashes); Dock not seen live | owner | DONE in code |
+| Subtitle sizes (owner 2026-11-08, Tau V 001 F-004 / R-004, 002 F-009) | Pocket defaults 32x44..56x76, outline 2,3,3,4, bar; 1 MB warning | owner | DONE; my miss: defaults of tst_build.py were ported without applying their messages |
+| Encode log (owner 2026-11-08) | JSON-lines per encode, Settings toggle default on | owner | DONE |
+| First real episode on the Pocket (owner 2026-11-08) | works on the Pocket per owner; subtitles were too small | owner | see 6k |

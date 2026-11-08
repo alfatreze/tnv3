@@ -12,6 +12,10 @@
   function openModal(node: HTMLDialogElement) { node.showModal(); return { destroy: () => node.close() }; }
   type SourceCheckResult = { status: 'clean' | 'warning' | 'stopped'; details: string };
   type SourceDecisionEvent = { job_id: string; details: string };
+  // Encode log: one detailed JSON-lines file per encode, kept in the app's log folder (default on).
+  let keepLog = true, logDir = '', logError = '';
+  function saveKeepLog() { try { localStorage.setItem('tau-encoder-keep-log', String(keepLog)); } catch { /* Keep this session's choice. */ } }
+  async function openLogFolder() { logError = ''; try { await invoke('open_log_folder'); } catch (e) { logError = String(e); } }
   function saveRecoveryPreference() { try { localStorage.setItem('tau-encoder-always-continue-source-errors', String(alwaysContinue)); } catch { /* Keep this session's preference. */ } }
   function decideSource(keepGoing: boolean) {
     if (keepGoing && rememberDecision) { alwaysContinue = true; saveRecoveryPreference(); }
@@ -129,10 +133,11 @@
     explanations.push('The app did not repair or verify the affected source data. Check the output, and use a clean source if available.');
     return explanations;
   }
-  type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[] };
+  type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[]; log: string | null };
   onMount(() => { void invoke<boolean>('experimental_rust_encoder_available').then(value => { rustAvailable = value; }).catch(() => { rustAvailable = false; }); try {
     folder = localStorage.getItem('tau-encoder-output-folder') || '';
     alwaysContinue = localStorage.getItem('tau-encoder-always-continue-source-errors') === 'true';
+    keepLog = localStorage.getItem('tau-encoder-keep-log') !== 'false';
     const saved = JSON.parse(localStorage.getItem('tau-encoder-dependencies') || '{}');
     for (const field of dependencyFields) if (typeof saved?.[field.key] === 'string') dependencies[field.key] = saved[field.key];
   } catch { /* Storage may be unavailable or invalid. */ } });
@@ -143,7 +148,7 @@
   function navigate(next: 'encoder' | 'decoder' | 'settings') {
     if (page === 'decoder' && next !== 'decoder') player?.pausePlayback();
     page = next;
-    if (next === 'settings') void refreshTools();
+    if (next === 'settings') { void refreshTools(); void invoke<string>('log_directory').then(d => { logDir = d; }).catch(() => { logDir = ''; }); }
   }
   async function chooseInput() {
     try {
@@ -195,9 +200,9 @@
       });
       const width = outputWidth(), height = 720;
       encodeRunning = true;
-      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, audioTrack: Number(audioTrack), subtitleTrack: Number(subtitleTrack) >= 0 ? Number(subtitleTrack) : null, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
+      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { keepLog, roundDown, eofPass, audioTrack: Number(audioTrack), subtitleTrack: Number(subtitleTrack) >= 0 ? Number(subtitleTrack) : null, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
-      message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video}${result.audio ? ' and ' + result.audio : ' (audio is inside the file)'}. Level limits may cause automatic quality reductions.`;
+      message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video}${result.audio ? ' and ' + result.audio : ' (audio is inside the file)'}. Level limits may cause automatic quality reductions.${result.log ? ' Log: ' + result.log : ''}`;
     } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); unlistenSourceCancelled?.(); encodeRunning = false; encodeRegistered = false; stopRequested = false; busy = false; }
   }
 </script>
@@ -292,6 +297,7 @@
       <label><input type="checkbox" bind:checked={eofPass} disabled={busy || !roundDown} /> Pass the final frame with round-down</label>
       <p>May restore a final frame, but can add an extra frame.</p>
     </details>
+    <section class="recovery-settings" aria-label="Encode log"><h2>Encode log</h2><label><input type="checkbox" bind:checked={keepLog} onchange={saveKeepLog} /> Keep a detailed log of every encode</label><p class="help">One file per encode (JSON lines: settings, tools, source, progress every second, phase times, warnings, result or error) for analysing speed and problems. Logs are never deleted automatically.</p><div class="player-actions"><button type="button" onclick={openLogFolder}>Open log folder</button></div>{#if logDir}<p class="help detected-path">{logDir}</p>{/if}{#if logError}<p class="status error" role="alert">{logError}</p>{/if}</section>
     <section class="recovery-settings" aria-label="Source error handling"><h2>Source error handling</h2><label><input type="checkbox" checked={alwaysContinue} onchange={(event) => { alwaysContinue = (event.currentTarget as HTMLInputElement).checked; saveRecoveryPreference(); }} disabled={busy} /> Always continue when source errors are found</label><p class="help">When off, the native C workflow asks when it finds a source problem. The Python workflow checks the source before encoding, which can take as long as decoding. When on, the app continues without asking and reports errors with the result.</p></section>
   {/if}
   <div class="decoder-player" hidden={page !== 'decoder'}><Player bind:this={player} /></div>

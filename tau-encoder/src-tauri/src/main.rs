@@ -6,6 +6,7 @@ use tau_video::source_gate::SourceGate;
 // Integration destination: this helper will live in src-tauri/src.
 mod child_supervisor;
 mod dock_icon;
+mod encode_log;
 mod player;
 use serde::{Deserialize, Serialize};
 use std::io::BufReader;
@@ -394,6 +395,8 @@ struct ResultInfo {
     video: String,
     audio: String,
     warnings: Vec<String>,
+    /// The detailed log of this encode, when logging is on.
+    log: Option<String>,
 }
 fn safe_name(name: &str) -> bool {
     !name.trim().is_empty()
@@ -511,6 +514,49 @@ fn with_diagnostics(message: String, details: &str) -> String {
     } else {
         format!("{message}\n{details}")
     }
+}
+
+/// First line of `ffmpeg -version`, for the encode log.
+fn ffmpeg_version_line(ffmpeg: &Path) -> Option<String> {
+    let out = Command::new(ffmpeg).arg("-version").stdin(Stdio::null()).output().ok()?;
+    String::from_utf8_lossy(&out.stdout).lines().next().map(str::to_owned)
+}
+
+/// Everything worth knowing about an encode before it starts: build, machine, input, settings and tools.
+#[allow(clippy::too_many_arguments)]
+fn log_start_event(
+    ffmpeg: &Path,
+    input: &str,
+    folder: &str,
+    name: &str,
+    qp: u8,
+    workflow: &str,
+    pure_rust: bool,
+    workspace_mib: u32,
+    advanced: AdvancedSettings,
+    dependencies: &Dependencies,
+) -> serde_json::Value {
+    let (iso, _) = encode_log::utc_stamp(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()));
+    let file_len = |p: &str| std::fs::metadata(p).ok().map(|m| m.len());
+    serde_json::json!({
+        "app": {"name": "tau-encoder", "version": env!("CARGO_PKG_VERSION"), "build": if cfg!(debug_assertions) {"debug"} else {"release"}},
+        "started_utc": iso,
+        "machine": {"os": std::env::consts::OS, "arch": std::env::consts::ARCH, "cpus": std::thread::available_parallelism().map_or(0, |n| n.get())},
+        "input": {"path": input, "bytes": file_len(input)},
+        "output": {"folder": folder, "name": name, "video": Path::new(folder).join(format!("{name}.tnv3")).display().to_string()},
+        "settings": {
+            "qp": qp, "workflow": if pure_rust {"pure-rust-encoder"} else {workflow}, "workspace_mib": workspace_mib,
+            "audio_format": if advanced.audio == AudioFormat::Tac {"tac"} else {"mp3"}, "audio_track": advanced.track(),
+            "subtitle_track": advanced.subtitle_track, "width": advanced.dimensions().0, "height": advanced.dimensions().1,
+            "level": if advanced.level() == 0 {serde_json::json!("automatic")} else {serde_json::json!(advanced.level())},
+            "round_down": advanced.round_down, "eof_pass": advanced.eof_pass,
+        },
+        "tools": {
+            "ffmpeg": ffmpeg.display().to_string(), "ffmpeg_version": ffmpeg_version_line(ffmpeg),
+            "tvc_encoder": dependencies.tvc_encoder, "tnv3": dependencies.tnv3_tool, "tac": dependencies.tac_tool,
+            "python": dependencies.python, "script": dependencies.script, "subtitle_font": dependencies.subtitle_font,
+        },
+    })
 }
 
 /// Shows the encode progress on the app's Dock icon (macOS), the taskbar button (Windows) or the launcher
@@ -665,10 +711,15 @@ struct AdvancedSettings {
     level: Option<u8>,
     /// Zero-based index among the source's audio streams; `None` is the first.
     audio_track: Option<u32>,
+    /// Keep a detailed log of the encode (default on); the Settings page toggles it.
+    keep_log: Option<bool>,
     /// Zero-based index among the source's text subtitle streams to author into the file; `None` = none.
     subtitle_track: Option<u32>,
 }
 impl AdvancedSettings {
+    fn keep_log(self) -> bool {
+        self.keep_log.unwrap_or(true)
+    }
     fn track(self) -> u32 {
         self.audio_track.unwrap_or(0)
     }
@@ -1351,6 +1402,7 @@ fn encode_pair_impl(
             video: video_path.display().to_string(),
             audio: String::new(),
             warnings,
+            log: None,
         });
     }
     let mut video = OpenOptions::new()
@@ -1403,6 +1455,7 @@ fn encode_pair_impl(
         video: video_path.display().to_string(),
         audio: audio_path.display().to_string(),
         warnings,
+        log: None,
     })
 }
 /// Finds a tool: the configured path, else the first existing fallback.
@@ -1519,7 +1572,7 @@ fn build_tnv3_with_tac(
         control.checkpoint()?;
         let text = std::fs::read_to_string(&srt_guard.0)
             .map_err(|e| format!("Could not read the extracted subtitles: {e}"))?;
-        let mut options = tau_video::subtitle::Options::new(
+        let mut options = tau_video::subtitle::Options::pocket(
             vec![tau_video::subtitle::TrackInput {
                 name: "subtitles.ass".into(),
                 text,
@@ -1532,7 +1585,6 @@ fn build_tnv3_with_tac(
             (picture_w, picture_h),
         );
         options.fps = Some((fps_n, fps_d));
-        options.cells = vec![(16, 24), (20, 28), (26, 36)];
         let (area, info) = tau_video::subtitle::build_area(&options)
             .map_err(|e| format!("Subtitle authoring failed: {e}"))?;
         std::fs::write(&area_guard.0, &area).map_err(|e| format!("Could not write the subtitle area: {e}"))?;
@@ -2308,6 +2360,15 @@ async fn encode(
         None
     };
     let dock_app = app.clone();
+    let log = if advanced.keep_log() {
+        app.path().app_log_dir().ok().and_then(|dir| encode_log::EncodeLog::create(&dir, &name).ok())
+    } else {
+        None
+    };
+    if let Some(l) = &log {
+        l.event("start", log_start_event(&ffmpeg, &input, &folder, &name, qp, &workflow, pure_rust, workspace_mib, advanced, &dependencies));
+    }
+    let progress_log = log.clone();
     let has_subtitles = advanced.subtitle_track.is_some();
     let dock = std::sync::Arc::new(dock_icon::DockIcon::start(&app, has_subtitles));
     let progress_dock = dock.clone();
@@ -2347,6 +2408,9 @@ async fn encode(
                 Ok(())
             },
             move |event| {
+                if let Some(l) = &progress_log {
+                    l.progress(event.phase, event.frames, event.total_frames_estimate, event.remaining_seconds);
+                }
                 if cfg!(target_os = "macos") {
                     progress_dock.set(icon_phase(&event));
                 } else {
@@ -2374,9 +2438,61 @@ async fn encode(
     }
     *busy.lock().map_err(|_| "Encoder state unavailable.")? = false;
     if dispatcher_panicked {
+        if let Some(l) = &log {
+            l.event("end", serde_json::json!({"ok": false, "error": "Native source decision dispatcher panicked."}));
+        }
         return Err("Native source decision dispatcher panicked.".into());
     }
-    result.map_err(|e| format!("Encoder task stopped: {e}"))?
+    let outcome: Result<ResultInfo, String> = result.map_err(|e| format!("Encoder task stopped: {e}")).and_then(|r| r);
+    if let Some(l) = &log {
+        let ms = l.elapsed_ms();
+        match &outcome {
+            Ok(info) => {
+                let bytes = std::fs::metadata(&info.video).map(|m| m.len()).ok();
+                let media_seconds = f64::from(info.frames) / 24.0;
+                l.event(
+                    "end",
+                    serde_json::json!({
+                        "ok": true, "frames": info.frames, "level": info.level, "pictures_reencoded": info.reencoded,
+                        "output": info.video, "output_bytes": bytes,
+                        "bytes_per_frame": bytes.map(|b| b as f64 / f64::from(info.frames.max(1))),
+                        "media_seconds": media_seconds, "wall_seconds": ms as f64 / 1000.0,
+                        "speed_vs_realtime": media_seconds / (ms as f64 / 1000.0).max(0.001),
+                        "phases": l.phase_summary(ms), "warnings": info.warnings,
+                    }),
+                );
+            }
+            Err(e) => l.event(
+                "end",
+                serde_json::json!({"ok": false, "stopped": e.starts_with("Encoding stopped"), "error": e, "wall_seconds": ms as f64 / 1000.0, "phases": l.phase_summary(ms)}),
+            ),
+        }
+    }
+    outcome.map(|mut info| {
+        info.log = log.as_ref().map(|l| l.path().display().to_string());
+        info
+    })
+}
+
+/// The folder where encode logs are kept.
+#[tauri::command]
+fn log_directory(app: tauri::AppHandle) -> Result<String, String> {
+    app.path().app_log_dir().map(|p| p.display().to_string()).map_err(|e| e.to_string())
+}
+
+/// Opens the log folder in the system file manager (creating it if needed).
+#[tauri::command]
+fn open_log_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Could not create the log folder: {e}"))?;
+    let program = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(windows) {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    Command::new(program).arg(&dir).spawn().map(|_| ()).map_err(|e| format!("Could not open the log folder: {e}"))
 }
 /// Finds a bundled or development tool for decoding embedded audio.
 fn locate_tool(app: &tauri::AppHandle, env: &str, bundled: &str, repo: &str) -> Option<PathBuf> {
@@ -2507,6 +2623,8 @@ fn main() {
             player_open,
             player_next,
             player_subtitle,
+            log_directory,
+            open_log_folder,
             player_close
         ])
         .run(tauri::generate_context!())
@@ -3656,6 +3774,24 @@ mod tests {
             .filter(|n| std::env::var_os(n).is_none_or(|v| v != "python3" && !Path::new(&v).exists()))
             .collect();
         assert!(missing.is_empty(), "These variables are unset or point nowhere: {missing:?}. Run `make rust-conformance`, or set TAU_ALLOW_SKIP=1 to skip on purpose.");
+    }
+    #[test]
+    fn log_start_event_records_settings_tools_and_machine_and_logging_defaults_on() {
+        assert!(AdvancedSettings::default().keep_log(), "the log is on unless the setting says false");
+        assert!(!AdvancedSettings { keep_log: Some(false), ..Default::default() }.keep_log());
+        let deps = Dependencies { tvc_encoder: "/t/tvc_enc".into(), tac_tool: "/t/tac".into(), ..Default::default() };
+        let adv = AdvancedSettings { subtitle_track: Some(1), audio_track: Some(2), ..Default::default() };
+        let v = log_start_event(Path::new("/no/such/ffmpeg"), "/in/a.mkv", "/out", "film_C", 30, "native", false, 512, adv, &deps);
+        assert_eq!(v["app"]["name"], "tau-encoder");
+        assert_eq!(v["settings"]["workflow"], "native");
+        assert_eq!((v["settings"]["audio_track"].as_u64(), v["settings"]["subtitle_track"].as_u64()), (Some(2), Some(1)));
+        assert_eq!(v["settings"]["level"], "automatic");
+        assert_eq!(v["output"]["video"], "/out/film_C.tnv3");
+        assert_eq!((v["tools"]["tvc_encoder"].as_str(), v["tools"]["tac"].as_str()), (Some("/t/tvc_enc"), Some("/t/tac")));
+        assert!(v["tools"]["ffmpeg_version"].is_null(), "a missing ffmpeg is recorded as null, not an error");
+        assert!(v["machine"]["cpus"].as_u64().unwrap() >= 1 && !v["started_utc"].as_str().unwrap().is_empty());
+        let adv_pure = log_start_event(Path::new("/x"), "i", "o", "n", 30, "python", true, 512, AdvancedSettings::default(), &deps);
+        assert_eq!(adv_pure["settings"]["workflow"], "pure-rust-encoder");
     }
     #[test]
     fn system_progress_maps_phases_to_percent_or_indeterminate() {

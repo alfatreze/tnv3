@@ -18,6 +18,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 png = "0.17"
 
+# A debug build of the codec crate decodes and muxes about 40x slower; keep it optimised in `cargo tauri dev`.
+[profile.dev.package.tau-video]
+opt-level = 3
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

@@ -296,4 +296,24 @@ mod tests {
         assert!(player.subtitle_overlay(3, 0, 0, true, false, 0).is_err());
         assert!(player.subtitle_overlay(0, 9, 0, true, false, 0).is_err());
     }
+
+    /// Manual: how fast the player's own frame loop runs on a real file.
+    ///   TAU_FILM=film.tnv3 TAU_FRAMES=600 cargo test player_frame_speed -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn player_frame_speed() {
+        let path = std::env::var_os("TAU_FILM").expect("set TAU_FILM");
+        let frames: u32 = std::env::var("TAU_FRAMES").ok().and_then(|v| v.parse().ok()).unwrap_or(600);
+        let (mut player, info) = Player::open(std::path::Path::new(&path)).expect("opens");
+        let start = std::time::Instant::now();
+        let mut shown = 0u32;
+        while shown < frames {
+            match player.next_frame().expect("decodes") {
+                Some(_) => shown += 1,
+                None => break,
+            }
+        }
+        let secs = start.elapsed().as_secs_f64();
+        println!("{}x{}: {shown} frames in {secs:.2} s = {:.1} fps ({:.1} ms per frame; real time needs {:.1} fps)", info.width, info.height, f64::from(shown) / secs, secs * 1000.0 / f64::from(shown), f64::from(info.fps_num) / f64::from(info.fps_den));
+    }
 }

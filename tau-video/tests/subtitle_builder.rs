@@ -86,3 +86,35 @@ fn rejects_bad_input_and_reports_the_placement_clamp() {
     let (_, info) = subtitle::build_area(&c).unwrap();
     assert!(info.warnings.iter().any(|w| w.contains("does not fit above the stack; clamped")), "{:?}", info.warnings);
 }
+
+#[test]
+fn pocket_defaults_use_the_four_large_sizes_with_bar_placement_and_warn_above_one_megabyte() {
+    use tau_video::subtitle::{POCKET_AREA_LIMIT, POCKET_CELLS, POCKET_OUTLINES, default_fonts};
+    let normal = "1\n00:00:01,000 --> 00:00:02,000\nA line of ordinary text\nand a second line\n\n2\n00:00:02,100 --> 00:00:03,000\nOverlapping line one\nline two\nline three\n";
+    let t = TrackInput { name: "n.srt".into(), text: normal.into(), language: "eng".into(), default: true, forced: false, quiet_font_fallback: false };
+    let (area, info) = subtitle::build_area(&Options::pocket(vec![t], default_fonts(), (400, 226))).unwrap();
+    let v = &info.tracks[0].variants;
+    assert_eq!(v.iter().map(|x| x.cell).collect::<Vec<_>>(), POCKET_CELLS.to_vec(), "the four sizes of Tau V's 002 F-009");
+    assert!(v.iter().all(|x| x.region == "bar"), "bar placement: picture placement cannot fit these sizes");
+    let parsed = tau_video::subtitle_read::parse_subtitle_area(&area).unwrap();
+    assert_eq!(parsed.tracks[0].variants.iter().map(|x| x.outline_w).collect::<Vec<_>>(), POCKET_OUTLINES.to_vec());
+    assert!(info.warnings.is_empty(), "{:?}", info.warnings);
+    assert!(area.len() < POCKET_AREA_LIMIT);
+    // 256 distinct letters at four large sizes is far beyond 1 MB: warned, not refused
+    let letters: Vec<char> = (0x00C0u32..0x0180).chain(0x0410..0x0450).filter_map(char::from_u32).collect();
+    let big: String = letters
+        .chunks(16)
+        .enumerate()
+        .map(|(i, c)| format!("{}\n00:00:{:02},000 --> 00:00:{:02},500\n{}\n", i + 1, i + 1, i + 1, c.iter().collect::<String>()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let t = TrackInput { name: "b.srt".into(), text: big, language: "eng".into(), default: true, forced: false, quiet_font_fallback: false };
+    let (area, info) = subtitle::build_area(&Options::pocket(vec![t], default_fonts(), (400, 226))).unwrap();
+    assert!(area.len() > POCKET_AREA_LIMIT, "{} bytes", area.len());
+    assert!(info.warnings.iter().any(|w| w.contains("accepts about 1 MB")), "{:?}", info.warnings);
+    // an event taller than the grid is refused with a clear message
+    let tall = format!("1\n00:00:01,000 --> 00:00:02,000\n{}\n", vec!["word"; 80].join("\n"));
+    let t = TrackInput { name: "t.srt".into(), text: tall, language: "eng".into(), default: true, forced: false, quiet_font_fallback: false };
+    let e = subtitle::build_area(&Options::pocket(vec![t], default_fonts(), (400, 226))).unwrap_err();
+    assert!(e.0.contains("do not fit the 720-row grid"), "{e}");
+}
