@@ -209,6 +209,398 @@
       "bytes": 610,
       "kind": "tac-vector",
       "why": "TAC conformance vector t01-t08 material (spec section 7, 10)"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/expected.txt",
+      "sha256": "a4270c84c2593381c2fb04c0c3377a96ba4526b76b821caf3260a7c12ea63ac2",
+      "bytes": 1232,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/n01_level1_too_wide.tvc",
+      "sha256": "fea08dff900f8e33113b80242b3e2355be6cc2201c184562cf5c03a128b68287",
+      "bytes": 76710,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/n02_level1_rate.tvc",
+      "sha256": "6b5ef8509abb002ee035dd91941610513e538d8ef61be0467fd850f919486fbb",
+      "bytes": 873251,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/n03_level3_one_slice.tvc",
+      "sha256": "fd5c5f981bac317733d2155bbd80bf0376bae8c25844eae0b6fc56e5f2ccd223",
+      "bytes": 76710,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v01_dialog_ip.tvc",
+      "sha256": "52ead29da919f95bac0696fde9cfbe29c4276d7e3f5eec1dec8cb051ca1592a3",
+      "bytes": 76706,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v02_anime_aq.tvc",
+      "sha256": "40553fd7f6f9081ccf23c8cd702c9dc5c9c9c1de95224b53689c12cb3a8e0f5c",
+      "bytes": 53116,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v03_bw_lowq.tvc",
+      "sha256": "500bef4fcf339182988fe16f975adf0e129251ad1d8ada9e3d521e4cd4af3c0b",
+      "bytes": 9636,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v04_action_highq_aq.tvc",
+      "sha256": "6e651ccc1cec2b3c37d775751884538cf6ab2b18b914fea95174cefadaccc470",
+      "bytes": 162913,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v05_odd_crop.tvc",
+      "sha256": "5a19141af17bcdd8721a66336833a10d21475ccdfe41ad083e0de715d59cb3c5",
+      "bytes": 3311,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v06_dialog_b2_tree.tvc",
+      "sha256": "00957bf5f5dadac464d1e02536990423a2fa94648cbe21c935477df95aa1c87e",
+      "bytes": 60876,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v07_anime_b3_gop7.tvc",
+      "sha256": "337f02a1b9556beece885d8fcaaccc5caaf362ca665c1591fb6a5e7d58a170d3",
+      "bytes": 150985,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v08_action_b1_aq.tvc",
+      "sha256": "9b277cd9411ef28c59ce9aa8561a2ade7db5c63e5745d3259d87880d5fa6f0b7",
+      "bytes": 100146,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v09_odd_crop_b2.tvc",
+      "sha256": "5de6923954fa956496438ba3546aeee04ee791987ad27be680f46639b27e335d",
+      "bytes": 1414,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v10_dialog_qpel.tvc",
+      "sha256": "d5066060879b000670173bdf8fad4827ccffe786abf411cec8b0e13c0d292ba9",
+      "bytes": 64909,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v11_action_qpel_hiq.tvc",
+      "sha256": "6d6e0e24bbe96a235c6a3aaf356743805ab16761f84a18540e00a764b5d5c982",
+      "bytes": 215542,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v12_odd_crop_qpel.tvc",
+      "sha256": "06e81c038395ba1be9080ba334ceb184e5a62bc15b49ee8069a75419994fb329",
+      "bytes": 2436,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v13_anime_t4.tvc",
+      "sha256": "a341af7c9398852999548600d31b3276e58dcb03d96db5b15654186c9313ed4c",
+      "bytes": 64789,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v14_dialog_t4_hiq_iframes.tvc",
+      "sha256": "54e8dc5f4084af8770187912aaa723bcb04db5d422ca8a19a5a60d6e5ca49cd6",
+      "bytes": 473053,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v15_odd_crop_t4.tvc",
+      "sha256": "bb2ad4e660e5f5da9dbb5c5f8e5fa3c7dcd2542959955aad07786252544373d4",
+      "bytes": 1072,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v16_dialog_l2_3slices.tvc",
+      "sha256": "8bcdce2b9f4e42b2e2c58f040ca1522d99f0d69cadc184a6cff6ed006b556c63",
+      "bytes": 42156,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v17_bw_l3_2slices.tvc",
+      "sha256": "5d7dff179f3182d12ac7610562a4e752d492808d1acaee18e58cd7a2e2d87ab0",
+      "bytes": 43894,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v18_anime_4row_slices_tvc0.tvc",
+      "sha256": "80d5e5ec29852f8f99fc91b65d6745628800f4ae3b4cd58c025c6860640b35a6",
+      "bytes": 79067,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v19_l1_crop_slices.tvc",
+      "sha256": "4b11a3d5475dfd51e597825832d75201261335b12f35e8ba9db329330a13ceae",
+      "bytes": 37020,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v20_qp_max_aq.tvc",
+      "sha256": "569cd1f1751938203289273fdb5ad2a247b1665295d4795e816ff25403daf72e",
+      "bytes": 437,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tvc_ref/vectors/v21_qp_min_aq.tvc",
+      "sha256": "e2e360cc2cb42d52066ac519a695feda9915c335736ed1dc86d98c7e786fe934",
+      "bytes": 30577,
+      "kind": "tvc-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/expected.txt",
+      "sha256": "02e327d0d351c54d38ba83fd8f9b5d355385290ed990956d3a7c8677561341cd",
+      "bytes": 3478,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n01_header_crc.tnv3",
+      "sha256": "8a620eddcbb12f7291d33ce73c10c4ae4c81917b96a81bce6fdda3683565d054",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n02_reserved_flag.tnv3",
+      "sha256": "43222f61ced75601e6cdedc9bfa304afac666c5901eb543969595b245dc6042b",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n03_chunk_crc.tnv3",
+      "sha256": "7408722cee75bd2aef81472f87762dcc1e8faea54096daf8a4d97e58e3cab8a9",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n04_key_flag.tnv3",
+      "sha256": "9239675ce86dd9cb902dbaf55fb33d0116d0d89ee4d7719740b134a976d746f2",
+      "bytes": 160792,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n05_index_pts.tnv3",
+      "sha256": "0d7c1380dd1bcead9cc5dd01f181900c253d970d2ef282effeba718eacca5548",
+      "bytes": 160792,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n06_seek_tac.tnv3",
+      "sha256": "93be555383087326228ec8473ea0838bb3b1421404cfb6c2e488fea426a3c39d",
+      "bytes": 160792,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n07_trailing_byte.tnv3",
+      "sha256": "845cc18dbfffd9edb94612c2b1aba2a287e1d51a7084845f2ac0fe672746d5ea",
+      "bytes": 68297,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n08_tac_frames.tnv3",
+      "sha256": "b917519b9701630e69a2a405918a211f48210297d445f6d4b9a8214dc3d300c7",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n09_audio_late.tnv3",
+      "sha256": "6f418ed6a17ac5be4c0c9d589c1d9e5be6c74f0d709bd94af5fee57eacc5f2ad",
+      "bytes": 68292,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n10_audio_early.tnv3",
+      "sha256": "2b9c18a6ec402bb598e386643e92df30e49fa5ef7c57841c85dcd5eaa6008048",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n11_level1_size.tnv3",
+      "sha256": "f452200abea03757f145570d3ecca85599815a06dc345c68294a62fb19951d76",
+      "bytes": 77044,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n12_level_rate.tnv3",
+      "sha256": "43dcfa1f2819d617728a9ff36efdee3a7a7466cc0571146ea1a295634093296a",
+      "bytes": 37324,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n13_glyph_id.tnv3",
+      "sha256": "1a1f00d607f2a18b3d78e9262d519d296ba1bb9d6611e440607e7243cd21c8e5",
+      "bytes": 1943,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n14_chunk_len.tnv3",
+      "sha256": "c04d8d51aef6bee534f17c070a4fab1d28518a44055bda9ebfe6c765ea18b9a4",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n15_level_rate_window.tnv3",
+      "sha256": "fcedf3877761922c3de52a8dbac49ad83a0dcb84c5f3f848cc155e8892db2ee6",
+      "bytes": 874184,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n16_chunk_rate.tnv3",
+      "sha256": "6f7c4cb2a8a687b13b09c25cf03308a1cc79886e68a619b94c1c6d514823da5f",
+      "bytes": 278916,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n17_variant_order.tnv3",
+      "sha256": "e48fe9a6da4619c33b9fe5da6d55d1bc6bd18896ac2f11868b63ac48b50e5e0b",
+      "bytes": 2123,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n18_event_flags.tnv3",
+      "sha256": "054e9c8fa78bcccfb063f033218a19d13f2df8dfcf21e7b56b858650e5bf1f0a",
+      "bytes": 1943,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n19_two_defaults.tnv3",
+      "sha256": "cbf85b031c239d6a6b2c6371ad3bd5bf9d6986a9055f4e2adbd92e006b097d70",
+      "bytes": 2179,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n20_reserved_code.tnv3",
+      "sha256": "33c401549d8ece38e665361a4e1cd3864c82463793407b97df70db8566631c10",
+      "bytes": 1943,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n21_colour_index.tnv3",
+      "sha256": "2c1a0db3fc499c4ca05bbbf865983f6c3ff03cc8180576ad94e48108a55e9bc7",
+      "bytes": 1943,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p01_ip_24_crc.tnv3",
+      "sha256": "a135755677e37e2e80a4d64539a2ccc03a084c0f8d32c78c827739a999b0c7da",
+      "bytes": 82488,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p02_b2_23976_crc.tnv3",
+      "sha256": "325be7c97a78932375723e900e3efe5911074161e1ec39baed1b59538fb58c20",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p03_b3_gop7_2997.tnv3",
+      "sha256": "9bb9d7772d04d10dffd82a30baa90b84531f8a0719223bb5f49368979671c297",
+      "bytes": 160792,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p04_slices_25_mono.tnv3",
+      "sha256": "d5b99dc5baa477b3b8879fe1bac879c71f16b29f7f9786cbb2236fc90d50cf4f",
+      "bytes": 46724,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p05_l1_video_only.tnv3",
+      "sha256": "86d0b084000b743085a9bce7171877bb159aacb0e324cdd43f320ffd8ec75b73",
+      "bytes": 37324,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p06_crop_b2_subs.tnv3",
+      "sha256": "ddad195714d7c9d67e5372c06a7af7e0c08a2484294467aa99533d0e60ff157a",
+      "bytes": 7943,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p07_long_audio_tail.tnv3",
+      "sha256": "23f22ef911ee1574ee2b8f664b0ba1ca3aec1c48ac49ac7e5e69594d7c71d155",
+      "bytes": 176024,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p08_l3_2slices_30.tnv3",
+      "sha256": "1853953ee13725b95baaf0148539d9d473bd5869993638a021be6998304b1bcd",
+      "bytes": 59562,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/p09_seek_at_reset.tnv3",
+      "sha256": "113bd5f919903c40be19f0f1c1a2a9f7af058cf53da262a8a29adbd063c916cd",
+      "bytes": 113696,
+      "kind": "tnv3-vector",
+      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
     }
   ]
 }

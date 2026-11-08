@@ -1,3 +1,13 @@
+# macOS: the Command Line Tools SDK on some machines fails to link ("unknown architecture arm64e");
+# fall back to Xcode's SDK when SDKROOT is unset and Xcode is installed.
+ifeq ($(shell uname -s),Darwin)
+ifndef SDKROOT
+XCODE_SDK := /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+ifneq ($(wildcard $(XCODE_SDK)),)
+export SDKROOT := $(XCODE_SDK)
+endif
+endif
+endif
 CC ?= cc
 CFLAGS ?= -O3
 LDLIBS ?= -lm
@@ -40,3 +50,15 @@ rust-experimental:
 .PHONY: rust-safe-rate
 rust-safe-rate:
 	cargo build --release --manifest-path tau-video/Cargo.toml --features cli,mp3-cli,safe-rate
+
+# Conformance run against the pinned Tau V vectors (read in place; see tests/pins). Unlike `rust-test`,
+# this sets the variables that otherwise make the reference tests return early without checking anything.
+TAU_V_ROOT ?= $(CURDIR)/../tau-nu/.claude/worktrees/codec-alternatives
+.PHONY: rust-conformance
+rust-conformance: all
+	python3 -I tests/pins/check_pins.py --root "$(TAU_V_ROOT)" --skip-films
+	python3 -I tests/pins/check_tac_vectors.py
+	TAU_TVC_VECTOR_DIR="$(TAU_V_ROOT)/tools/tvc_ref/vectors" TAU_VIDEO_VECTOR_DIR="$(TAU_V_ROOT)/tools/tnv3_ref/vectors" \
+	TAU_TVC_DECODER="$(CURDIR)/tools/tvc_ref/tvc_dec" TAU_TNV3_TOOL="$(CURDIR)/tools/tnv3_ref/tnv3" \
+	TAU_TEST_TNV3="$(CURDIR)/tools/tnv3_ref/tnv3" TAU_TEST_PYTHON=python3 \
+	cargo test --manifest-path tau-video/Cargo.toml --all-features
