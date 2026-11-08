@@ -8,7 +8,7 @@
       "sha256": "a7578afc847effeb15d6b7ab602de5794119239eaf0c43e2a9be56cadd31b21c"
     },
     ".gitignore": {
-      "sha256": "61251bbe4b7d903a5db20838f4bfd24626a3b78f8b0a6fb0d0aeb6d8d341ac81",
+      "sha256": "a44c3f2db93be3369b741643e3fd6b04b13c112c671111b4d70eff4da535b47b",
       "status": "modified_for_release",
       "upstream_path": ".gitignore",
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
