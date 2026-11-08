@@ -13,7 +13,13 @@
   let subOn = true, subTrack = 0, subSize = 0, hideSdh = false, overlay: HTMLCanvasElement;
   let knownKey = 0, overlayBusy = false;
   $: stage = (info?.subtitles?.length ?? 0) > 0;
-  $: fitScale = Math.max(0.25, Math.min(viewportW > 0 ? viewportW / stageW : 1, windowH > 0 ? Math.max(200, windowH - 260) / stageH : 1));
+  // Crop (default): drop the empty black margins of the 800x720 window: keep the picture's width plus room for subtitles, from just above the picture down to the bottom.
+  let crop = true;
+  $: cropX = stage && crop ? Math.max(0, picLeft - 120) : 0;
+  $: cropY = stage && crop ? Math.max(0, picTop - 12) : 0;
+  $: cropW = stage && crop ? Math.min(GRID_W - cropX, (info?.width || 400) + 240) : stageW;
+  $: cropH = stage && crop ? GRID_H - cropY : stageH;
+  $: fitScale = Math.max(0.25, Math.min(viewportW > 0 ? viewportW / cropW : 1, windowH > 0 ? Math.max(200, windowH - 230) / cropH : 1));
   $: scale = scaleChoice === 'fit' ? fitScale : Number(scaleChoice);
   $: stageW = stage ? GRID_W : (info?.width || 400);
   $: stageH = stage ? GRID_H : (info?.height || 226);
@@ -141,9 +147,10 @@
     </div>
     <p class="help">Output window 800×720 with the picture centred, as the Pocket draws it. With Subtitles off only forced lines show. Delay, vertical offset and box settings are not available here.</p>
   {/if}
-  <label class="preview-scale" for="preview-scale">Display scale <select id="preview-scale" bind:value={scaleChoice}><option value="fit">Fit the window (default)</option><option value="0.5">0.5×</option><option value="1">1× — actual size</option><option value="2">2×</option><option value="4">4×</option></select></label>
+  <label class="preview-scale"><input type="checkbox" bind:checked={crop} /> Crop empty borders</label>
+    <label class="preview-scale" for="preview-scale">Display scale <select id="preview-scale" bind:value={scaleChoice}><option value="fit">Fit the window (default)</option><option value="0.5">0.5×</option><option value="1">1× — actual size</option><option value="2">2×</option><option value="4">4×</option></select></label>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex: the viewport needs keyboard focus for scrolling. -->
-  <div class="preview-viewport" class:fit={scaleChoice === 'fit'} bind:clientWidth={viewportW} tabindex="0" role="region" aria-label="Video preview; scroll to see enlarged video"><div class="stage" class:crisp={scale >= 2} style:width="{stageW * scale}px" style:height="{stageH * scale}px"><canvas bind:this={canvas} width={info?.width || 400} height={info?.height || 226} style:left="{picLeft * scale}px" style:top="{picTop * scale}px" style:width="{(info?.width || 400) * scale}px" style:height="{(info?.height || 226) * scale}px" aria-label="Decoded video preview"></canvas><canvas class="overlay" bind:this={overlay} width={GRID_W} height={GRID_H} style:display={stage ? 'block' : 'none'} style:width="{GRID_W * scale}px" style:height="{GRID_H * scale}px" aria-hidden="true"></canvas></div></div>
+  <div class="preview-viewport" class:fit={scaleChoice === 'fit'} bind:clientWidth={viewportW} tabindex="0" role="region" aria-label="Video preview; scroll to see enlarged video"><div class="cropbox" style:width="{cropW * scale}px" style:height="{cropH * scale}px"><div class="stage" class:crisp={scale >= 2} style:width="{stageW * scale}px" style:height="{stageH * scale}px" style:left="{-cropX * scale}px" style:top="{-cropY * scale}px"><canvas bind:this={canvas} width={info?.width || 400} height={info?.height || 226} style:left="{picLeft * scale}px" style:top="{picTop * scale}px" style:width="{(info?.width || 400) * scale}px" style:height="{(info?.height || 226) * scale}px" aria-label="Decoded video preview"></canvas><canvas class="overlay" bind:this={overlay} width={GRID_W} height={GRID_H} style:display={stage ? 'block' : 'none'} style:width="{GRID_W * scale}px" style:height="{GRID_H * scale}px" aria-hidden="true"></canvas></div></div></div>
   <audio bind:this={audio} preload="metadata"></audio>
   {#if info}<p class="help">Frame {frame} / {info.frames}{done ? ' · Finished' : ''}. Seeking is not available yet.</p>{/if}
   {#if error}<p class="status error" role="alert">{error}</p>{/if}
