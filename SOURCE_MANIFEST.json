@@ -8,7 +8,7 @@
       "sha256": "a7578afc847effeb15d6b7ab602de5794119239eaf0c43e2a9be56cadd31b21c"
     },
     ".gitignore": {
-      "sha256": "6d9c5a309714af0fd3aff14f1582699dd00031daae6f990046b06e2f020bb5b5",
+      "sha256": "61251bbe4b7d903a5db20838f4bfd24626a3b78f8b0a6fb0d0aeb6d8d341ac81",
       "status": "modified_for_release",
       "upstream_path": ".gitignore",
       "upstream_sha256": "a5dc2be1a659f8cbe2570a9a3196e497c4aa58c98f8c68bd510449972a29a163"
@@ -27,13 +27,13 @@
       "note": "Apache-2.0 text; the upstream MIT original is LICENSES/MIT-HarpMudd.txt"
     },
     "Makefile": {
-      "sha256": "1cb1b52f7f2edfc94e020e9ff40f1538548e097d6e55be286fe86156131fd757",
+      "sha256": "6d684d5eca7004b564b7de78696cc3bb90c5a50f2e5df0554df94e9fea9802d6",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
     },
     "NOTICE.md": {
-      "sha256": "3515afe67fe8255da07e328166c0f832bb5470d61ee817cb664f39f772cd4023",
+      "sha256": "c0ecae9d88bfc86d8dba9b320db9e8268ad5845b54d593ede7a0fe5e031f1cf5",
       "status": "modified_for_release",
       "upstream_path": "NOTICE.md",
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1",
@@ -959,10 +959,10 @@
       "sha256": "2dc024c5d6d955acd3c0f7ebd7b83cef4f401cccedb44d3a9ae7945f46f6a409"
     },
     "tau-video/Cargo.lock": {
-      "sha256": "886c51c99d384604c3c6fa62133e908087bfe12205b5750c5ab2c82b5bd7b28e"
+      "sha256": "7756237af6cd828bb696e1bb54c8f4722fa9fea1687776f886b34f2899b78e6f"
     },
     "tau-video/Cargo.toml": {
-      "sha256": "b1971013ad2c9bc9d31b80e5b875670acd73c179bc591d83e5ff5ee4c084ae8b",
+      "sha256": "61e27f8d5dd06fcf6143a6b8a226db27364bb252b91fe29d9b0a63b7c2ef35ad",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video/README.md": {
@@ -979,7 +979,7 @@
       "sha256": "e4178814ebba4d08c04cccbc83b531918b499f7ec92a00329f3b55ce5de79c45"
     },
     "tau-video/src/lib.rs": {
-      "sha256": "6806130f46173728ba3721746d051c3e162a060aa575016a7849931708a32a7d",
+      "sha256": "e1cb054547f0bce78bc90df17356485780d97a1937e2f3b67f934dcc93364287",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video/src/tvc/b-mb-reference.bin": {
@@ -1455,7 +1455,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "a3f60a2acd9222d8ab3acaf7836660de2ed12e17fc694f99ee4a15c9923bd194",
+      "sha256": "b6753761b80fd5f0d4c4520d72da942998d3b94b581c3c8d4194c0cae8553cdc",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/index.html": {
@@ -1470,7 +1470,7 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "91e4feeb58d1b54840241cde0e27a18e3855fdeef002fb0cd585866335b40578",
+      "sha256": "9b7a7968f7f5fdcfc1e6d5875101817980bf5543743d717e8badb85b6b09f6b7",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/main.ts": {
@@ -1480,11 +1480,11 @@
       "sha256": "beca5429d97a46a1d3abe3d56254b591a08bd6529b0ffeaeddf8ac69e081ed55"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
-      "sha256": "13a5d4f555f93c59abd5de947734585e408bb3b8e2219e41eded7c98d2e6162a",
+      "sha256": "9a392700c18879df95f007ada791af5bffd866b9d23101ccc0d4d4eaf06651ca",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "a9c44c276a96b9f16c6e95c362487064ec59b629c00919f4ef5df0b47ad14d21",
+      "sha256": "139ca55c84eb7dcae4740f27cd5daa78e9838e2834de50e7e7fb5a9e97314f9a",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/build.rs": {
@@ -1509,7 +1509,7 @@
       "sha256": "0011d3e163fb2085e77cf73dfc6c960886737c8e390e18609989b6635b392dde"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "2e3c5a9f03139f8522607d526fceee92759a4e7914c5ee9da1ceb384c2b47716",
+      "sha256": "8be4acd9800a6bfb2e37a9857dd630eb16ee492e8f0483d0a2d86fa9d306b90f",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
@@ -1535,13 +1535,13 @@
       "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"
     },
     "tau-encoder/scripts/build-codec-tools.sh": {
-      "sha256": "c75607e458e30dbc2ce40e9a96f16b6a1bd63bac3365232a78af3b70afac42ca"
+      "sha256": "df910373a082555e3a31f609cd19eda9d44de360e482cea0429e30b38c657198"
     },
     "tau-encoder/src/Player.svelte": {
-      "sha256": "5fe8f38a2a5970c166770699ed08a1a9492e29ecb734e8ef4f1f34b69100d249"
+      "sha256": "c52205638e85a9d29f8a1906a8f38d344e7585857ceb19f8a0ff6a34809f0936"
     },
     "tau-encoder/src-tauri/src/player.rs": {
-      "sha256": "94d1db12c974c7a807a401164b4fefd33b438fe3d7cc1667f71a36a5d4eaa192"
+      "sha256": "9e8cd58c394ebda3a45fd61a1acfc13be413676a90dde134ea2ca82d77978cf8"
     },
     "docs/issues/004-desktop-preview-validation.md": {
       "sha256": "0c998228ae4ce798fa744276f4508b77737f5ef42723cb489feaf18a0ae4f1b1"
@@ -1626,12 +1626,12 @@
     },
     "tau-video-cli/Cargo.toml": {
       "status": "new_release_file",
-      "sha256": "572c160ae2f10a4f81a86c546d8ff25f1cfab912934927743d3c94d50c280c78",
+      "sha256": "5e500103aefa115f720264938b94d42fb0e3d38ddf956545a979080ba4af0898",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/Cargo.lock": {
       "status": "new_release_file",
-      "sha256": "8547d4219d00abf65d1b494d9c5b1543d9eb17e0403b76380dde8267a1188edf",
+      "sha256": "a70b8049101da1d8448b9593103ea65bfed8b0322ed57142fd636d39ab068660",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/README.md": {
@@ -1641,7 +1641,7 @@
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "7717819b4d3189963c7b280d846dc20b67a903e25c876a786d2a3816bafba78a",
+      "sha256": "b995f4ce82227d30b517813747ad87449902c898d75bcc9af61db5b59168bece",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/smoke.py": {
