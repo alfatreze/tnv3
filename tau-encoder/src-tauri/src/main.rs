@@ -2187,26 +2187,18 @@ async fn encode(
     };
     let native_event_loop_done = Arc::new(AtomicBool::new(false));
     if workflow == "native" {
-        if let Ok(dir) = app.path().resource_dir() {
-            let tvc = dir.join("codec-tools/tvc_ref").join(if cfg!(windows) {
-                "tvc_enc.exe"
-            } else {
-                "tvc_enc"
-            });
-            let tnv3 = dir.join("codec-tools/tnv3_ref").join(if cfg!(windows) {
-                "tnv3.exe"
-            } else {
-                "tnv3"
-            });
-            if dependencies.tvc_encoder.trim().is_empty() && tvc.is_file() {
-                dependencies.tvc_encoder = tvc.display().to_string();
-            }
-            if dependencies.tnv3_tool.trim().is_empty() && tnv3.is_file() {
-                dependencies.tnv3_tool = tnv3.display().to_string();
-            }
-            let tac = dir.join("codec-tools/tac_ref").join(executable_name("tac"));
-            if dependencies.tac_tool.trim().is_empty() && tac.is_file() {
-                dependencies.tac_tool = tac.display().to_string();
+        // Tools not chosen in Settings: the environment (TAU_TVC_ENC, TAU_TNV3, TAU_TAC), then the bundled copies,
+        // then the repository's own build in a development checkout.
+        for (field, env, name, dir) in [
+            (&mut dependencies.tvc_encoder, "TAU_TVC_ENC", "tvc_enc", "tvc_ref"),
+            (&mut dependencies.tnv3_tool, "TAU_TNV3", "tnv3", "tnv3_ref"),
+            (&mut dependencies.tac_tool, "TAU_TAC", "tac", "tac_ref"),
+        ] {
+            if field.trim().is_empty() {
+                let exe = executable_name(name);
+                if let Some(found) = locate_tool(&app, env, &format!("codec-tools/{dir}/{exe}"), &format!("../../tools/{dir}/{exe}")) {
+                    *field = found.display().to_string();
+                }
             }
         }
     }

@@ -57,7 +57,7 @@
     catch (e) { if (request === previewRequest) previewError = String(e); }
     finally { if (request === previewRequest) previewLoading = false; }
   }
-  let workflow: 'python' | 'native' = 'python', workspaceMib = 512;
+  let workflow: 'python' | 'native' = 'native', workspaceMib = 512;
   let page: 'encoder' | 'decoder' | 'settings' = 'encoder';
   let player: { pausePlayback: () => void } | undefined;
   let roundDown = false, eofPass = false;
@@ -225,7 +225,7 @@
     <div class="field"><label for="name">File name <small>Creates one .tnv3 file with audio inside</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
     {#if mode === 'c'}
-      <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (reference, default)</option><option value="native">Rust + C (no Python)</option></select>
+      <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (reference)</option><option value="native">Rust + C (no Python, default)</option></select>
         {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{:else}<p class="workflow-note">Rust handles orchestration; the same C video encoder still performs compression. Python is not required. This workflow tracks a projected temporary workspace budget; long films may need a higher value. Encoding stops when the projected workspace exceeds this budget, though actual disk use can vary. Video progress updates as segments finish. Custom tools must not launch other processes, because Stop cannot guarantee cleanup of their descendants.</p>
           <label class="workspace-label" for="workspace-mib">Projected workspace budget <small>MiB</small></label><input class="workspace-input" id="workspace-mib" type="number" min="1" max="16384" step="1" bind:value={workspaceMib} disabled={busy} />
         {/if}
