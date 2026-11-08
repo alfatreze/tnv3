@@ -1244,7 +1244,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--tac-tool PATH|NAME]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--tac-tool PATH|NAME]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1730,7 +1730,7 @@ where
     let mut jobs = 1;
     let mut workspace_mib = 512u64;
     let mut workspace_mib_explicit = false;
-    let mut pocket_sidecar = true;
+    let mut pocket_sidecar = false;
     let mut audio_mode: Option<String> = None;
     let mut audio_bitrate = 96u32;
     let mut tac_tool = None;
@@ -1847,7 +1847,8 @@ where
     if qp > 51 || jobs == 0 {
         return Err("QP must be 0–51 and jobs must be positive".into());
     }
-    let mut tac_requested = false;
+    // Default (no --audio, --video-only or --profile): embedded TAC audio.
+    let mut tac_requested = audio_mode.is_none() && !legacy_audio_flag;
     if let Some(mode) = audio_mode.as_deref() {
         if legacy_audio_flag {
             return Err("--audio cannot be combined with --video-only or --profile".into());
@@ -3117,7 +3118,7 @@ mod tests {
         let settings = effective_settings(&args);
         assert_eq!(settings["video"]["requested_jobs"], 20);
         assert_eq!(settings["video"]["worker_jobs_limit"], 6);
-        assert_eq!(settings["audio"]["format"], "mp3-sidecar");
+        assert_eq!(settings["audio"]["format"], "tac-embedded");
         assert_eq!(
             settings["projected_workspace_budget_bytes"],
             512u64 * 1024 * 1024
@@ -3195,7 +3196,7 @@ mod tests {
         let args = parse_args(argv).unwrap().unwrap();
         assert_eq!(args.qp, 30);
         assert_eq!(args.jobs, 1);
-        assert!(args.pocket_sidecar);
+        assert!(!args.pocket_sidecar && args.tac_audio.is_some(), "default is embedded TAC");
         assert_eq!(args.output, PathBuf::from("out.tnv3"));
         assert_eq!(args.script, PathBuf::from("/tools/encode_film.py"));
         assert_eq!(args.tvc_encoder, Some(PathBuf::from("/tools/tvc_enc")));
@@ -3263,7 +3264,7 @@ mod tests {
         argv.push("--json-events".into());
         let args = parse_args(argv).unwrap().unwrap();
         assert!(args.json_events);
-        assert!(args.pocket_sidecar);
+        assert!(args.tac_audio.is_some());
     }
 
     #[test]
@@ -3491,11 +3492,14 @@ mod tests {
         assert!(mp3.pocket_sidecar && mp3.tac_audio.is_none());
         let none = with(&["--audio", "none"]).unwrap().unwrap();
         assert!(!none.pocket_sidecar && none.tac_audio.is_none());
-        assert!(parse_args(base()).unwrap().unwrap().pocket_sidecar, "default stays the MP3 sidecar");
+        let d = parse_args(base()).unwrap().unwrap();
+        assert!(!d.pocket_sidecar && d.tac_audio.as_ref().is_some_and(|t| t.bitrate_kbps == 96), "default is embedded TAC at 96");
         assert!(with(&["--audio", "tac", "--video-only"]).is_err());
         assert!(with(&["--video-only", "--audio", "tac"]).is_err());
         assert!(with(&["--audio", "ogg"]).is_err());
-        assert!(with(&["--audio-bitrate", "128"]).is_err());
+        assert_eq!(with(&["--audio-bitrate", "128"]).unwrap().unwrap().tac_audio.map(|t| t.bitrate_kbps), Some(128));
+        assert!(with(&["--video-only", "--audio-bitrate", "128"]).is_err());
+        assert!(with(&["--audio", "none", "--tac-tool", "x"]).is_err());
         assert!(with(&["--audio", "tac", "--audio-bitrate", "8"]).is_err());
     }
 

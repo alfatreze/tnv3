@@ -19,3 +19,4 @@
 | Mux of finished streams (own initiative, follows R-004/R-006) | `mux` CLI command via C tool; remux of the 400x224 film is byte-identical | owner | DONE; authoring and TAC encode still open |
 | TAC encode in CLI (owner 2026-11-08) | `encode-audio` command via FFmpeg + `tac enc`; `encode` integration open | owner | PARTLY DONE |
 | TAC audio inside `encode` (owner 2026-11-08) | `--audio tac` opt-in on both backends; default still MP3 sidecar | owner | DONE; default switch open (owner decision) |
+| TAC default audio in `encode` (owner 2026-11-08) | default is now embedded TAC; MP3 pair only on explicit flag | owner | DONE; Tauri app does not use this CLI (still MP3 pair); Omega callers unknown |
