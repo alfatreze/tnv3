@@ -13,12 +13,15 @@ pub enum MuxError {
     Io(io::Error),
     /// Invalid, unsupported or out-of-bounds TVC input.
     Invalid(&'static str),
+    /// The finished file was rejected by this crate's own reader.
+    Rejected(crate::Error),
 }
 impl fmt::Display for MuxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(e) => write!(f, "I/O error: {e}"),
             Self::Invalid(s) => f.write_str(s),
+            Self::Rejected(e) => write!(f, "The muxed file was rejected: {e}"),
         }
     }
 }
@@ -26,6 +29,7 @@ impl error::Error for MuxError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Io(e) => Some(e),
+            Self::Rejected(e) => Some(e),
             _ => None,
         }
     }
@@ -35,41 +39,102 @@ impl From<io::Error> for MuxError {
         Self::Io(e)
     }
 }
-#[derive(Clone, Copy)]
-struct Entry {
-    offset: u32,
-    flags: u32,
-    display: u32,
-}
-/// Video-only TNV3 muxing statistics.
+/// Muxing statistics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MuxSummary {
     /// Number of pictures.
     pub frames: u32,
     /// Container TVC level.
     pub level: u8,
+    /// TAC frames written (0 without audio).
+    pub audio_frames: u32,
+    /// Audio samples per channel declared in the header (after trimming).
+    pub audio_samples: u32,
 }
-/// Mux a TVC1 elementary stream into a video-only TNV3 v0 container.
+
+/// Options of [`mux_streams`]. `MuxOptions::default()` is a video-only file without chunk CRCs, like
+/// `tnv3 mux` without flags.
+#[derive(Clone, Debug, Default)]
+pub struct MuxOptions<'a> {
+    /// A complete TAC0 file (48 kHz); its frames are interleaved with the pictures.
+    pub audio: Option<&'a [u8]>,
+    /// A complete subtitle area (spec section 6.1), appended after the index.
+    pub subtitles: Option<&'a [u8]>,
+    /// Write a CRC-32 in every chunk header (header flag bit 0).
+    pub crc: bool,
+    /// TVC level to record (1..=3). Required for TVC0 input; for TVC1 it overrides the stream's level.
+    pub level: Option<u8>,
+    /// Frame rate override (numerator, denominator).
+    pub rate: Option<(u32, u32)>,
+    /// Cut audio that is longer than the video.
+    pub trim_audio: bool,
+    /// Audio interleave shift in TAC frames (positive: audio runs ahead).
+    pub audio_shift: i32,
+}
+
+fn tac_is_reset(frame: &[u8]) -> bool {
+    let mut c = 0u32;
+    for i in 1..=4usize {
+        c = c << 8 | u32::from(frame.get(i).copied().unwrap_or(0));
+    }
+    c >= 0x7FFF_FFFF
+}
+
+/// Mux a TVC1 elementary stream into a video-only TNV3 v0 container with a CRC in every chunk.
 ///
-/// Both streams start at offset zero. Output is written incrementally and must
-/// be discarded on error. This checks container-related TVC header, picture,
-/// level and rate bounds, but is not a complete bitstream validator and does
-/// not decode picture syntax. Audio and subtitles are not included.
-pub fn mux_tvc<R: Read, W: Write + Seek>(mut input: R, mut out: W) -> Result<MuxSummary, MuxError> {
+/// Both streams start at offset zero. Output is written once, after the result has passed this
+/// crate's own container check; it must still be discarded on error. This checks container-related TVC
+/// header, picture, level and rate bounds, but is not a complete bitstream validator and does not decode
+/// picture syntax. For audio and subtitles use [`mux_streams`].
+pub fn mux_tvc<R: Read, W: Write + Seek>(mut input: R, out: W) -> Result<MuxSummary, MuxError> {
+    let mut video = Vec::new();
+    input.read_to_end(&mut video)?;
+    if video.len() < 4 || &video[..4] != b"TVC1" {
+        return Err(MuxError::Invalid("Only TVC1 input is supported."));
+    }
+    mux_streams(&video, &MuxOptions { crc: true, ..MuxOptions::default() }, out)
+}
+
+/// Mux a TVC stream (TVC0 with `options.level`, or TVC1), optional TAC audio and an optional subtitle
+/// area into a TNV3 v0 container; the Rust equivalent of `tnv3 mux`. Pictures keep decode order,
+/// audio frames are distributed so that the audio a picture needs is in or before its chunk, and each
+/// I picture records the last TAC reset frame at or before its time as its seek point. The finished file
+/// is checked with [`crate::check_container_preview`] before it is written to `out`, which must be empty.
+pub fn mux_streams<W: Write + Seek>(
+    video: &[u8],
+    options: &MuxOptions<'_>,
+    mut out: W,
+) -> Result<MuxSummary, MuxError> {
     if out.stream_position()? != 0 || out.seek(SeekFrom::End(0))? != 0 {
         return Err(MuxError::Invalid("Output must be an empty stream."));
     }
-    let mut h = [0u8; 20];
-    input.read_exact(&mut h)?;
-    if &h[..4] != b"TVC1" {
-        return Err(MuxError::Invalid("Only TVC1 input is supported."));
+    // ---- video header
+    let (mut p, w, height, mut num, mut den, frames, mut level);
+    match video.get(..4) {
+        Some(b"TVC1") if video.len() >= 20 => {
+            let h = &video[..20];
+            if h[17..20] != [0, 0, 0] {
+                return Err(MuxError::Invalid("Invalid TVC stream header."));
+            }
+            (p, level) = (20usize, h[16]);
+        }
+        Some(b"TVC0") if video.len() >= 16 => (p, level) = (16usize, 0),
+        _ => return Err(MuxError::Invalid("Not a TVC0 or TVC1 stream.")),
     }
-    let w = u16::from_le_bytes([h[4], h[5]]);
-    let height = u16::from_le_bytes([h[6], h[7]]);
-    let num = u16::from_le_bytes([h[8], h[9]]);
-    let den = u16::from_le_bytes([h[10], h[11]]);
-    let frames = u32::from_le_bytes([h[12], h[13], h[14], h[15]]);
-    let level = h[16];
+    w = u16::from_le_bytes([video[4], video[5]]);
+    height = u16::from_le_bytes([video[6], video[7]]);
+    num = u32::from(u16::from_le_bytes([video[8], video[9]]));
+    den = u32::from(u16::from_le_bytes([video[10], video[11]]));
+    frames = u32::from_le_bytes([video[12], video[13], video[14], video[15]]);
+    if let Some(l) = options.level {
+        level = l;
+    }
+    if let Some((n, d)) = options.rate {
+        (num, den) = (n, d);
+    }
+    if level == 0 {
+        return Err(MuxError::Invalid("TVC0 input needs a level."));
+    }
     if w == 0
         || height == 0
         || num == 0
@@ -77,20 +142,11 @@ pub fn mux_tvc<R: Read, W: Write + Seek>(mut input: R, mut out: W) -> Result<Mux
         || frames == 0
         || frames > MAX_FRAMES
         || !(1..=3).contains(&level)
-        || h[17..20] != [0, 0, 0]
     {
         return Err(MuxError::Invalid("Invalid TVC stream header."));
     }
     let limits = [
-        (
-            400u32,
-            240u32,
-            375u32,
-            11250u32,
-            96000usize,
-            200000usize,
-            1usize,
-        ),
+        (400u32, 240u32, 375u32, 11250u32, 96000usize, 200000usize, 1usize),
         (800, 464, 1450, 43500, 256000, 400000, 1),
         (800, 720, 2250, 67500, 384000, 600000, 2),
     ];
@@ -102,33 +158,28 @@ pub fn mux_tvc<R: Read, W: Write + Seek>(mut input: R, mut out: W) -> Result<Mux
         || ch > l.1
         || mb > l.2
         || u64::from(mb) * u64::from(num) > u64::from(l.3) * u64::from(den)
-        || u32::from(num) > 30 * u32::from(den)
+        || num > 30 * den
     {
         return Err(MuxError::Invalid("TVC level limits exceeded."));
     }
-    out.seek(SeekFrom::Start(0))?;
-    out.write_all(&[0; 64])?;
-    let mut entries: Vec<Entry> = Vec::new();
-    entries
-        .try_reserve_exact(frames as usize)
-        .map_err(|_| MuxError::Invalid("Index allocation failed."))?;
-    let window = usize::from(num).div_ceil(usize::from(den));
+    // ---- pass 1: picture slices, validation, display order
+    let mut pics: Vec<(usize, usize)> = Vec::new(); // (offset, length)
+    pics.try_reserve_exact(frames as usize).map_err(|_| MuxError::Invalid("Index allocation failed."))?;
+    let window = (num as usize).div_ceil(den as usize);
     let mut sizes = VecDeque::new();
     let mut total = 0usize;
     let mut anchors = 0u32;
-    let mut held: Option<usize> = None;
-    let mut display = 0u32;
-    for i in 0..frames {
-        let mut len = [0u8; 4];
-        input.read_exact(&mut len)?;
-        let len = u32::from_le_bytes(len) as usize;
+    let mut disp: Vec<u32> = vec![0; frames as usize];
+    let (mut held, mut display) = (None::<usize>, 0u32);
+    for i in 0..frames as usize {
+        let head = video.get(p..p + 4).ok_or(MuxError::Invalid("Truncated TVC stream."))?;
+        let len = u32::from_le_bytes([head[0], head[1], head[2], head[3]]) as usize;
+        p += 4;
         if len < 3 || len > l.4 {
             return Err(MuxError::Invalid("Invalid TVC picture length."));
         }
-        let mut data = vec![0; len];
-        input.read_exact(&mut data)?;
-        let ph = PictureHeader::parse(&data, (ch / 16) as u8)
-            .map_err(|_| MuxError::Invalid("Invalid TVC picture header."))?;
+        let data = video.get(p..p + len).ok_or(MuxError::Invalid("Truncated TVC stream."))?;
+        let ph = PictureHeader::parse(data, (ch / 16) as u8).map_err(|_| MuxError::Invalid("Invalid TVC picture header."))?;
         if ph.slices.len() < l.6 {
             return Err(MuxError::Invalid("Too few TVC slices for level."));
         }
@@ -137,87 +188,182 @@ pub fn mux_tvc<R: Read, W: Write + Seek>(mut input: R, mut out: W) -> Result<Mux
             return Err(MuxError::Invalid("Invalid picture reference order."));
         }
         if sizes.len() == window {
-            total -= sizes
-                .pop_front()
-                .ok_or(MuxError::Invalid("Invalid rate window."))?;
+            total -= sizes.pop_front().ok_or(MuxError::Invalid("Invalid rate window."))?;
         }
         total += len;
         if total > l.5 {
             return Err(MuxError::Invalid("TVC picture rate exceeds level."));
         }
         sizes.push_back(len);
-        let offset = u32::try_from(out.stream_position()?)
-            .map_err(|_| MuxError::Invalid("Container exceeds 32-bit offsets."))?;
-        let flags = if kind == 0 {
-            1
-        } else if kind == 2 {
-            2
-        } else {
-            0
-        };
-        let chunk_len =
-            u32::try_from(16 + len).map_err(|_| MuxError::Invalid("Chunk length overflow."))?;
-        out.write_all(&chunk_len.to_le_bytes())?;
-        out.write_all(&(len as u32).to_le_bytes())?;
-        out.write_all(&0u16.to_le_bytes())?;
-        out.write_all(&(flags as u16).to_le_bytes())?;
-        out.write_all(&crc32(&data).to_le_bytes())?;
-        out.write_all(&data)?;
-        let padding = (4 - (chunk_len % 4)) % 4;
-        out.write_all(&[0u8; 3][..padding as usize])?;
-        entries.push(Entry {
-            offset,
-            flags,
-            display: 0,
-        });
-        let current = entries.len() - 1;
+        pics.push((p, len));
+        p += len;
         if kind == 2 {
-            entries[current].display = display;
+            disp[i] = display;
             display += 1;
         } else {
-            if let Some(previous) = held {
-                entries[previous].display = display;
+            if let Some(prev) = held {
+                disp[prev] = display;
                 display += 1;
             }
-            held = Some(current);
+            held = Some(i);
             anchors += 1;
         }
     }
-    let mut extra = [0];
-    if input.read(&mut extra)? != 0 {
+    if p != video.len() {
         return Err(MuxError::Invalid("Trailing TVC input."));
     }
     if let Some(last) = held {
-        entries[last].display = display;
+        disp[last] = display;
     }
-    let index = u32::try_from(out.stream_position()?)
-        .map_err(|_| MuxError::Invalid("Container exceeds 32-bit offsets."))?;
+    // ---- audio
+    let sample_time = |k: u64| k * 48000 * u64::from(den) / u64::from(num);
+    let mut tac: Vec<(usize, usize)> = Vec::new(); // (offset, length) of each TAC frame in the audio file
+    let (mut channels, mut nsamp, mut ntac) = (0u8, 0u32, 0u32);
+    if let Some(a) = options.audio {
+        if a.len() < 20 || &a[..4] != b"TAC0" || u32::from_le_bytes([a[4], a[5], a[6], a[7]]) != 48000 {
+            return Err(MuxError::Invalid("Not a 48 kHz TAC0 file."));
+        }
+        channels = a[8];
+        ntac = u32::from_le_bytes([a[12], a[13], a[14], a[15]]);
+        nsamp = u32::from_le_bytes([a[16], a[17], a[18], a[19]]);
+        let mut q = 20usize;
+        for _ in 0..ntac {
+            let head = a.get(q..q + 2).ok_or(MuxError::Invalid("Truncated TAC file."))?;
+            let n = usize::from(u16::from_le_bytes([head[0], head[1]]));
+            a.get(q + 2..q + 2 + n).ok_or(MuxError::Invalid("Truncated TAC file."))?;
+            tac.push((q + 2, n));
+            q += 2 + n;
+        }
+        let dur = sample_time(u64::from(frames));
+        if options.trim_audio && dur < u64::from(nsamp) {
+            nsamp = dur as u32;
+            ntac = (nsamp + 1023) / 1024 + 1;
+        }
+    }
+    let audio = options.audio.unwrap_or(&[]);
+    // ---- pass 2: chunks
+    let mut o: Vec<u8> = vec![0; 64];
+    let mut entries: Vec<(u32, u32, u32, u32)> = Vec::with_capacity(frames as usize); // offset, pts, first TAC, flags|seek<<8
+    let (mut max_disp, mut used) = (0u32, 0u32);
+    for n in 0..frames as usize {
+        max_disp = max_disp.max(disp[n]);
+        let mut target = used;
+        if options.audio.is_some() {
+            let need = sample_time(u64::from(max_disp) + 1) / 1024 + 2;
+            let tg = if n + 1 == frames as usize { i64::from(ntac) } else { need as i64 + i64::from(options.audio_shift) };
+            target = tg.clamp(0, i64::from(ntac)) as u32;
+            if target < used {
+                target = used;
+            }
+        }
+        let (po, pl) = pics[n];
+        let pic = &video[po..po + pl];
+        let kind = pic[0];
+        let flags: u16 = u16::from(kind == 0) | (u16::from(kind == 2) << 1);
+        let mut body = pic.to_vec();
+        for i in used..target {
+            let (fo, fl) = tac[i as usize];
+            body.extend((fl as u16).to_le_bytes());
+            body.extend(&audio[fo..fo + fl]);
+        }
+        let chunk_len = u32::try_from(16 + body.len()).map_err(|_| MuxError::Invalid("Chunk length overflow."))?;
+        let offset = u32::try_from(o.len()).map_err(|_| MuxError::Invalid("Container exceeds 32-bit offsets."))?;
+        o.extend(chunk_len.to_le_bytes());
+        o.extend((pl as u32).to_le_bytes());
+        o.extend(((target - used) as u16).to_le_bytes());
+        o.extend(flags.to_le_bytes());
+        o.extend(if options.crc { crc32(&body) } else { 0 }.to_le_bytes());
+        o.extend(&body);
+        while o.len() % 4 != 0 {
+            o.push(0);
+        }
+        let sk = sample_time(u64::from(disp[n]));
+        let sk32 = u32::try_from(sk).map_err(|_| MuxError::Invalid("Presentation sample exceeds format limit."))?;
+        let mut seek = 0u32;
+        if options.audio.is_some() && flags & 1 != 0 {
+            for r in 0..ntac {
+                if u64::from(r) * 1024 > u64::from(sk32) {
+                    break;
+                }
+                let (fo, fl) = tac[r as usize];
+                if tac_is_reset(&audio[fo..fo + fl]) {
+                    seek = r;
+                }
+            }
+        }
+        entries.push((offset, sk32, used, u32::from(flags) | seek << 8));
+        used = target;
+    }
+    let index = u32::try_from(o.len()).map_err(|_| MuxError::Invalid("Container exceeds 32-bit offsets."))?;
     for e in &entries {
-        let pts = u64::from(e.display) * 48000 * u64::from(den) / u64::from(num);
-        let pts = u32::try_from(pts)
-            .map_err(|_| MuxError::Invalid("Presentation sample exceeds format limit."))?;
-        out.write_all(&e.offset.to_le_bytes())?;
-        out.write_all(&pts.to_le_bytes())?;
-        out.write_all(&0u32.to_le_bytes())?;
-        out.write_all(&e.flags.to_le_bytes())?;
+        o.extend(e.0.to_le_bytes());
+        o.extend(e.1.to_le_bytes());
+        o.extend(e.2.to_le_bytes());
+        o.extend(e.3.to_le_bytes());
     }
-    let mut header = [0u8; 64];
-    header[..4].copy_from_slice(b"TNV3");
-    header[6..8].copy_from_slice(&1u16.to_le_bytes());
-    header[8..10].copy_from_slice(&w.to_le_bytes());
-    header[10..12].copy_from_slice(&height.to_le_bytes());
-    header[12..16].copy_from_slice(&u32::from(num).to_le_bytes());
-    header[16..20].copy_from_slice(&u32::from(den).to_le_bytes());
-    header[20] = level;
-    header[28..32].copy_from_slice(&frames.to_le_bytes());
-    header[40..44].copy_from_slice(&index.to_le_bytes());
-    let crc = crc32(&header[..60]);
-    header[60..64].copy_from_slice(&crc.to_le_bytes());
-    let end = out.stream_position()?;
-    out.seek(SeekFrom::Start(0))?;
-    out.write_all(&header)?;
-    out.seek(SeekFrom::Start(end))?;
-    Ok(MuxSummary { frames, level })
+    let (mut sub_offset, mut sub_len) = (0u32, 0u32);
+    if let Some(s) = options.subtitles {
+        sub_offset = u32::try_from(o.len()).map_err(|_| MuxError::Invalid("Container exceeds 32-bit offsets."))?;
+        sub_len = u32::try_from(s.len()).map_err(|_| MuxError::Invalid("Subtitle area too large."))?;
+        o.extend(s);
+    }
+    // ---- header
+    let flags16 = u16::from(options.crc) | if options.audio.is_some() { 2 } else { 0 } | if options.subtitles.is_some() { 4 } else { 0 };
+    o[..4].copy_from_slice(b"TNV3");
+    o[6..8].copy_from_slice(&flags16.to_le_bytes());
+    o[8..10].copy_from_slice(&w.to_le_bytes());
+    o[10..12].copy_from_slice(&height.to_le_bytes());
+    o[12..16].copy_from_slice(&num.to_le_bytes());
+    o[16..20].copy_from_slice(&den.to_le_bytes());
+    o[20] = level;
+    o[21] = channels;
+    o[24..28].copy_from_slice(&(if options.audio.is_some() { 48000u32 } else { 0 }).to_le_bytes());
+    o[28..32].copy_from_slice(&frames.to_le_bytes());
+    o[32..36].copy_from_slice(&nsamp.to_le_bytes());
+    o[36..40].copy_from_slice(&ntac.to_le_bytes());
+    o[40..44].copy_from_slice(&index.to_le_bytes());
+    o[44..48].copy_from_slice(&sub_offset.to_le_bytes());
+    o[48..52].copy_from_slice(&sub_len.to_le_bytes());
+    let crc = crc32(&o[..60]);
+    o[60..64].copy_from_slice(&crc.to_le_bytes());
+    // ---- self-check, then write
+    let mut reader = crate::Tnv3Reader::open(io::Cursor::new(&o[..])).map_err(MuxError::Rejected)?;
+    let report = crate::check_container_preview(&mut reader);
+    if report.status != crate::ContainerPreviewStatus::Valid {
+        let f = &report.findings[0];
+        return Err(MuxError::Invalid(match f.code {
+            "E-TNV3-SUB" => "The muxed file failed the subtitle structure check.",
+            _ => "The muxed file failed the container check.",
+        }));
+    }
+    out.write_all(&o)?;
+    Ok(MuxSummary { frames, level, audio_frames: used, audio_samples: nsamp })
+}
+
+/// Extracts the TVC1 elementary stream (pictures in decode order) of a TNV3 container, ignoring audio and
+/// subtitles; the Rust equivalent of `tnv3 demux IN OUT.tvc`. Each picture goes through
+/// [`crate::Tnv3Reader::read_picture`], so chunk bounds, flags, padding and enabled CRCs are checked.
+/// The frame rate must fit the 16-bit fields of the TVC1 header.
+pub fn extract_tvc<R: Read + Seek>(input: R) -> Result<Vec<u8>, MuxError> {
+    let mut reader = crate::Tnv3Reader::open(input).map_err(MuxError::Rejected)?;
+    let info = reader.info().clone();
+    let (Ok(num), Ok(den)) = (u16::try_from(info.fps_num), u16::try_from(info.fps_den)) else {
+        return Err(MuxError::Invalid("Frame rate does not fit a TVC1 header."));
+    };
+    let mut out = Vec::new();
+    out.extend(b"TVC1");
+    out.extend(info.width.to_le_bytes());
+    out.extend(info.height.to_le_bytes());
+    out.extend(num.to_le_bytes());
+    out.extend(den.to_le_bytes());
+    out.extend(info.frame_count.to_le_bytes());
+    out.extend([info.level, 0, 0, 0]);
+    for n in 0..info.frame_count {
+        let picture = reader.read_picture(n).map_err(MuxError::Rejected)?;
+        out.extend((picture.len() as u32).to_le_bytes());
+        out.extend(picture);
+    }
+    Ok(out)
 }
 
 /// TNV3 video-track decoding failure.

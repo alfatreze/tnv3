@@ -68,5 +68,6 @@ rust-conformance: all
 	TAU_TVC_VECTOR_DIR="$(TAU_V_ROOT)/tools/tvc_ref/vectors" TAU_VIDEO_VECTOR_DIR="$(TAU_V_ROOT)/tools/tnv3_ref/vectors" \
 	TAU_TVC_DECODER="$(CURDIR)/tools/tvc_ref/tvc_dec" TAU_TNV3_TOOL="$(CURDIR)/tools/tnv3_ref/tnv3" \
 	TAU_TEST_TNV3="$(CURDIR)/tools/tnv3_ref/tnv3" TAU_TEST_PYTHON=python3 \
+	TAU_TEST_TVC_ENC="$(CURDIR)/tools/tvc_ref/tvc_enc" TAU_TEST_TAC="$(CURDIR)/tools/tac_ref/tac" \
 	TAU_TEST_FONT="$(TAU_V_ROOT)/tools/tst_ref/fonts/Roboto-Regular.ttf" \
 	cargo test --manifest-path tau-video/Cargo.toml --all-features

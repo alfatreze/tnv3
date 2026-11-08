@@ -27,7 +27,7 @@
       "note": "Apache-2.0 text; the upstream MIT original is LICENSES/MIT-HarpMudd.txt"
     },
     "Makefile": {
-      "sha256": "dd57d24bce913109e19489c96a9ef669bf3a37f833822031c332be5c6fbaabde",
+      "sha256": "15a166454e82e452023218ff940a647e6285fe76c7ff95b91ce3b50b4d473423",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
@@ -976,7 +976,7 @@
       "sha256": "bd2ffdbb231b6f8a74815efd173d58b1ad48129679bda8168d623f73765787f4"
     },
     "tau-video/src/container.rs": {
-      "sha256": "e4178814ebba4d08c04cccbc83b531918b499f7ec92a00329f3b55ce5de79c45"
+      "sha256": "0fff2b31ac393dce4eeaa25338b08c08938440f71edb17cd0a1b11a7e06e17ef"
     },
     "tau-video/src/lib.rs": {
       "sha256": "fc8855aba914d837ea8e4cf10af39cdcf2bc11cc70558be1434a6b85a682c68d",
@@ -1494,22 +1494,22 @@
       "sha256": "d353dff1d600b1dddf85ff6d474173084284de2449ffa1f7f8edd8022ffa6ee7"
     },
     "tau-encoder/src-tauri/icons/128x128.png": {
-      "sha256": "c427519d230bdf094b449bf63b3f094ca1c20cb456ff09d105173cc43c234a4e"
+      "sha256": "f351d0aca4b182d6e180355c32706cef2604767d23940930d4f6326e0137e244"
     },
     "tau-encoder/src-tauri/icons/128x128@2x.png": {
-      "sha256": "d0985c865a404763a1205fd6362579bbf759a2ff48ad26f02259ab774a0b8f6d"
+      "sha256": "77b6b59a5b1fc2a510de27a69f77562da8e3bb846e869966af85dfe70a686e97"
     },
     "tau-encoder/src-tauri/icons/32x32.png": {
-      "sha256": "edccb5d373dbc8d6ece0ca8ad32e6562b1946533b7b5a4e0ebdb6d4605978836"
+      "sha256": "91c4da5effde15aface8d8d7e922f86b70cb583dd0f401f4006dc11efd838357"
     },
     "tau-encoder/src-tauri/icons/icon.icns": {
-      "sha256": "31fa964b69dc2fcba987a3b3033912f8f1cfaeea6133ae8c09d97445c5b5817a"
+      "sha256": "cf1671653041895d7dce567f3bdd4de78ad8c81e6eec642081b7dbabc3518ffa"
     },
     "tau-encoder/src-tauri/icons/icon.ico": {
-      "sha256": "f831cb679fb7fd748f280375272965ba7ac45a4bdd5999da5af725929896ea63"
+      "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "8be4acd9800a6bfb2e37a9857dd630eb16ee492e8f0483d0a2d86fa9d306b90f",
+      "sha256": "11362ee333e84944b564a7b11dda3a94cb72093a49c3a9a2a6196883fdf85aee",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
@@ -1641,7 +1641,7 @@
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "ef9038ffcf3ea97b34710dbf815d4df6f18a504afc117dbe90b00632092e8767",
+      "sha256": "cf0616942d0d024497ab3495f227bc6a1712f78d19b50c0553ca387ae748ae53",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/smoke.py": {

@@ -1416,7 +1416,6 @@ fn build_tnv3_with_tac(
     ffmpeg: &Path,
     subtitle_track: Option<u32>,
 ) -> Result<(Temporary, File, Vec<String>), String> {
-    let tnv3 = resolve_tool(&dependencies.tnv3_tool, "TNV3 tool", fallbacks)?;
     let tac = resolve_tool(&dependencies.tac_tool, "TAC encoder", fallbacks)?;
     control.checkpoint()?;
     let mut video_source = video_path.to_path_buf();
@@ -1437,13 +1436,13 @@ fn build_tnv3_with_tac(
     let word = |o: usize| u32::from(u16::from_le_bytes([header[o], header[o + 1]]));
     let long = |o: usize| u32::from_le_bytes([header[o], header[o + 1], header[o + 2], header[o + 3]]);
     let (picture_w, picture_h, fps_n, fps_d) = (word(8), word(10), long(12), long(16));
-    let (tvc_guard, tvc_file) = temporary_file("tvc")?;
-    drop(tvc_file);
     let (tac_guard, tac_file) = temporary_file("tac")?;
     drop(tac_file);
-    let mut demux = Command::new(&tnv3);
-    demux.arg("demux").arg(&video_source).arg(&tvc_guard.0);
-    run_cancellable(demux, "TNV3 demux", control)?;
+    let tvc_bytes = tau_video::container::extract_tvc(
+        File::open(&video_source).map_err(|e| format!("Could not read the temporary video: {e}"))?,
+    )
+    .map_err(|e| format!("Could not extract the video stream: {e}"))?;
+    control.checkpoint()?;
     let mut enc = Command::new(&tac);
     enc.arg("enc").arg(wav_path).arg(&tac_guard.0).arg("-b").arg("96");
     run_cancellable(enc, "TAC encoding", control)?;
@@ -1491,18 +1490,29 @@ fn build_tnv3_with_tac(
         std::fs::write(&area_guard.0, &area).map_err(|e| format!("Could not write the subtitle area: {e}"))?;
         warnings.extend(info.warnings.iter().map(|w| format!("Subtitles: {w}")));
     }
-    let (out_guard, out_file) = temporary_file("tnv3")?;
+    let audio_bytes = std::fs::read(&tac_guard.0).map_err(|e| format!("Could not read the encoded audio: {e}"))?;
+    let area_bytes = match subtitle_track {
+        Some(_) => Some(std::fs::read(&area_guard.0).map_err(|e| format!("Could not read the subtitle area: {e}"))?),
+        None => None,
+    };
+    let mut muxed = std::io::Cursor::new(Vec::new());
+    tau_video::container::mux_streams(
+        &tvc_bytes,
+        &tau_video::container::MuxOptions {
+            audio: Some(&audio_bytes),
+            subtitles: area_bytes.as_deref(),
+            crc,
+            trim_audio: true,
+            ..Default::default()
+        },
+        &mut muxed,
+    )
+    .map_err(|e| format!("Muxing audio and subtitles failed: {e}"))?;
+    let (out_guard, mut out_file) = temporary_file("tnv3")?;
+    std::io::Write::write_all(&mut out_file, muxed.get_ref())
+        .and_then(|_| out_file.sync_all())
+        .map_err(|e| format!("Could not write the muxed TNV3: {e}"))?;
     drop(out_file);
-    let mut mux = Command::new(&tnv3);
-    mux.arg("mux").arg(&tvc_guard.0).arg("-a").arg(&tac_guard.0).arg("-T");
-    if subtitle_track.is_some() {
-        mux.arg("-s").arg(&area_guard.0);
-    }
-    if crc {
-        mux.arg("-c");
-    }
-    mux.arg("-o").arg(&out_guard.0);
-    run_cancellable(mux, "TNV3 audio mux", control)?;
     let file = File::open(&out_guard.0).map_err(|e| format!("Could not open muxed TNV3: {e}"))?;
     Ok((out_guard, file, warnings))
 }

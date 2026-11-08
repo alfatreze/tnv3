@@ -2,6 +2,7 @@
 //! through the C reference muxer (see `tau_video::c_mux`). The inputs must already be encoded; this
 //! does not encode, and `--subtitles` takes a finished TST area, not subtitle text.
 use super::*;
+use std::{fs, path::Path};
 use tau_video::c_mux::{self, Inputs, MuxError};
 
 const USAGE: &str = "Usage: tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]";
@@ -64,6 +65,9 @@ pub fn run(argv: &[OsString]) -> ExitCode {
     }
     let [video, output] = positional.as_slice() else { return fail(2, USAGE, json) };
     inputs.video = video.clone();
+    if tnv3.is_none() && root.is_none() {
+        return native(&inputs, output, json);
+    }
     let explicit_root = root.is_some();
     let root = root.or_else(discover_codec_root);
     let tnv3 = tnv3
@@ -95,5 +99,59 @@ pub fn run(argv: &[OsString]) -> ExitCode {
             };
             fail(code, &e.to_string(), json)
         }
+    }
+}
+
+/// The default: the pure-Rust muxer (`tau_video::container::mux_streams`), no C tool involved.
+fn native(inputs: &Inputs, output: &Path, json: bool) -> ExitCode {
+    use tau_video::container::{MuxOptions, mux_streams};
+    let read = |p: &Path, what: &str| fs::read(p).map_err(|e| (if e.kind() == std::io::ErrorKind::NotFound { 2u8 } else { 3 }, format!("The {what} input {}: {e}", p.display())));
+    let loaded = (|| {
+        let video = read(&inputs.video, "video")?;
+        let audio = inputs.audio.as_deref().map(|p| read(p, "audio")).transpose()?;
+        let subs = inputs.subtitles.as_deref().map(|p| read(p, "subtitle area")).transpose()?;
+        Ok::<_, (u8, String)>((video, audio, subs))
+    })();
+    let (video, audio, subs) = match loaded {
+        Ok(v) => v,
+        Err((c, m)) => return fail(c, &m, json),
+    };
+    let options = MuxOptions {
+        audio: audio.as_deref(),
+        subtitles: subs.as_deref(),
+        crc: inputs.crc,
+        level: inputs.level,
+        rate: inputs.rate,
+        trim_audio: inputs.trim_audio,
+        audio_shift: inputs.audio_shift.unwrap_or(0),
+    };
+    let mut buffer = std::io::Cursor::new(Vec::new());
+    let summary = match mux_streams(&video, &options, &mut buffer) {
+        Ok(s) => s,
+        Err(tau_video::container::MuxError::Io(e)) => return fail(3, &format!("Muxing failed: {e}"), json),
+        Err(e) => return fail(1, &format!("Muxing failed: {e}"), json),
+    };
+    let bytes = buffer.into_inner();
+    let mut f = match fs::OpenOptions::new().write(true).create_new(true).open(output) {
+        Ok(f) => f,
+        Err(e) => return fail(if e.kind() == std::io::ErrorKind::AlreadyExists { 2 } else { 3 }, &format!("Output {}: {e}", output.display()), json),
+    };
+    use std::io::Write;
+    if let Err(e) = f.write_all(&bytes).and_then(|_| f.sync_all()) {
+        drop(f);
+        let _ = fs::remove_file(output);
+        return fail(3, &format!("Could not write the output: {e}"), json);
+    }
+    let line = if json {
+        serde_json::json!({"command":"mux","schema":1,"status":"ok","bytes":bytes.len(),"audio":inputs.audio.is_some(),
+            "subtitles":inputs.subtitles.is_some(),"frames":summary.frames,"level":summary.level,
+            "audio_frames":summary.audio_frames,"audio_samples":summary.audio_samples,"muxer":"rust","output":output}).to_string()
+    } else {
+        format!("Wrote {}: {} bytes, {} pictures, level {}, audio {}, subtitles {} (Rust muxer)", output.display(), bytes.len(), summary.frames, summary.level,
+            if inputs.audio.is_some() { "yes" } else { "no" }, if inputs.subtitles.is_some() { "yes" } else { "no" })
+    };
+    match write_stdout_line(&line) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => fail(3, &format!("Could not write output: {e}"), false),
     }
 }

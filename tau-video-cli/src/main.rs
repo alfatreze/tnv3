@@ -25,7 +25,6 @@ use std::{
     time::Duration,
 };
 use tau_video::c_audio;
-use tau_video::c_mux;
 use tau_video::c_encoder::{self, Options, Tools};
 use tau_video::experimental_c_orchestrator::{self, Options as RustCOptions, Tools as RustCTools};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -2070,10 +2069,6 @@ fn add_audio_and_subtitles(
     level: u8,
 ) -> Result<(), RunError> {
     use std::{fs, io::{Read, Seek, SeekFrom, Write}};
-    let tnv3 = tools
-        .tnv3_tool
-        .as_ref()
-        .ok_or_else(|| RunError::dependency("--audio tac requires --tnv3-tool or --codec-root".to_owned()))?;
     let tac_tool = match tac {
         Some(t) => {
             let p = t
@@ -2100,12 +2095,8 @@ fn add_audio_and_subtitles(
     let crc = header[6] & 1 != 0;
     let picture = (u32::from(u16::from_le_bytes([header[8], header[9]])), u32::from(u16::from_le_bytes([header[10], header[11]])));
     let seconds = f64::from(frames) * f64::from(fps_d) / f64::from(fps_n);
-    let tvc = dir.join("video.tvc");
     let wav_tac = dir.join("audio.tac");
-    let muxed = dir.join("with-audio.tnv3");
-    let mut demux = Command::new(tnv3);
-    demux.arg("demux").arg(&video).arg(&tvc);
-    run_tool_blocking(demux, "tnv3 demux")?;
+    let area = dir.join("subtitles.bin");
     if let (Some(tac), Some(tac_tool)) = (tac, tac_tool) {
         c_audio::encode_audio(
             &c_audio::EncodeTools { ffmpeg: tools.ffmpeg.clone(), tac: tac_tool.clone() },
@@ -2118,7 +2109,6 @@ fn add_audio_and_subtitles(
         )
         .map_err(|e| RunError::io(format!("TAC audio encoding failed: {e}")))?;
     }
-    let area = dir.join("subtitles.bin");
     let mut warnings = Vec::new();
     if !subs.is_empty() {
         let work = dir.join("subs-work");
@@ -2139,38 +2129,40 @@ fn add_audio_and_subtitles(
     if !warnings.is_empty() {
         eprintln!("Subtitle warnings:\n{}", warnings.join("\n"));
     }
-    let mut inputs = c_mux::Inputs::default();
-    inputs.video = tvc.clone();
-    inputs.audio = tac_tool.map(|_| wav_tac.clone());
-    inputs.subtitles = (!subs.is_empty()).then(|| area.clone());
-    inputs.crc = crc;
-    inputs.trim_audio = true;
-    if level != 0 {
-        inputs.level = Some(level);
-    }
-    c_mux::mux(tnv3, &inputs, &muxed).map_err(|e| RunError::io(format!("Muxing audio and subtitles failed: {e}")))?;
-    let mut src = fs::File::open(&muxed).map_err(|e| RunError::io(format!("Could not read muxed TNV3: {e}")))?;
+    let tvc_bytes = tau_video::container::extract_tvc(fs::File::open(&video).map_err(|e| RunError::io(format!("Could not read staged TNV3: {e}")))?)
+        .map_err(|e| RunError::io(format!("Could not extract the video stream: {e}")))?;
+    let audio_bytes = match tac_tool {
+        Some(_) => Some(fs::read(&wav_tac).map_err(|e| RunError::io(format!("Could not read the encoded audio: {e}")))?),
+        None => None,
+    };
+    let area_bytes = if subs.is_empty() {
+        None
+    } else {
+        Some(fs::read(&area).map_err(|e| RunError::io(format!("Could not read the subtitle area: {e}")))?)
+    };
+    let mut muxed = std::io::Cursor::new(Vec::new());
+    tau_video::container::mux_streams(
+        &tvc_bytes,
+        &tau_video::container::MuxOptions {
+            audio: audio_bytes.as_deref(),
+            subtitles: area_bytes.as_deref(),
+            crc,
+            level: (level != 0).then_some(level),
+            trim_audio: true,
+            ..Default::default()
+        },
+        &mut muxed,
+    )
+    .map_err(|e| RunError::io(format!("Muxing audio and subtitles failed: {e}")))?;
     let out = staged.writer();
     out.set_len(0).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
     out.seek(SeekFrom::Start(0)).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
-    std::io::copy(&mut src, out).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
+    out.write_all(muxed.get_ref()).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
     out.flush().map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
-    for p in [&tvc, &wav_tac, &area, &muxed] {
+    for p in [&wav_tac, &area] {
         let _ = fs::remove_file(p);
     }
     Ok(())
-}
-
-fn run_tool_blocking(mut command: Command, label: &str) -> Result<(), RunError> {
-    let out = command
-        .output()
-        .map_err(|e| RunError::dependency(format!("Could not start {label}: {e}")))?;
-    if out.status.success() {
-        return Ok(());
-    }
-    let mut d = String::from_utf8_lossy(&out.stderr).into_owned();
-    d.truncate(d.char_indices().nth(1024).map_or(d.len(), |(i, _)| i));
-    Err(RunError::io(format!("{label} failed ({}): {d}", out.status)))
 }
 
 /// Refuses to start the (uncancellable) audio step if a stop was already requested.

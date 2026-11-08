@@ -30,3 +30,5 @@
 | 800-wide encode and probe (owner 2026-11-08) | real `--width 800` encode valid on both backends; `probe --width` | owner | DONE; device limit 640x400 (Tau V 006) |
 | 1.5/1.6 vectors as files (owner 2026-11-08) | 18 files in `tests/vectors/tnv3_15_16`, both checkers agree; Tau V may pin them | owner | DONE (offer to Tau V in the next message) |
 | Rust subtitle reader (owner 2026-11-08) | `subtitle_read` + `subtitles` command; reference drawing of 6.3 | owner | DONE; to-tau-v/007 offers the 1.5/1.6 vectors |
+| Pure-Rust mux (owner 2026-11-08) | `container::mux_streams`, byte-identical to `tnv3 mux`; CLI/encode/app use it | owner | DONE |
+| Encoder logo (owner 2026-11-08) | concept 8 (progress ring, Tau Omega green) chosen and applied | owner | DONE |
