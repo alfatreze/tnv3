@@ -1363,6 +1363,8 @@ pub mod container;
 pub mod c_encoder;
 #[cfg(feature = "c-audio-decoder")]
 pub mod c_audio;
+#[cfg(feature = "c-mux")]
+pub mod c_mux;
 
 /// Experimental Y4M-to-C segment orchestration, disabled by default.
 #[cfg(feature = "experimental-c-orchestrator")]

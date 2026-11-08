@@ -16,3 +16,4 @@
 | Pins of Tau V vectors (their 003 R-1) | owner go given 2026-11-08 | owner | DONE as in-place pins: `tests/pins/tau_v_pins.json` + `check_pins.py` (nothing copied) |
 | Codec id, extension, licence, MP3 sidecar (owner 2026-11-08) | draft 1.6 codec id byte 22; `.tnv3` final; Apache-2.0 transversal; MP3 parked | owner | DONE here; Tau V to apply licence (to-tau-v/004) |
 | TAC decode path (owner 2026-11-08) | C-tool wrapper + `decode-audio`; pure-Rust decoder parked until format closed | owner | DONE; Omega Q-2 (in-process) moot until reconsidered |
+| Mux of finished streams (own initiative, follows R-004/R-006) | `mux` CLI command via C tool; remux of the 400x224 film is byte-identical | owner | DONE; authoring and TAC encode still open |
