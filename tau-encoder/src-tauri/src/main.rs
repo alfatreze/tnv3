@@ -1458,7 +1458,7 @@ fn build_tnv3_with_tac(
                 .map_err(|e| e.to_string())?],
             None => tau_video::subtitle::default_fonts(),
         };
-        let (srt_guard, srt_file) = temporary_file("srt")?;
+        let (srt_guard, srt_file) = temporary_file("ass")?;
         drop(srt_file);
         let mut extract = Command::new(ffmpeg);
         extract
@@ -1466,7 +1466,7 @@ fn build_tnv3_with_tac(
             .arg(input)
             .arg("-map")
             .arg(format!("0:s:{track}"))
-            .args(["-c:s", "srt", "-f", "srt"])
+            .args(["-c:s", "ass", "-f", "ass"])
             .arg(&srt_guard.0);
         run_cancellable(extract, "Subtitle extraction (only text subtitles can be converted)", control)?;
         control.checkpoint()?;
@@ -1474,11 +1474,12 @@ fn build_tnv3_with_tac(
             .map_err(|e| format!("Could not read the extracted subtitles: {e}"))?;
         let mut options = tau_video::subtitle::Options::new(
             vec![tau_video::subtitle::TrackInput {
-                name: "subtitles.srt".into(),
+                name: "subtitles.ass".into(),
                 text,
                 language: "und".into(),
                 default: true,
                 forced: false,
+                quiet_font_fallback: true,
             }],
             fonts,
             (picture_w, picture_h),

@@ -59,7 +59,7 @@ mod with_builder {
 
     #[test]
     fn builder_output_round_trips_through_the_reader() {
-        let track = TrackInput { name: "a.srt".into(), text: SRT.into(), language: "eng".into(), default: true, forced: false };
+        let track = TrackInput { name: "a.srt".into(), text: SRT.into(), language: "eng".into(), default: true, forced: false, quiet_font_fallback: false };
         let mut o = Options::new(vec![track], default_fonts(), (400, 224));
         o.fps = Some((24, 1));
         o.cells = vec![(16, 24), (20, 28)];

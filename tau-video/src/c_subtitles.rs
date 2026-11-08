@@ -195,9 +195,13 @@ pub fn build_area(o: &BuildOptions, output: &Path) -> Result<BuildReport, Subtit
     })
 }
 
-/// Extracts the `track`-th (zero-based) subtitle stream of `input` as SRT text into `output` (which
-/// must not exist). Fails for image-based subtitles.
-pub fn extract_text_subtitle(ffmpeg: &Path, input: &Path, track: u32, output: &Path) -> Result<(), SubtitleError> {
+/// Extracts the `track`-th (zero-based) subtitle stream of `input` as text into `output` (which must not
+/// exist), in `format` `"ass"` (keeps styles, fonts, colours, italics and bold; the intermediate format of
+/// choice) or `"srt"` (plain text with simple tags). Fails for image-based subtitles.
+pub fn extract_text_subtitle(ffmpeg: &Path, input: &Path, track: u32, output: &Path, format: &str) -> Result<(), SubtitleError> {
+    if !matches!(format, "ass" | "srt") {
+        return Err(SubtitleError::InvalidInput("The subtitle text format is ass or srt.".into()));
+    }
     if output.exists() {
         return Err(SubtitleError::InvalidInput(format!("Output already exists: {}", output.display())));
     }
@@ -206,7 +210,7 @@ pub fn extract_text_subtitle(ffmpeg: &Path, input: &Path, track: u32, output: &P
         .arg(input)
         .arg("-map")
         .arg(format!("0:s:{track}"))
-        .args(["-c:s", "srt", "-f", "srt"])
+        .args(["-c:s", format, "-f", format])
         .arg(output)
         .output()
         .map_err(|source| SubtitleError::Spawn { tool: "FFmpeg", source })?;

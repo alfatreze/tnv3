@@ -120,6 +120,7 @@ fn apply_speaker(
 fn load_track(
     name: &str,
     text: &str,
+    quiet_fonts: bool,
     fonts: &FontSet,
     sheet: &BTreeMap<String, SpeakerStyle>,
     italic_rgb: Rgb,
@@ -137,7 +138,8 @@ fn load_track(
         let mut sbm = BTreeMap::new();
         for (n, s) in &styles {
             let AssStyle { font, rgb, bold, italic } = s.clone();
-            let fam = fonts.family(&font, &mut warned, warnings);
+            let mut scratch = Vec::new();
+            let fam = fonts.family(&font, &mut warned, if quiet_fonts { &mut scratch } else { warnings });
             sbm.insert(n.clone(), Base { fam, bold, italic, rgb: Some(rgb) });
         }
         let fst = sbm.get("Default").cloned().or_else(|| order.first().and_then(|n| sbm.get(n).cloned())).unwrap_or(dflt.clone());
@@ -186,7 +188,9 @@ fn load_track(
         let mut warn_local: Vec<String> = Vec::new();
         let mut fam_for = |n: &str| fonts.family(n, &mut warned, &mut warn_local);
         let segs = text::parse_markup(&markup, ass, &base, &mut fam_for, &sb);
-        warnings.append(&mut warn_local);
+        if !quiet_fonts {
+            warnings.append(&mut warn_local);
+        }
         let mut lines = text::to_lines(&segs);
         if !sheet.is_empty() {
             lines = apply_speaker(lines, sheet, fonts, &mut warned, warnings);
@@ -662,7 +666,7 @@ pub(crate) fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
     let mut warnings = Vec::new();
     let (mut packed, mut infos) = (Vec::new(), Vec::new());
     for t in &o.tracks {
-        let trk = load_track(&t.name, &t.text, &fonts, &o.styles, o.italic_rgb, &mut warnings)?;
+        let trk = load_track(&t.name, &t.text, t.quiet_font_fallback, &fonts, &o.styles, o.italic_rgb, &mut warnings)?;
         let (mut vs, mut vinfo) = (Vec::new(), Vec::new());
         for (&cell, &ow) in o.cells.iter().zip(&ows) {
             let (ev, gl, inf) = build_variant(&trk, &fonts, cell, o, t.forced, ow, &mut warnings)?;

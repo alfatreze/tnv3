@@ -32,3 +32,4 @@
 | Rust subtitle reader (owner 2026-11-08) | `subtitle_read` + `subtitles` command; reference drawing of 6.3 | owner | DONE; to-tau-v/007 offers the 1.5/1.6 vectors |
 | Pure-Rust mux (owner 2026-11-08) | `container::mux_streams`, byte-identical to `tnv3 mux`; CLI/encode/app use it | owner | DONE |
 | Encoder logo (owner 2026-11-08) | concept 8 (progress ring, Tau Omega green) chosen and applied | owner | DONE |
+| ASS as subtitle intermediate (owner 2026-11-08) | extraction as ASS keeps styles/colours/italics; positioning still ignored | owner | DONE |

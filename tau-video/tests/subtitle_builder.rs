@@ -8,7 +8,7 @@ fn font() -> Option<FontSpec> {
     Some(FontSpec { family: String::new(), style: Style::Regular, data: std::fs::read(&path).ok()?, label: "test".into(), scale: None })
 }
 fn track(text: &str) -> TrackInput {
-    TrackInput { name: "t.srt".into(), text: text.into(), language: "eng".into(), default: true, forced: false }
+    TrackInput { name: "t.srt".into(), text: text.into(), language: "eng".into(), default: true, forced: false, quiet_font_fallback: false }
 }
 const SRT: &str = "1\n00:00:01,000 --> 00:00:02,500\nHello <i>world</i>\n\n2\n00:00:02,000 --> 00:00:04,000\n[door slams]\n\n3\n00:00:05,000 --> 00:00:06,000\nA much longer line that has to be wrapped because it is wider than the seven hundred and twenty pixel subtitle width of the grid\n";
 

@@ -45,6 +45,9 @@ pub struct TrackInput {
     pub language: String,
     pub default: bool,
     pub forced: bool,
+    /// Do not warn when a font named in the text (for example the `Arial` of an extracted ASS style) is not
+    /// among the given fonts and the default font is used instead.
+    pub quiet_font_fallback: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -152,11 +155,32 @@ pub fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
 mod tests {
     use super::*;
     #[test]
+    fn ass_styles_colours_and_italics_survive_and_font_fallback_can_be_quiet() {
+        let ass = "[V4+ Styles]\nFormat: Name, Fontname, PrimaryColour, Bold, Italic\nStyle: Default,Arial,&H00FFFFFF,0,0\nStyle: Yellow,Arial,&H0000E6FF,0,0\n[Events]\nFormat: Layer, Start, End, Style, Text\nDialogue: 0,0:00:01.00,0:00:02.00,Default,Plain {\\i1}it{\\i0} {\\c&H0000FF&}red{\\c}\nDialogue: 0,0:00:03.00,0:00:04.00,Yellow,{\\an8}Yellow\n";
+        let make = |quiet: bool| {
+            Options::new(
+                vec![TrackInput { name: "x.ass".into(), text: ass.into(), language: "eng".into(), default: false, forced: false, quiet_font_fallback: quiet }],
+                default_fonts(),
+                (400, 224),
+            )
+        };
+        let (bytes, loud) = build_area(&make(false)).unwrap();
+        assert!(loud.warnings.iter().any(|w| w.contains("Arial")), "unknown style font reported: {:?}", loud.warnings);
+        let (_, quiet) = build_area(&make(true)).unwrap();
+        assert!(quiet.warnings.is_empty(), "{:?}", quiet.warnings);
+        let area = crate::subtitle_read::parse_subtitle_area(&bytes).unwrap();
+        let pal = &area.tracks[0].palette;
+        assert_eq!((pal[0], pal[1], pal[2]), ([255, 255, 255], [255, 0, 0], [255, 230, 0]), "default, inline red, Yellow style");
+        let ev = &area.tracks[0].variants[0].events;
+        assert_eq!(ev.len(), 2);
+        assert_eq!(ev[1].colour, 2, "the second event starts in the Yellow style colour");
+    }
+    #[test]
     fn built_in_fonts_load_and_cover_basic_latin() {
         let fonts = default_fonts();
         assert_eq!(fonts.len(), 2);
         let (_, info) = build_area(&Options::new(
-            vec![TrackInput { name: "a.srt".into(), text: "1\n00:00:01,000 --> 00:00:02,000\nHello <i>there</i> \u{e9}\n".into(), language: "eng".into(), default: false, forced: false }],
+            vec![TrackInput { name: "a.srt".into(), text: "1\n00:00:01,000 --> 00:00:02,000\nHello <i>there</i> \u{e9}\n".into(), language: "eng".into(), default: false, forced: false, quiet_font_fallback: false }],
             fonts,
             (400, 224),
         ))

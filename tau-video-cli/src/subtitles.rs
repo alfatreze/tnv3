@@ -125,8 +125,8 @@ fn build_with_python(
             let (Some(source), Some(ffmpeg)) = (source, ffmpeg) else {
                 return Err((2, "Subtitle tracks from the source need the source file and FFmpeg.".to_owned()));
             };
-            let file = workdir.join(format!("subtitle-{n}.srt"));
-            c_subtitles::extract_text_subtitle(ffmpeg, source, *index, &file).map_err(classify)?;
+            let file = workdir.join(format!("subtitle-{n}.ass"));
+            c_subtitles::extract_text_subtitle(ffmpeg, source, *index, &file, "ass").map_err(classify)?;
             extracted.push(file.clone());
             tracks.push(TrackSpec { path: file, ..flags.clone() });
         }
@@ -253,14 +253,16 @@ fn build_native(
     let mut tracks = Vec::new();
     let mut extracted = Vec::new();
     let result = (|| {
+        let mut quiet = std::collections::BTreeSet::new();
         let mut specs: Vec<(PathBuf, tau_video::c_subtitles::TrackSpec)> = req.files.iter().map(|t| (t.path.clone(), t.clone())).collect();
         for (n, (index, flags)) in req.source_tracks.iter().enumerate() {
             let (Some(source), Some(ffmpeg)) = (source, ffmpeg) else {
                 return Err((2, "Subtitle tracks from the source need the source file and FFmpeg.".to_owned()));
             };
-            let file = workdir.join(format!("subtitle-{n}.srt"));
-            tau_video::c_subtitles::extract_text_subtitle(ffmpeg, source, *index, &file).map_err(classify)?;
+            let file = workdir.join(format!("subtitle-{n}.ass"));
+            tau_video::c_subtitles::extract_text_subtitle(ffmpeg, source, *index, &file, "ass").map_err(classify)?;
             extracted.push(file.clone());
+            quiet.insert(file.clone());
             specs.push((file, flags.clone()));
         }
         for (path, flags) in specs {
@@ -272,6 +274,7 @@ fn build_native(
                 language: flags.language.clone().unwrap_or_else(|| "und".into()),
                 default: flags.default,
                 forced: flags.forced,
+                quiet_font_fallback: quiet.contains(&path),
             });
         }
         let mut o = subtitle::Options::new(tracks, fonts, video);
