@@ -24,7 +24,6 @@ use std::{
     sync::mpsc,
     time::Duration,
 };
-use tau_video::c_audio;
 use tau_video::c_encoder::{self, Options, Tools};
 use tau_video::experimental_c_orchestrator::{self, Options as RustCOptions, Tools as RustCTools};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -2067,6 +2066,7 @@ fn add_audio_and_subtitles(
     parent: &Path,
     frames: u32,
     level: u8,
+    controlled: Option<(&AtomicBool, &std::sync::Arc<std::sync::Mutex<Option<mpsc::Sender<()>>>>)>,
 ) -> Result<(), RunError> {
     use std::{fs, io::{Read, Seek, SeekFrom, Write}};
     let tac_tool = match tac {
@@ -2098,16 +2098,24 @@ fn add_audio_and_subtitles(
     let wav_tac = dir.join("audio.tac");
     let area = dir.join("subtitles.bin");
     if let (Some(tac), Some(tac_tool)) = (tac, tac_tool) {
-        c_audio::encode_audio(
-            &c_audio::EncodeTools { ffmpeg: tools.ffmpeg.clone(), tac: tac_tool.clone() },
-            input,
-            &wav_tac,
-            tac.bitrate_kbps,
-            2,
-            Some(seconds),
-            track,
-        )
-        .map_err(|e| RunError::io(format!("TAC audio encoding failed: {e}")))?;
+        // FFmpeg converts to 48 kHz stereo PCM padded or cut to the video length, then `tac enc`. Both run under
+        // the same supervision as the MP3 sidecar encode, so a stop request (SIGINT, stdin EOF) ends them.
+        let wav = dir.join("audio.wav");
+        let mut ffmpeg = Command::new(&tools.ffmpeg);
+        ffmpeg
+            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
+            .arg(input)
+            .args(["-af", "apad", "-t"])
+            .arg(format!("{seconds:.9}"))
+            .arg("-map")
+            .arg(format!("0:a:{track}"))
+            .args(["-vn", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", "-f", "wav"])
+            .arg(&wav);
+        run_audio_step(&mut ffmpeg, "FFmpeg audio conversion", controlled)?;
+        let mut enc = Command::new(tac_tool);
+        enc.arg("enc").arg(&wav).arg(&wav_tac).arg("-b").arg(tac.bitrate_kbps.to_string());
+        run_audio_step(&mut enc, "TAC encoding", controlled)?;
+        let _ = fs::remove_file(&wav);
     }
     let mut warnings = Vec::new();
     if !subs.is_empty() {
@@ -2165,7 +2173,23 @@ fn add_audio_and_subtitles(
     Ok(())
 }
 
-/// Refuses to start the (uncancellable) audio step if a stop was already requested.
+/// Runs one external audio step; with `controlled` it is supervised and a stop request ends it.
+fn run_audio_step(
+    command: &mut Command,
+    label: &str,
+    controlled: Option<(&AtomicBool, &std::sync::Arc<std::sync::Mutex<Option<mpsc::Sender<()>>>>)>,
+) -> Result<(), RunError> {
+    let (status, detail) = match controlled {
+        Some((stop, active)) => run_capturing_stderr_controlled(command, label, stop, active)?,
+        None => run_capturing_stderr(command, label)?,
+    };
+    if !status.success() {
+        return Err(RunError::io(format!("{label} failed ({status}): {detail}")));
+    }
+    Ok(())
+}
+
+/// Refuses to start a post-video step if a stop was already requested.
 fn claim_publication_check(state: &AtomicU8) -> Result<(), RunError> {
     if state.load(Ordering::Acquire) != 0 {
         return Err(RunError::cancelled("encoding stopped before output publication"));
@@ -2611,7 +2635,7 @@ fn run(args: Args) -> Result<(), RunError> {
         if args.rust_c_orchestrator {
             claim_publication_check(&control_state)?;
         }
-        if let Err(mut error) = add_audio_and_subtitles(&args.input, args.audio_track, args.tac_audio.as_ref(), &args.subtitles, &tools, &mut staged, parent, frames, level) {
+        if let Err(mut error) = add_audio_and_subtitles(&args.input, args.audio_track, args.tac_audio.as_ref(), &args.subtitles, &tools, &mut staged, parent, frames, level, args.rust_c_orchestrator.then_some((&*stop_token, &active_stop))) {
             if error.cleanup_unverified {
                 let path = staged.retain();
                 error

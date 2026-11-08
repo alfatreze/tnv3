@@ -241,7 +241,17 @@ fn terminal_process_group_sigint_is_handled_without_publishing() {
 }
 
 #[test]
-fn sigint_during_audio_stops_before_publishing_pair() {
+fn sigint_during_mp3_sidecar_audio_stops_before_publishing_pair() {
+    sigint_during_audio(&["--audio", "mp3-sidecar"]);
+}
+
+#[test]
+fn sigint_during_embedded_tac_audio_stops_before_publishing() {
+    let Some(tac) = std::env::var_os("TAU_TEST_TAC") else { return };
+    sigint_during_audio(&["--audio", "tac", "--tac-tool", tac.to_str().unwrap()]);
+}
+
+fn sigint_during_audio(audio_args: &[&str]) {
     let (Some(real_ffmpeg), Some(tvc), Some(tnv3)) = (
         std::env::var_os("TAU_TEST_FFMPEG"),
         std::env::var_os("TAU_TEST_TVC"),
@@ -292,7 +302,9 @@ fn sigint_during_audio_stops_before_publishing_pair() {
         .arg("encode")
         .arg(&input)
         .arg(&output)
-        .args(["--rust-c-orchestrator", "--json-events", "--ffmpeg"])
+        .args(["--rust-c-orchestrator", "--json-events"])
+        .args(audio_args)
+        .arg("--ffmpeg")
         .arg(&ffmpeg)
         .arg("--tvc-encoder")
         .arg(tvc)
@@ -338,6 +350,17 @@ fn sigint_during_audio_stops_before_publishing_pair() {
 
 #[test]
 fn control_stdin_kept_open_does_not_block_success() {
+    // legacy MP3 sidecar pair
+    open_control_pipe_encode(&["--audio", "mp3-sidecar"], true);
+}
+
+#[test]
+fn control_stdin_kept_open_does_not_block_success_with_embedded_tac() {
+    let Some(tac) = std::env::var_os("TAU_TEST_TAC") else { return };
+    open_control_pipe_encode(&["--audio", "tac", "--tac-tool", tac.to_str().unwrap()], false);
+}
+
+fn open_control_pipe_encode(audio_args: &[&str], expect_mp3: bool) {
     let (Some(ffmpeg), Some(tvc), Some(tnv3)) = (
         std::env::var_os("TAU_TEST_FFMPEG"),
         std::env::var_os("TAU_TEST_TVC"),
@@ -377,7 +400,9 @@ fn control_stdin_kept_open_does_not_block_success() {
         .arg("encode")
         .arg(&input)
         .arg(&output)
-        .args(["--rust-c-orchestrator", "--json-events", "--ffmpeg"])
+        .args(["--rust-c-orchestrator", "--json-events"])
+        .args(audio_args)
+        .arg("--ffmpeg")
         .arg(ffmpeg)
         .arg("--tvc-encoder")
         .arg(tvc)
@@ -401,6 +426,6 @@ fn control_stdin_kept_open_does_not_block_success() {
         thread::sleep(Duration::from_millis(10));
     }
     assert!(output.is_file());
-    assert!(output.with_extension("mp3").is_file());
+    assert_eq!(output.with_extension("mp3").is_file(), expect_mp3, "MP3 sidecar only in the legacy mode");
     fs::remove_dir_all(dir).unwrap();
 }

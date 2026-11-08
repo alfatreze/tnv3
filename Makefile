@@ -39,7 +39,8 @@ clean:
 rust:
 	cargo build --release --manifest-path tau-video/Cargo.toml --features cli,mp3-cli
 rust-test:
-	cargo test --manifest-path tau-video/Cargo.toml --all-features
+	@echo "Quick run: reference tests without their tools are SKIPPED (TAU_ALLOW_SKIP=1). Use 'make rust-conformance' for the real check."
+	TAU_ALLOW_SKIP=1 cargo test --manifest-path tau-video/Cargo.toml --all-features
 
 # Opt-in block-motion experiment; the normal rust target stays unchanged.
 .PHONY: rust-experimental
@@ -61,13 +62,21 @@ vectors-15-16: all
 	git diff --exit-code -- tests/vectors/tnv3_15_16
 	cargo test --manifest-path tau-video-cli/Cargo.toml --test vectors_15_16
 
+# One environment for every package's reference tests (see tests/reference_env.rs in each package).
+FFMPEG ?= $(shell command -v ffmpeg)
+FFPROBE ?= $(shell command -v ffprobe)
+TEST_ENV = TAU_TVC_VECTOR_DIR="$(TAU_V_ROOT)/tools/tvc_ref/vectors" TAU_VIDEO_VECTOR_DIR="$(TAU_V_ROOT)/tools/tnv3_ref/vectors" \
+	TAU_TVC_DECODER="$(CURDIR)/tools/tvc_ref/tvc_dec" TAU_TNV3_TOOL="$(CURDIR)/tools/tnv3_ref/tnv3" \
+	TAU_TEST_TNV3="$(CURDIR)/tools/tnv3_ref/tnv3" TAU_TEST_PYTHON=python3 \
+	TAU_TEST_FFMPEG="$(FFMPEG)" TAU_TEST_FFPROBE="$(FFPROBE)" TAU_TEST_TVC="$(CURDIR)/tools/tvc_ref/tvc_enc" \
+	TAU_TEST_C_SCRIPT="$(CURDIR)/tools/tnv3_ref/encode_film.py" \
+	TAU_TEST_TVC_ENC="$(CURDIR)/tools/tvc_ref/tvc_enc" TAU_TEST_TAC="$(CURDIR)/tools/tac_ref/tac" \
+	TAU_TEST_FONT="$(TAU_V_ROOT)/tools/tst_ref/fonts/Roboto-Regular.ttf"
+
 .PHONY: rust-conformance
 rust-conformance: all
 	python3 -I tests/pins/check_pins.py --root "$(TAU_V_ROOT)" --skip-films
 	python3 -I tests/pins/check_tac_vectors.py
-	TAU_TVC_VECTOR_DIR="$(TAU_V_ROOT)/tools/tvc_ref/vectors" TAU_VIDEO_VECTOR_DIR="$(TAU_V_ROOT)/tools/tnv3_ref/vectors" \
-	TAU_TVC_DECODER="$(CURDIR)/tools/tvc_ref/tvc_dec" TAU_TNV3_TOOL="$(CURDIR)/tools/tnv3_ref/tnv3" \
-	TAU_TEST_TNV3="$(CURDIR)/tools/tnv3_ref/tnv3" TAU_TEST_PYTHON=python3 \
-	TAU_TEST_TVC_ENC="$(CURDIR)/tools/tvc_ref/tvc_enc" TAU_TEST_TAC="$(CURDIR)/tools/tac_ref/tac" \
-	TAU_TEST_FONT="$(TAU_V_ROOT)/tools/tst_ref/fonts/Roboto-Regular.ttf" \
-	cargo test --manifest-path tau-video/Cargo.toml --all-features
+	$(TEST_ENV) cargo test --manifest-path tau-video/Cargo.toml --all-features
+	$(TEST_ENV) cargo test --manifest-path tau-video-cli/Cargo.toml
+	$(TEST_ENV) cargo test --manifest-path tau-encoder/src-tauri/Cargo.toml

@@ -34,3 +34,4 @@
 | Encoder logo (owner 2026-11-08) | concept 8 (progress ring, Tau Omega green) chosen and applied | owner | DONE |
 | ASS as subtitle intermediate (owner 2026-11-08) | extraction as ASS keeps styles/colours/italics; positioning still ignored | owner | DONE |
 | Bundle Roboto Bold (owner 2026-11-08) | Bold and Bold Italic added to the built-in subtitle fonts | owner | DONE |
+| Silent test skips (owner 2026-11-08) | guard tests + one conformance environment; TAC audio now cancellable | owner | DONE |

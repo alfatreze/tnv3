@@ -27,7 +27,7 @@
       "note": "Apache-2.0 text; the upstream MIT original is LICENSES/MIT-HarpMudd.txt"
     },
     "Makefile": {
-      "sha256": "15a166454e82e452023218ff940a647e6285fe76c7ff95b91ce3b50b4d473423",
+      "sha256": "9b9fe608d0febf74d580a0b4afbd0067f89ea25c61f6dee7973d60d9340f686a",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
@@ -1509,7 +1509,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "7e3048366ddf142af81abc19f62b31a910ad6898b9920a38a06784b2d8835642",
+      "sha256": "c07589e41e778de0775acdb375cf444bf2beb619301494faf6ca64919481dfa7",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
@@ -1641,7 +1641,7 @@
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "cf0616942d0d024497ab3495f227bc6a1712f78d19b50c0553ca387ae748ae53",
+      "sha256": "93b97efe8c576c02ed99de63fc923c788a83857d933c02214c87eb1f30195324",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/smoke.py": {

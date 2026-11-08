@@ -3564,6 +3564,20 @@ mod tests {
             assert!(!safe_name(name));
         }
     }
+    /// Guard against silent skipping: most real-media tests below return early without their tools.
+    #[test]
+    fn reference_tools_are_configured_or_skipping_is_explicit() {
+        if std::env::var("TAU_ALLOW_SKIP").is_ok_and(|v| v == "1") {
+            eprintln!("TAU_ALLOW_SKIP=1: real-media tests without their tools return early and are NOT checked.");
+            return;
+        }
+        let required = ["TAU_TEST_FFMPEG", "TAU_TEST_FFPROBE", "TAU_TEST_TVC", "TAU_TEST_TNV3", "TAU_TEST_TAC", "TAU_TEST_FONT", "TAU_TEST_C_SCRIPT", "TAU_TEST_PYTHON"];
+        let missing: Vec<&str> = required
+            .into_iter()
+            .filter(|n| std::env::var_os(n).is_none_or(|v| v != "python3" && !Path::new(&v).exists()))
+            .collect();
+        assert!(missing.is_empty(), "These variables are unset or point nowhere: {missing:?}. Run `make rust-conformance`, or set TAU_ALLOW_SKIP=1 to skip on purpose.");
+    }
     #[test]
     fn audio_track_list_numbers_only_audio_streams_and_reads_tags() {
         let json = br#"{"streams":[{"index":1,"codec_type":"audio","codec_name":"aac","channels":2,"tags":{"language":"eng"}},{"index":2,"codec_type":"audio","codec_name":"ac3","channels":6,"tags":{"language":"jpn","title":"Commentary"}},{"index":3,"codec_type":"audio","codec_name":"opus"}]}"#;
