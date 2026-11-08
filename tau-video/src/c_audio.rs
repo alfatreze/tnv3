@@ -142,3 +142,69 @@ pub fn decode_audio(
         wav_bytes: bytes.len() as u64,
     })
 }
+
+/// Paths of the tools used to encode: FFmpeg converts any input to 48 kHz PCM, then `tac enc`.
+#[derive(Clone, Debug)]
+pub struct EncodeTools {
+    pub ffmpeg: PathBuf,
+    pub tac: PathBuf,
+}
+
+/// What was written by [`encode_audio`].
+#[derive(Debug, PartialEq, Eq)]
+pub struct EncodeReport {
+    pub channels: u8,
+    pub samples_per_channel: u32,
+    pub tac_frames: u32,
+    pub bytes: u64,
+}
+
+/// Encodes the first audio stream of `input` (any file FFmpeg reads) to a TAC file at `output`, which
+/// must not exist. `kbps` is the TAC target bit rate; `channels` is 1 or 2 (more is not supported by
+/// TAC and FFmpeg downmixes to this). The encoder is the C reference tool; nothing is encoded in Rust.
+pub fn encode_audio(
+    tools: &EncodeTools,
+    input: &Path,
+    output: &Path,
+    kbps: u32,
+    channels: u8,
+) -> Result<EncodeReport, DecodeError> {
+    if output.exists() {
+        return Err(DecodeError::InvalidInput(format!("Output already exists: {}", output.display())));
+    }
+    if !(1..=2).contains(&channels) || !(16..=512).contains(&kbps) {
+        return Err(DecodeError::InvalidInput("Channels must be 1 or 2 and the bit rate 16..512 kbit/s.".into()));
+    }
+    let parent = match output.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p,
+        _ => Path::new("."),
+    };
+    let dir = parent.join(format!(".tau-audio-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+    fs::create_dir(&dir).map_err(|source| DecodeError::Io { operation: "create workspace", source })?;
+    let ws = Workspace(dir);
+    let wav = ws.0.join("audio.wav");
+    let tac = ws.0.join("audio.tac");
+    let mut ff = Command::new(&tools.ffmpeg);
+    ff.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
+        .arg(input)
+        .args(["-map", "0:a:0", "-vn", "-ar", "48000", "-ac"])
+        .arg(channels.to_string())
+        .args(["-c:a", "pcm_s16le", "-f", "wav"])
+        .arg(&wav);
+    run("FFmpeg", ff)?;
+    let mut enc = Command::new(&tools.tac);
+    enc.arg("enc").arg(&wav).arg(&tac).arg("-b").arg(kbps.to_string());
+    run("TAC encoder", enc)?;
+    let b = fs::read(&tac).map_err(|source| DecodeError::Io { operation: "read encoded TAC", source })?;
+    let u32at = |o: usize| u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
+    if b.len() < 20 || &b[..4] != b"TAC0" || u32at(4) != 48000 || b[8] != channels {
+        return Err(DecodeError::ToolFailure {
+            tool: "TAC encoder",
+            status: "ok".into(),
+            diagnostics: "The encoder wrote no valid 48 kHz TAC0 header.".into(),
+        });
+    }
+    let report = EncodeReport { channels: b[8], samples_per_channel: u32at(16), tac_frames: u32at(12), bytes: b.len() as u64 };
+    fs::hard_link(&tac, output).map_err(|source| DecodeError::Io { operation: "publish TAC (no replace)", source })?;
+    Ok(report)
+}
