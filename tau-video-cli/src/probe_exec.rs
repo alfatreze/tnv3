@@ -31,8 +31,8 @@ use std::{
 const POLL_INTERVAL: Duration = Duration::from_millis(2);
 const TERMINATE_GRACE: Duration = Duration::from_millis(250);
 const INHERITED_PIPE_GRACE: Duration = Duration::from_millis(100);
-const MAX_GEOMETRY_Y4M_BYTES: usize = 256 * 1024;
-const MAX_SAMPLE_Y4M_BYTES: usize = 16 * 1024 * 1024;
+const MAX_GEOMETRY_Y4M_BYTES: usize = 1024 * 1024; // one 800x720 4:2:0 frame is 864,000 bytes
+const MAX_SAMPLE_Y4M_BYTES: usize = 48 * 1024 * 1024; // 48 frames of 800x720
 const MAX_SAMPLE_TVC_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_VERSION_OUTPUT_BYTES: usize = 16 * 1024;
 const VERSION_TIMEOUT: Duration = Duration::from_secs(5);
@@ -157,8 +157,9 @@ pub(super) fn run_geometry(
     ffmpeg: &Path,
     input: &Path,
     timeout: Duration,
+    profile: crate::probe::Profile,
 ) -> Result<Vec<u8>, ProbeError> {
-    run_ffmpeg_y4m(ffmpeg, input, timeout, 1, MAX_GEOMETRY_Y4M_BYTES)
+    run_ffmpeg_y4m(ffmpeg, input, timeout, 1, MAX_GEOMETRY_Y4M_BYTES, profile)
 }
 
 pub(super) fn run_sample_frames(
@@ -166,8 +167,9 @@ pub(super) fn run_sample_frames(
     input: &Path,
     frames: u32,
     timeout: Duration,
+    profile: crate::probe::Profile,
 ) -> Result<Vec<u8>, ProbeError> {
-    run_ffmpeg_y4m(ffmpeg, input, timeout, frames, MAX_SAMPLE_Y4M_BYTES)
+    run_ffmpeg_y4m(ffmpeg, input, timeout, frames, MAX_SAMPLE_Y4M_BYTES, profile)
 }
 
 fn run_ffmpeg_y4m(
@@ -176,8 +178,10 @@ fn run_ffmpeg_y4m(
     timeout: Duration,
     frames: u32,
     max_bytes: usize,
+    profile: crate::probe::Profile,
 ) -> Result<Vec<u8>, ProbeError> {
     let frame_count = frames.to_string();
+    let filter = profile.filter();
     let mut child = Command::new(ffmpeg)
         .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
         .arg(input)
@@ -187,7 +191,7 @@ fn run_ffmpeg_y4m(
             "-an",
             "-sn",
             "-vf",
-            crate::probe::POCKET_PROFILE_FILTER,
+            filter.as_str(),
             "-frames:v",
             frame_count.as_str(),
             "-pix_fmt",

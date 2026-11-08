@@ -12,8 +12,33 @@ pub const MAX_PROBE_JSON_BYTES: usize = 1024 * 1024;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub const MAX_PROBE_STDERR_BYTES: usize = 16 * 1024;
 pub const DEFAULT_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
-pub const POCKET_PROFILE_FILTER: &str =
-    "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24";
+/// Output geometry profile of the estimate: pictures at most `width` wide and `max_height()` tall, even sizes,
+/// 24 fps. The default is the 400-wide reference profile; `--width` selects another (height is 9/10 of it).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Profile {
+    pub width: u32,
+}
+impl Default for Profile {
+    fn default() -> Self {
+        Profile { width: 400 }
+    }
+}
+impl Profile {
+    pub fn max_height(self) -> u32 {
+        (self.width * 9 / 10) & !1
+    }
+    pub fn name(self) -> String {
+        format!("pocket-default-reference-{}x{}-24fps", self.width, self.max_height())
+    }
+    pub fn filter(self) -> String {
+        format!(
+            "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24",
+            self.width,
+            self.max_height()
+        )
+    }
+}
+
 pub const ESTIMATE_SAMPLE_FRAMES: u32 = 48;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,6 +50,8 @@ pub struct ProbeInfo {
     pub audio: Vec<AudioStream>,
     pub other_streams: usize,
     /// Geometry from one decoded frame through the explicit default Pocket profile.
+    /// Output profile the geometry and estimates refer to.
+    pub profile: Profile,
     pub output_geometry: Option<(u32, u32)>,
     pub output_level: Option<u8>,
     pub output_geometry_error: Option<String>,
@@ -53,7 +80,7 @@ impl ProbeInfo {
             "scope": if self.estimate_status == "sampled_video_only" {"source-metadata-default-profile-first-frame-and-sample"} else {"source-metadata-and-default-profile-first-frame"},
             "packets_checked": false,
             "first_frame_decoded": self.output_geometry.is_some(),
-            "output_profile": {"name": "pocket-default-reference-400x360-24fps", "filter": POCKET_PROFILE_FILTER,
+            "output_profile": {"name": self.profile.name(), "filter": self.profile.filter(),
                 "scope": "reference filter preview; custom scripts/settings may differ",
                 "selected_video_stream_index": self.video.first().and_then(|v| v.index),
                 "ffmpeg_autorotation": "enabled by FFmpeg default",
@@ -88,7 +115,7 @@ impl ProbeInfo {
                 "video_payload_bytes": self.estimated_video_payload_bytes,
                 "video_stage_seconds": self.estimated_video_stage_seconds,
                 "status": self.estimate_status,
-                "sample_settings": {"profile": "pocket-default-reference-400x360-24fps", "qp": 30, "level": self.estimate_sample_level},
+                "sample_settings": {"profile": self.profile.name(), "qp": 30, "level": self.estimate_sample_level},
                 "scope": "video-only TVC sample extrapolation; excludes TNV3 container/index, MP3 sidecar encoding and mux; measured wall time includes sample decode/encode and process startup",
                 "sample_frames": self.estimate_sample_frames,
                 "sample_output_bytes": self.estimate_sample_output_bytes,
@@ -237,13 +264,15 @@ pub fn run_probe_with_tools(
     ffprobe: &Path,
     ffmpeg: Option<&Path>,
     input: &Path,
+    profile: Profile,
 ) -> Result<ProbeInfo, ProbeError> {
     let mut report = run_probe(ffprobe, input)?;
+    report.profile = profile;
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
         let geometry_result = match ffmpeg {
-            Some(ffmpeg) => crate::probe_exec::run_geometry(ffmpeg, input, DEFAULT_PROBE_TIMEOUT)
-                .and_then(|bytes| parse_y4m_output(&bytes)),
+            Some(ffmpeg) => crate::probe_exec::run_geometry(ffmpeg, input, DEFAULT_PROBE_TIMEOUT, profile)
+                .and_then(|bytes| parse_y4m_output(&bytes, profile)),
             None => Err(ProbeError::Spawn("FFmpeg not found; use --ffmpeg".into())),
         };
         apply_geometry_result(&mut report, geometry_result)?;
@@ -279,8 +308,9 @@ pub fn apply_sample_estimate(
             input,
             ESTIMATE_SAMPLE_FRAMES,
             std::time::Duration::from_secs(30),
+            report.profile,
         )?;
-        let (geometry, level, frame_count) = parse_y4m_sample(&y4m)?;
+        let (geometry, level, frame_count) = parse_y4m_sample(&y4m, report.profile)?;
         if report
             .output_geometry
             .is_some_and(|expected| expected != geometry)
@@ -339,7 +369,7 @@ pub fn apply_sample_estimate(
     }
 }
 
-fn parse_y4m_sample(bytes: &[u8]) -> Result<((u32, u32), u8, u32), ProbeError> {
+fn parse_y4m_sample(bytes: &[u8], profile: Profile) -> Result<((u32, u32), u8, u32), ProbeError> {
     use std::io::{BufReader, Cursor};
     let mut groups = tau_video::y4m::Y4mFrameGroups::new(BufReader::new(Cursor::new(bytes)), 1)
         .map_err(|e| ProbeError::InvalidShapeWithContext(e.to_string()))?;
@@ -359,7 +389,7 @@ fn parse_y4m_sample(bytes: &[u8]) -> Result<((u32, u32), u8, u32), ProbeError> {
             "sample frame count is outside the requested bound".into(),
         ));
     }
-    let (geometry, _) = parse_y4m_output(bytes)?;
+    let (geometry, _) = parse_y4m_output(bytes, profile)?;
     let level = (1..=3)
         .find(|&candidate| {
             tau_video::experimental_c_orchestrator::check_level_fit(&header, candidate).is_ok()
@@ -398,7 +428,7 @@ fn geometry_cleanup_uncertain(error: &ProbeError) -> bool {
     )
 }
 
-fn parse_y4m_output(bytes: &[u8]) -> Result<((u32, u32), u8), ProbeError> {
+fn parse_y4m_output(bytes: &[u8], profile: Profile) -> Result<((u32, u32), u8), ProbeError> {
     use std::io::{BufReader, Cursor};
     let mut reader = tau_video::y4m::Y4mFrameGroups::new(BufReader::new(Cursor::new(bytes)), 1)
         .map_err(|e| ProbeError::InvalidShapeWithContext(e.to_string()))?;
@@ -428,14 +458,18 @@ fn parse_y4m_output(bytes: &[u8]) -> Result<((u32, u32), u8), ProbeError> {
         }
     }
     let geometry = width.zip(height).ok_or(ProbeError::InvalidShape)?;
-    if geometry.0 > 400
-        || geometry.1 > 360
+    if geometry.0 > profile.width
+        || geometry.1 > profile.max_height()
         || geometry.0 % 2 != 0
         || geometry.1 % 2 != 0
         || fps != Some("24:1")
     {
         return Err(ProbeError::InvalidShapeWithContext(
-            "output does not match the 400x360 even 24 fps reference profile".into(),
+            format!(
+                "output does not match the {}x{} even 24 fps reference profile",
+                profile.width,
+                profile.max_height()
+            ),
         ));
     }
     let level = (1..=3)
@@ -467,6 +501,7 @@ pub fn parse_ffprobe_json(bytes: &[u8]) -> Result<ProbeInfo, ProbeError> {
         video: Vec::new(),
         audio: Vec::new(),
         other_streams: 0,
+        profile: Profile::default(),
         output_geometry: None,
         output_level: None,
         output_geometry_error: None,
@@ -559,6 +594,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn profile_follows_the_width_rule_and_bounds_geometry() {
+        let d = Profile::default();
+        assert_eq!((d.width, d.max_height()), (400, 360));
+        assert_eq!(d.name(), "pocket-default-reference-400x360-24fps");
+        assert_eq!(d.filter(), "scale=400:360:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24");
+        let w = Profile { width: 800 };
+        assert_eq!((w.max_height(), w.name().as_str()), (720, "pocket-default-reference-800x720-24fps"));
+        assert_eq!(Profile { width: 240 }.max_height(), 216);
+        let y4m = |w: u32, h: u32| {
+            let mut out = format!("YUV4MPEG2 W{w} H{h} F24:1 Ip A1:1 C420jpeg\nFRAME\n").into_bytes();
+            out.resize(out.len() + (w * h * 3 / 2) as usize, 0);
+            out
+        };
+        assert!(parse_y4m_output(&y4m(800, 450), d).is_err(), "800 wide does not fit the 400 profile");
+        assert_eq!(parse_y4m_output(&y4m(800, 450), w).unwrap().0, (800, 450));
+        assert!(parse_y4m_output(&y4m(800, 722), w).is_err());
+    }
+
+    #[test]
     fn production_y4m_and_level_validators_reject_bad_geometry_headers_and_frames() {
         let valid = |header: &str, marker: &str, bytes: usize| {
             let mut out = header.as_bytes().to_vec();
@@ -567,7 +621,7 @@ mod tests {
             out
         };
         let good = valid("YUV4MPEG2 W16 H16 F24:1 C420jpeg\n", "FRAME\n", 384);
-        assert_eq!(parse_y4m_output(&good).unwrap(), ((16, 16), 1));
+        assert_eq!(parse_y4m_output(&good, Profile::default()).unwrap(), ((16, 16), 1));
         for bad in [
             valid("YUV4MPEG2 W16 W16 H16 F24:1 C420jpeg\n", "FRAME\n", 384),
             valid("YUV4MPEG2 W16 H16 F24:1 C444\n", "FRAME\n", 384),
@@ -578,7 +632,7 @@ mod tests {
             b"YUV4MPEG2 W16 H16 F24:1 C420jpeg\n".to_vec(),
             valid("YUV4MPEG2 W10000 H10000 F24:1 C420jpeg\n", "FRAME\n", 0),
         ] {
-            assert!(parse_y4m_output(&bad).is_err());
+            assert!(parse_y4m_output(&bad, Profile::default()).is_err());
         }
     }
 
@@ -674,7 +728,7 @@ mod tests {
                     "-an",
                     "-sn",
                     "-vf",
-                    POCKET_PROFILE_FILTER,
+                    Profile::default().filter().as_str(),
                     "-frames:v",
                     "1",
                     "-pix_fmt",
@@ -690,17 +744,17 @@ mod tests {
                 "{}",
                 String::from_utf8_lossy(&output.stderr)
             );
-            parse_y4m_output(&output.stdout).unwrap().0
+            parse_y4m_output(&output.stdout, Profile::default()).unwrap().0
         };
         let odd_result =
-            crate::probe_exec::run_geometry(ffmpeg, &odd, DEFAULT_PROBE_TIMEOUT).unwrap();
+            crate::probe_exec::run_geometry(ffmpeg, &odd, DEFAULT_PROBE_TIMEOUT, Profile::default()).unwrap();
         let rotated_result =
-            crate::probe_exec::run_geometry(ffmpeg, &rotated, DEFAULT_PROBE_TIMEOUT).unwrap();
+            crate::probe_exec::run_geometry(ffmpeg, &rotated, DEFAULT_PROBE_TIMEOUT, Profile::default()).unwrap();
         let base_result =
-            crate::probe_exec::run_geometry(ffmpeg, &base, DEFAULT_PROBE_TIMEOUT).unwrap();
-        let odd_geometry = parse_y4m_output(&odd_result).unwrap().0;
-        let rotated_geometry = parse_y4m_output(&rotated_result).unwrap().0;
-        let base_geometry = parse_y4m_output(&base_result).unwrap().0;
+            crate::probe_exec::run_geometry(ffmpeg, &base, DEFAULT_PROBE_TIMEOUT, Profile::default()).unwrap();
+        let odd_geometry = parse_y4m_output(&odd_result, Profile::default()).unwrap().0;
+        let rotated_geometry = parse_y4m_output(&rotated_result, Profile::default()).unwrap().0;
+        let base_geometry = parse_y4m_output(&base_result, Profile::default()).unwrap().0;
         assert_eq!(odd_geometry, reference(&odd));
         assert_eq!(rotated_geometry, reference(&rotated));
         assert_eq!(base_geometry, reference(&base));
@@ -708,13 +762,13 @@ mod tests {
             rotated_geometry, base_geometry,
             "FFmpeg autorotation should affect the aspect-fit output"
         );
-        let odd_report = run_probe_with_tools(Path::new("ffprobe"), Some(ffmpeg), &odd).unwrap();
+        let odd_report = run_probe_with_tools(Path::new("ffprobe"), Some(ffmpeg), &odd, Profile::default()).unwrap();
         assert_eq!(
             odd_report.video[0].sample_aspect_ratio.as_deref(),
             Some("3:2")
         );
         let rotated_report =
-            run_probe_with_tools(Path::new("ffprobe"), Some(ffmpeg), &rotated).unwrap();
+            run_probe_with_tools(Path::new("ffprobe"), Some(ffmpeg), &rotated, Profile::default()).unwrap();
         assert_eq!(rotated_report.video[0].rotation_degrees, Some(90.0));
         assert!(
             odd_geometry.0 <= 400

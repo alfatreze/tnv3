@@ -1641,7 +1641,7 @@
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "b995f4ce82227d30b517813747ad87449902c898d75bcc9af61db5b59168bece",
+      "sha256": "e80a17a61638ea26300bd78b5ec22a837d60c5f1d1d6b63a8849c44e77106a92",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/smoke.py": {

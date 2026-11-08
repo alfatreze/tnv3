@@ -9,11 +9,11 @@ use std::{
 
 fn parse(
     args: &[OsString],
-) -> Result<(PathBuf, PathBuf, Option<PathBuf>, bool, Option<PathBuf>), (u8, String)> {
+) -> Result<(PathBuf, PathBuf, Option<PathBuf>, bool, Option<PathBuf>, crate::probe::Profile), (u8, String)> {
     let usage = || {
         (
             2,
-            "Usage: tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--tvc-encoder PATH] [--sample-estimate] [--json]"
+            "Usage: tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--tvc-encoder PATH] [--sample-estimate] [--width 16..800] [--json]"
                 .to_string(),
         )
     };
@@ -26,6 +26,8 @@ fn parse(
     let mut json_seen = false;
     let mut sample_estimate = false;
     let mut selected_tvc = None;
+    let mut profile = crate::probe::Profile::default();
+    let mut width_seen = false;
     let mut at = 2;
     while at < args.len() {
         if args[at] == OsStr::new("--json") && !json_seen {
@@ -44,6 +46,14 @@ fn parse(
             && !args[at + 1].to_string_lossy().starts_with('-')
         {
             selected_ffmpeg = Some(crate::resolve_executable_arg(PathBuf::from(&args[at + 1])));
+            at += 2;
+        } else if args[at] == OsStr::new("--width") && !width_seen && at + 1 < args.len() {
+            let w = args[at + 1].to_str().and_then(|s| s.parse::<u32>().ok());
+            match w {
+                Some(w) if (16..=800).contains(&w) && w % 2 == 0 => profile.width = w,
+                _ => return Err(usage()),
+            }
+            width_seen = true;
             at += 2;
         } else if args[at] == OsStr::new("--sample-estimate") && !sample_estimate {
             sample_estimate = true;
@@ -82,13 +92,13 @@ fn parse(
             "TVC encoder not found; sample estimate requires --tvc-encoder".to_owned(),
         ));
     }
-    Ok((input, ffprobe, ffmpeg, sample_estimate, tvc))
+    Ok((input, ffprobe, ffmpeg, sample_estimate, tvc, profile))
 }
 
 pub fn run(args: &[OsString]) -> ExitCode {
     let json = args.iter().any(|arg| arg == OsStr::new("--json"));
-    let result = parse(args).and_then(|(input, ffprobe, ffmpeg, sample_estimate, tvc)| {
-        crate::probe::run_probe_with_tools(&ffprobe, ffmpeg.as_deref(), &input)
+    let result = parse(args).and_then(|(input, ffprobe, ffmpeg, sample_estimate, tvc, profile)| {
+        crate::probe::run_probe_with_tools(&ffprobe, ffmpeg.as_deref(), &input, profile)
             .and_then(|mut report| {
                 if sample_estimate {
                     crate::probe::apply_sample_estimate(
