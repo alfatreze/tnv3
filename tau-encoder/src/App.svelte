@@ -33,6 +33,16 @@
   function outputWidth(): number { return resolution === 'custom' ? Number(customWidth) : Number(resolution); }
   function validDimensions(): boolean { const w = outputWidth(); return Number.isInteger(w) && w >= 2 && w <= 800 && w % 2 === 0; }
   function invalidLevel(): boolean { return mode === 'c' && Number(selectedLevel) > 0 && !!outputPreview && Number(selectedLevel) < outputPreview.minimum_level; }
+  type AudioTrack = { index: number; codec: string; channels: number; language: string; title: string };
+  let audioTracks: AudioTrack[] = [], audioTrack = 0, tracksRequest = 0;
+  function trackLabel(t: AudioTrack): string { return `Track ${t.index + 1}: ${[t.language, t.title, t.codec, t.channels ? `${t.channels} ch` : ''].filter(Boolean).join(' · ')}`; }
+  async function refreshTracks() {
+    const request = ++tracksRequest;
+    audioTracks = []; audioTrack = 0;
+    if (!input) return;
+    try { const result = await invoke<AudioTrack[]>('list_audio_tracks', { input, dependencies }); if (request === tracksRequest) audioTracks = result; }
+    catch { /* A source without readable track data encodes with its first audio track. */ }
+  }
   async function refreshOutputPreview() {
     const request = ++previewRequest;
     outputPreview = null; previewError = '';
@@ -132,7 +142,7 @@
   async function chooseInput() {
     try {
       const file = await open({ multiple: false, directory: false, filters: [{ name: 'Video', extensions: ['mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v', 'mpg', 'mpeg', 'y4m'] }, { name: 'All files', extensions: ['*'] }] });
-      if (file) { input = file; name = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'video'; message = ''; error = ''; warning = ''; void refreshOutputPreview(); }
+      if (file) { input = file; name = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'video'; message = ''; error = ''; warning = ''; void refreshOutputPreview(); void refreshTracks(); }
     } catch (e) { error = String(e); }
   }
   async function chooseFolder() {
@@ -157,7 +167,7 @@
       if (!alwaysContinue && !(mode === 'c' && workflow === 'native')) {
         checkingSource = true;
         let check: SourceCheckResult;
-        try { check = await invoke<SourceCheckResult>('check_source', { input, dependencies }); }
+        try { check = await invoke<SourceCheckResult>('check_source', { input, audioTrack: Number(audioTrack), dependencies }); }
         finally { checkingSource = false; }
         if (check.status === 'stopped') { message = 'Source check stopped. No output files were created.'; return; }
         if (check.status === 'warning') {
@@ -179,7 +189,7 @@
       });
       const width = outputWidth(), height = 720;
       encodeRunning = true;
-      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
+      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, audioTrack: Number(audioTrack), width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video}${result.audio ? ' and ' + result.audio : ' (audio is inside the file)'}. Level limits may cause automatic quality reductions.`;
     } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); unlistenSourceCancelled?.(); encodeRunning = false; encodeRegistered = false; stopRequested = false; busy = false; }
@@ -203,6 +213,7 @@
   <p class="intro">Convert a video into a Tau video file with its audio inside.</p>
   <section aria-label="Video settings">
     <div class="field"><label for="input">Source video <small>MP4, MKV, MOV and more</small></label><div class="pick"><input id="input" value={input} readonly placeholder="Choose a video file" /><button type="button" onclick={chooseInput} disabled={busy}>Browse</button></div></div>
+    {#if audioTracks.length > 1}<div class="field"><label for="audioTrack">Audio track <small>This source has {audioTracks.length} audio tracks</small></label><select id="audioTrack" bind:value={audioTrack} disabled={busy}>{#each audioTracks as t}<option value={t.index}>{trackLabel(t)}</option>{/each}</select></div>{/if}
     <div class="field"><label for="folder">Output folder <small>Choose a folder or card</small></label><div class="pick"><input id="folder" value={folder} readonly placeholder="Choose where to save" /><button type="button" onclick={chooseFolder} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="name">File name <small>Creates one .tnv3 file with audio inside</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}

@@ -161,7 +161,8 @@ pub struct EncodeReport {
 
 /// Encodes the first audio stream of `input` (any file FFmpeg reads) to a TAC file at `output`, which
 /// must not exist. `kbps` is the TAC target bit rate; `channels` is 1 or 2 (more is not supported by
-/// TAC and FFmpeg downmixes to this). The encoder is the C reference tool; nothing is encoded in Rust.
+/// TAC and FFmpeg downmixes to this). `fit_seconds` pads or cuts the audio to exactly that length;
+/// `track` is the zero-based index among the input's audio streams (0 = the first). The encoder is the C reference tool; nothing is encoded in Rust.
 pub fn encode_audio(
     tools: &EncodeTools,
     input: &Path,
@@ -169,6 +170,7 @@ pub fn encode_audio(
     kbps: u32,
     channels: u8,
     fit_seconds: Option<f64>,
+    track: u32,
 ) -> Result<EncodeReport, DecodeError> {
     if output.exists() {
         return Err(DecodeError::InvalidInput(format!("Output already exists: {}", output.display())));
@@ -193,7 +195,7 @@ pub fn encode_audio(
         }
         ff.args(["-af", "apad", "-t"]).arg(format!("{t:.9}"));
     }
-    ff.args(["-map", "0:a:0", "-vn", "-ar", "48000", "-ac"])
+    ff.args(["-map"]).arg(format!("0:a:{track}")).args(["-vn", "-ar", "48000", "-ac"])
         .arg(channels.to_string())
         .args(["-c:a", "pcm_s16le", "-f", "wav"])
         .arg(&wav);

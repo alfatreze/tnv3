@@ -608,7 +608,7 @@ pub(super) fn run_probe_with_timeout(
         .args([
             "-v", "error", "-show_format", "-show_streams", "-of", "json",
             "-show_entries",
-            "format=format_name,duration,bit_rate:stream=index,codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,duration,pix_fmt,sample_aspect_ratio,display_aspect_ratio,sample_rate,channels,bit_rate:stream_side_data=rotation",
+            "format=format_name,duration,bit_rate:stream=index,codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,duration,pix_fmt,sample_aspect_ratio,display_aspect_ratio,sample_rate,channels,bit_rate:stream_tags=language,title:stream_side_data=rotation",
             "-i",
         ])
         .arg(input)

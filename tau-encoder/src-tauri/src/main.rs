@@ -147,12 +147,15 @@ struct SourceDecisionCancelledEvent {
 fn check_source_impl(
     ffmpeg: &Path,
     input: &Path,
+    audio_track: u32,
     cancel: &AtomicBool,
 ) -> Result<SourceCheckResult, String> {
     let mut child = Command::new(ffmpeg)
         .args(["-nostdin", "-hide_banner", "-v", "error", "-i"])
         .arg(input)
-        .args(["-map", "0:v:0", "-map", "0:a:0?", "-f", "null", "-"])
+        .args(["-map", "0:v:0", "-map"])
+        .arg(format!("0:a:{audio_track}?"))
+        .args(["-f", "null", "-"])
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
@@ -618,8 +621,13 @@ struct AdvancedSettings {
     width: Option<u32>,
     height: Option<u32>,
     level: Option<u8>,
+    /// Zero-based index among the source's audio streams; `None` is the first.
+    audio_track: Option<u32>,
 }
 impl AdvancedSettings {
+    fn track(self) -> u32 {
+        self.audio_track.unwrap_or(0)
+    }
     fn dimensions(self) -> (u32, u32) {
         (self.width.unwrap_or(400), self.height.unwrap_or(360))
     }
@@ -738,6 +746,9 @@ fn encode_pair_impl(
             "Choose even output dimensions up to 800×720 and a level from 1 to 3, or automatic."
                 .into(),
         );
+    }
+    if advanced.track() > 127 {
+        return Err("Choose an audio track from 0 to 127.".into());
     }
     if pure_rust && advanced.level() != 0 {
         return Err(
@@ -1126,7 +1137,7 @@ fn encode_pair_impl(
         .arg(input)
         .args([
             "-map",
-            "0:a:0",
+            &format!("0:a:{}", advanced.track()),
             "-vn",
             "-map_metadata",
             "-1",
@@ -1637,6 +1648,66 @@ fn discover_tools(
         ),
     ]
 }
+#[derive(Serialize, Debug, PartialEq, Eq)]
+struct AudioTrack {
+    /// Zero-based position among the audio streams (what `audioTrack` selects).
+    index: u32,
+    codec: String,
+    channels: u32,
+    language: String,
+    title: String,
+}
+
+/// Parses `ffprobe -select_streams a -of json` output into the audio track list.
+fn parse_audio_tracks(json: &[u8]) -> Result<Vec<AudioTrack>, String> {
+    let root: serde_json::Value =
+        serde_json::from_slice(json).map_err(|_| "FFprobe returned unreadable stream data.".to_owned())?;
+    let streams = root
+        .get("streams")
+        .and_then(|v| v.as_array())
+        .ok_or("FFprobe returned no stream list.")?;
+    let text = |v: Option<&serde_json::Value>| v.and_then(|v| v.as_str()).unwrap_or("").to_owned();
+    Ok(streams
+        .iter()
+        .filter(|s| s.get("codec_type").and_then(|v| v.as_str()) == Some("audio"))
+        .enumerate()
+        .map(|(i, s)| AudioTrack {
+            index: i as u32,
+            codec: text(s.get("codec_name")),
+            channels: s.get("channels").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            language: text(s.get("tags").and_then(|t| t.get("language"))),
+            title: text(s.get("tags").and_then(|t| t.get("title"))),
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn list_audio_tracks(
+    app: tauri::AppHandle,
+    input: String,
+    dependencies: Dependencies,
+) -> Result<Vec<AudioTrack>, String> {
+    let ffmpeg =
+        selected_file(&dependencies.ffmpeg, "FFmpeg")?.unwrap_or_else(|| ffmpeg_path(&app));
+    let ffprobe = selected_file(&dependencies.ffprobe, "FFprobe")?
+        .unwrap_or_else(|| ffmpeg.with_file_name(executable_name("ffprobe")));
+    tauri::async_runtime::spawn_blocking(move || {
+        let out = Command::new(&ffprobe)
+            .args(["-v", "error", "-select_streams", "a", "-show_entries",
+                "stream=index,codec_type,codec_name,channels:stream_tags=language,title", "-of", "json", "-i"])
+            .arg(&input)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|e| format!("Could not start FFprobe: {e}"))?;
+        if !out.status.success() {
+            return Err("FFprobe could not read the audio tracks of this file.".to_owned());
+        }
+        parse_audio_tracks(&out.stdout)
+    })
+    .await
+    .map_err(|e| format!("Track listing stopped: {e}"))?
+}
+
 #[tauri::command]
 fn experimental_rust_encoder_available() -> bool {
     cfg!(feature = "experimental-rust-encoder")
@@ -1645,6 +1716,7 @@ fn experimental_rust_encoder_available() -> bool {
 async fn check_source(
     app: tauri::AppHandle,
     input: String,
+    audio_track: Option<u32>,
     dependencies: Dependencies,
     state: tauri::State<'_, SourceCheckState>,
 ) -> Result<SourceCheckResult, String> {
@@ -1663,7 +1735,7 @@ async fn check_source(
     }
     let worker_cancel = cancel.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        check_source_impl(&ffmpeg, Path::new(&input), &worker_cancel)
+        check_source_impl(&ffmpeg, Path::new(&input), audio_track.unwrap_or(0), &worker_cancel)
     })
     .await;
     if let Ok(mut current) = state.0.lock() {
@@ -2205,6 +2277,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
+            list_audio_tracks,
             check_source,
             stop_source_check,
             respond_source_error,
@@ -2642,6 +2715,7 @@ mod tests {
         let result = check_source_impl(
             Path::new(&ffmpeg),
             Path::new(&source),
+            0,
             &AtomicBool::new(false),
         )
         .unwrap();
@@ -2662,7 +2736,7 @@ mod tests {
         }
         let clean = stub("exit 0");
         assert_eq!(
-            check_source_impl(&clean.0, Path::new("unused"), &AtomicBool::new(false))
+            check_source_impl(&clean.0, Path::new("unused"), 0, &AtomicBool::new(false))
                 .unwrap()
                 .status,
             "clean"
@@ -2670,12 +2744,12 @@ mod tests {
         let warning =
             stub("printf '[matroska,webm @ 0] Duplicate element\\n' >&2; exec /bin/sleep 20");
         let result =
-            check_source_impl(&warning.0, Path::new("unused"), &AtomicBool::new(false)).unwrap();
+            check_source_impl(&warning.0, Path::new("unused"), 0, &AtomicBool::new(false)).unwrap();
         assert_eq!(result.status, "warning");
         assert!(result.details.contains("Duplicate element"));
         let failed = stub("printf 'fatal input error\\n' >&2; exit 2");
         assert!(
-            check_source_impl(&failed.0, Path::new("unused"), &AtomicBool::new(false)).is_err()
+            check_source_impl(&failed.0, Path::new("unused"), 0, &AtomicBool::new(false)).is_err()
         );
         let slow = stub("exec /bin/sleep 20");
         let cancel = Arc::new(AtomicBool::new(false));
@@ -2684,7 +2758,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(150));
             signal.store(true, Ordering::Release);
         });
-        let result = check_source_impl(&slow.0, Path::new("unused"), &cancel).unwrap();
+        let result = check_source_impl(&slow.0, Path::new("unused"), 0, &cancel).unwrap();
         stopper.join().unwrap();
         assert_eq!(result.status, "stopped");
         let closed = stub("exec 2>&-; exec /bin/sleep 20");
@@ -2694,7 +2768,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(150));
             signal.store(true, Ordering::Release);
         });
-        let result = check_source_impl(&closed.0, Path::new("unused"), &cancel).unwrap();
+        let result = check_source_impl(&closed.0, Path::new("unused"), 0, &cancel).unwrap();
         stopper.join().unwrap();
         assert_eq!(result.status, "stopped");
     }
@@ -2769,7 +2843,7 @@ mod tests {
                 .success()
         );
         assert_eq!(
-            check_source_impl(Path::new(&ffmpeg), &source_guard.0, &AtomicBool::new(false))
+            check_source_impl(Path::new(&ffmpeg), &source_guard.0, 0, &AtomicBool::new(false))
                 .unwrap()
                 .status,
             "clean"
@@ -3347,6 +3421,66 @@ mod tests {
         for name in ["", "..", "CON", "a/b", "bad.", "a\\b", "x:y"] {
             assert!(!safe_name(name));
         }
+    }
+    #[test]
+    fn audio_track_list_numbers_only_audio_streams_and_reads_tags() {
+        let json = br#"{"streams":[{"index":1,"codec_type":"audio","codec_name":"aac","channels":2,"tags":{"language":"eng"}},{"index":2,"codec_type":"audio","codec_name":"ac3","channels":6,"tags":{"language":"jpn","title":"Commentary"}},{"index":3,"codec_type":"audio","codec_name":"opus"}]}"#;
+        let tracks = parse_audio_tracks(json).unwrap();
+        assert_eq!(tracks.len(), 3);
+        assert_eq!((tracks[1].index, tracks[1].channels, tracks[1].language.as_str(), tracks[1].title.as_str()), (1, 6, "jpn", "Commentary"));
+        assert_eq!((tracks[2].channels, tracks[2].language.as_str()), (0, ""));
+        assert!(parse_audio_tracks(b"not json").is_err());
+        assert!(parse_audio_tracks(b"{}").is_err());
+        assert!(parse_audio_tracks(br#"{"streams":[]}"#).unwrap().is_empty());
+    }
+    #[test]
+    fn real_media_selected_audio_track_is_the_one_encoded() {
+        let (Some(ffmpeg), Some(tvc), Some(tnv3), Some(tac)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+            std::env::var_os("TAU_TEST_TAC"),
+        ) else {
+            return;
+        };
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(&tnv3).display().to_string(),
+            tac_tool: PathBuf::from(&tac).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default()
+        };
+        let (src_guard, src_file) = temporary_file("mkv").unwrap();
+        drop(src_file);
+        assert!(Command::new(&ffmpeg).args([
+            "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24:duration=2",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2",
+            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=2",
+            "-map", "0", "-map", "1", "-map", "2", "-c:v", "mpeg4", "-c:a", "aac",
+        ]).arg(&src_guard.0).status().unwrap().success());
+        let mut found = Vec::new();
+        for track in [0u32, 1] {
+            let (reserve, f) = temporary_file("tnv3").unwrap();
+            drop(f);
+            std::fs::remove_file(&reserve.0).unwrap();
+            let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+            let folder = reserve.0.parent().unwrap();
+            let settings = AdvancedSettings { audio_track: Some(track), ..Default::default() };
+            let result = encode_pair(Path::new(&ffmpeg), &src_guard.0, folder, name, 30, None, settings, &dependencies, |_| {}).unwrap();
+            let video = Temporary(PathBuf::from(&result.video));
+            let (tac_out, f) = temporary_file("tac").unwrap();
+            drop(f);
+            let (wav, f) = temporary_file("wav").unwrap();
+            drop(f);
+            assert!(Command::new(&tnv3).arg("demux").arg(&video.0).arg("/dev/null").arg(&tac_out.0).status().unwrap().success());
+            assert!(Command::new(&tac).arg("dec").arg(&tac_out.0).arg(&wav.0).status().unwrap().success());
+            let bytes = std::fs::read(&wav.0).unwrap();
+            let samples: Vec<i16> = bytes[44..].chunks_exact(4).map(|c| i16::from_le_bytes([c[0], c[1]])).collect();
+            let crossings = samples.windows(2).filter(|w| w[0] < 0 && w[1] >= 0).count();
+            found.push((crossings as f64 / (samples.len() as f64 / 48_000.0)).round() as u32);
+        }
+        assert!((found[0] as i32 - 440).abs() < 25, "track 0 was {} Hz", found[0]);
+        assert!((found[1] as i32 - 1000).abs() < 40, "track 1 was {} Hz", found[1]);
     }
     #[test]
     fn real_media_default_embeds_tac_audio_in_one_file() {

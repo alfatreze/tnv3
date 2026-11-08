@@ -45,6 +45,10 @@ fn runs_ffmpeg_then_encoder_with_options_and_never_overwrites() {
     assert!(f.contains("-map 0:a:0") && f.contains("-ar 48000 -ac 1"), "{f}");
     assert!(fs::read_to_string(dir.join("tac.txt")).unwrap().trim_end().ends_with("-b 128"));
     assert_eq!(run(&dir, &ff, &tc, &[], "o.tac").0, 2);
+    let (code, out) = run(&dir, &ff, &tc, &["--track", "2", "--channels", "1"], "t.tac");
+    assert_eq!(code, 0, "{out}");
+    assert!(fs::read_to_string(dir.join("ff.txt")).unwrap().contains("-map 0:a:2"));
+    assert_eq!(run(&dir, &ff, &tc, &["--track", "200"], "u.tac").0, 2);
     assert!(fs::read_dir(&dir).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().starts_with(".tau-audio")));
     fs::remove_dir_all(&dir).unwrap();
 }

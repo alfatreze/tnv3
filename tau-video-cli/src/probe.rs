@@ -78,7 +78,8 @@ impl ProbeInfo {
             })).collect::<Vec<_>>(),
             "audio": self.audio.iter().map(|a| serde_json::json!({
                 "index": a.index, "codec": a.codec, "sample_rate": a.sample_rate,
-                "channels": a.channels, "bit_rate": a.bit_rate
+                "channels": a.channels, "bit_rate": a.bit_rate,
+                "language": a.language, "title": a.title
             })).collect::<Vec<_>>(),
             "other_streams": self.other_streams,
             "estimate": {
@@ -122,6 +123,10 @@ pub struct AudioStream {
     pub sample_rate: Option<u64>,
     pub channels: Option<u64>,
     pub bit_rate: Option<u64>,
+    /// `language` tag (for example "eng"), if the file has one.
+    pub language: Option<String>,
+    /// `title` tag, if the file has one.
+    pub title: Option<String>,
 }
 
 #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
@@ -508,6 +513,8 @@ pub fn parse_ffprobe_json(bytes: &[u8]) -> Result<ProbeInfo, ProbeError> {
                 sample_rate: unsigned(s.get("sample_rate")),
                 channels: unsigned(s.get("channels")),
                 bit_rate: unsigned(s.get("bit_rate")),
+                language: s.get("tags").and_then(|t| string(t.get("language"))),
+                title: s.get("tags").and_then(|t| string(t.get("title"))),
             }),
             _ => report.other_streams += 1,
         }
