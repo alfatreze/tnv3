@@ -195,9 +195,15 @@ impl Variant {
 
     /// Draws the active events at `p` as section 6.3 prescribes. A later glyph wins on equal alpha.
     pub fn render(&self, p: u32) -> Frame {
+        self.render_filtered(p, |_| true)
+    }
+
+    /// Like [`Variant::render`], drawing only the active events for which `keep` is true (for example only the
+    /// forced events when subtitles are off, or without the `sdh` ones).
+    pub fn render_filtered(&self, p: u32, keep: impl Fn(&Event) -> bool) -> Frame {
         let mut f = Frame { text: vec![0; GRID_W * GRID_H], colour: vec![0; GRID_W * GRID_H], outline: vec![0; GRID_W * GRID_H] };
         let (cw, ch, ow) = (usize::from(self.cell_w), usize::from(self.cell_h), usize::from(self.outline_w));
-        for e in self.active(p) {
+        for e in self.active(p).filter(|e| keep(e)) {
             let (mut px, mut py) = (usize::from(e.x), usize::from(e.y));
             let mut cur = e.colour;
             for r in &e.refs {

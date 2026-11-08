@@ -2402,6 +2402,31 @@ async fn player_next(app: tauri::AppHandle) -> Result<tauri::ipc::Response, Stri
     .await
     .map_err(|e| format!("Preview stopped: {e}"))?
 }
+/// Subtitle overlay for the preview. Reply: `u32 key`; when the key differs from `known_key` also
+/// `u16 x, y, w, h` (grid box) and `w * h * 4` bytes of straight-alpha RGBA (empty box: nothing drawn).
+#[tauri::command]
+#[allow(clippy::too_many_arguments)] // Named Tauri command arguments.
+fn player_subtitle(
+    track: u32,
+    variant: u32,
+    position: i64,
+    subtitles_on: bool,
+    hide_sdh: bool,
+    known_key: u32,
+    state: tauri::State<'_, Mutex<Option<player::Player>>>,
+) -> Result<tauri::ipc::Response, String> {
+    let locked = state.lock().map_err(|_| "Player state unavailable.")?;
+    let player = locked.as_ref().ok_or("Open a video first.")?;
+    let o = player.subtitle_overlay(track as usize, variant as usize, position, subtitles_on, hide_sdh, known_key)?;
+    let mut out = o.key.to_le_bytes().to_vec();
+    if o.key != known_key {
+        for v in [o.x, o.y, o.w, o.h] {
+            out.extend(v.to_le_bytes());
+        }
+        out.extend(o.rgba);
+    }
+    Ok(tauri::ipc::Response::new(out))
+}
 #[tauri::command]
 fn player_close(state: tauri::State<'_, Mutex<Option<player::Player>>>) -> Result<(), String> {
     *state.lock().map_err(|_| "Player state unavailable.")? = None;
@@ -2428,6 +2453,7 @@ fn main() {
             encode,
             player_open,
             player_next,
+            player_subtitle,
             player_close
         ])
         .run(tauri::generate_context!())

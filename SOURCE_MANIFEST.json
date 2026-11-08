@@ -1455,7 +1455,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "1d5bb831d524be2d74d482aae202b312031a12b83c24e85a6e23fc9a713a6628",
+      "sha256": "60f968e905122755985f4759ee6414211f00cd8a3f7fcce47db5dea5483168ad",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/index.html": {
@@ -1477,7 +1477,7 @@
       "sha256": "6572802101ef1553f9fd88e495a1792bc11f4481da074013a38e1a22b6ff3eab"
     },
     "tau-encoder/src/style.css": {
-      "sha256": "be204a3c93ad483e1d4177eaa21132821ac656ed0d459a5746270ecb1d393665"
+      "sha256": "0ecfffb7d5f56008bc478b1d2f17f8e098b64ea7065a190e763befb504dc6014"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
       "sha256": "9a392700c18879df95f007ada791af5bffd866b9d23101ccc0d4d4eaf06651ca",
@@ -1509,7 +1509,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "c07589e41e778de0775acdb375cf444bf2beb619301494faf6ca64919481dfa7",
+      "sha256": "e7769d70b1ee8a9a0576f4e99597ad2034de096e01e66b7e2cbc2443710e4cce",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
@@ -1538,10 +1538,10 @@
       "sha256": "df910373a082555e3a31f609cd19eda9d44de360e482cea0429e30b38c657198"
     },
     "tau-encoder/src/Player.svelte": {
-      "sha256": "c52205638e85a9d29f8a1906a8f38d344e7585857ceb19f8a0ff6a34809f0936"
+      "sha256": "e6ab141ab8876229113eb2786b1a2401b25a08e8f2ddab63f17601ca6cf342ef"
     },
     "tau-encoder/src-tauri/src/player.rs": {
-      "sha256": "9e8cd58c394ebda3a45fd61a1acfc13be413676a90dde134ea2ca82d77978cf8"
+      "sha256": "b4f3215c45d491f6158d2467b9c87f9340f8ac04a459badaab206dc34fcf09e5"
     },
     "docs/issues/004-desktop-preview-validation.md": {
       "sha256": "0c998228ae4ce798fa744276f4508b77737f5ef42723cb489feaf18a0ae4f1b1"

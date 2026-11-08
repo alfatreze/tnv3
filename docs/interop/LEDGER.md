@@ -37,3 +37,4 @@
 | Silent test skips (owner 2026-11-08) | guard tests + one conformance environment; TAC audio now cancellable | owner | DONE |
 | Reader drawing vs tst_render.py | 266 frames x 3 layers identical (`make compare-render`) | owner | DONE; offer to mention in next message to Tau V |
 | Panic-freedom fuzz (audit §7) | mutation tests over readers, muxer, area parser, builder; one panic found and fixed | owner | DONE first level |
+| Subtitles in the player (owner 2026-11-08) | overlay from the Rust reader, menu, forced-only when off; real window not driven | owner | DONE in code; open question for Tau V: does the Pocket scale a 400-wide picture? |
