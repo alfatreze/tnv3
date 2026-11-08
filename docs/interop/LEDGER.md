@@ -18,3 +18,4 @@
 | TAC decode path (owner 2026-11-08) | C-tool wrapper + `decode-audio`; pure-Rust decoder parked until format closed | owner | DONE; Omega Q-2 (in-process) moot until reconsidered |
 | Mux of finished streams (own initiative, follows R-004/R-006) | `mux` CLI command via C tool; remux of the 400x224 film is byte-identical | owner | DONE; authoring and TAC encode still open |
 | TAC encode in CLI (owner 2026-11-08) | `encode-audio` command via FFmpeg + `tac enc`; `encode` integration open | owner | PARTLY DONE |
+| TAC audio inside `encode` (owner 2026-11-08) | `--audio tac` opt-in on both backends; default still MP3 sidecar | owner | DONE; default switch open (owner decision) |

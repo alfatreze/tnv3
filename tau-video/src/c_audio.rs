@@ -168,6 +168,7 @@ pub fn encode_audio(
     output: &Path,
     kbps: u32,
     channels: u8,
+    fit_seconds: Option<f64>,
 ) -> Result<EncodeReport, DecodeError> {
     if output.exists() {
         return Err(DecodeError::InvalidInput(format!("Output already exists: {}", output.display())));
@@ -185,9 +186,14 @@ pub fn encode_audio(
     let wav = ws.0.join("audio.wav");
     let tac = ws.0.join("audio.tac");
     let mut ff = Command::new(&tools.ffmpeg);
-    ff.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
-        .arg(input)
-        .args(["-map", "0:a:0", "-vn", "-ar", "48000", "-ac"])
+    ff.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"]).arg(input);
+    if let Some(t) = fit_seconds {
+        if !(t.is_finite() && t > 0.0) {
+            return Err(DecodeError::InvalidInput("The fitted duration must be positive.".into()));
+        }
+        ff.args(["-af", "apad", "-t"]).arg(format!("{t:.9}"));
+    }
+    ff.args(["-map", "0:a:0", "-vn", "-ar", "48000", "-ac"])
         .arg(channels.to_string())
         .args(["-c:a", "pcm_s16le", "-f", "wav"])
         .arg(&wav);

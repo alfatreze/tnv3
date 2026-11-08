@@ -21,6 +21,8 @@ use std::{
     sync::mpsc,
     time::Duration,
 };
+use tau_video::c_audio;
+use tau_video::c_mux;
 use tau_video::c_encoder::{self, Options, Tools};
 use tau_video::experimental_c_orchestrator::{self, Options as RustCOptions, Tools as RustCTools};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -228,6 +230,14 @@ mod publication {
 
         pub fn audio_path(&self, parent: &Path) -> PathBuf {
             parent.join(&self.stage_name).join(AUDIO_PAYLOAD)
+        }
+
+        /// The private staging directory and the staged TNV3 inside it.
+        pub fn stage_dir(&self, parent: &Path) -> PathBuf {
+            parent.join(&self.stage_name)
+        }
+        pub fn video_path(&self, parent: &Path) -> PathBuf {
+            parent.join(&self.stage_name).join(PAYLOAD)
         }
 
         pub fn sync_audio(&self) -> Result<(), String> {
@@ -884,6 +894,13 @@ mod publication {
             self.stage_dir.join(AUDIO_PAYLOAD)
         }
 
+        pub fn stage_dir(&self, _parent: &Path) -> PathBuf {
+            self.stage_dir.clone()
+        }
+        pub fn video_path(&self, _parent: &Path) -> PathBuf {
+            self.stage_dir.join(PAYLOAD)
+        }
+
         pub fn publish_pair(
             mut self,
             video_name: &OsStr,
@@ -1110,10 +1127,18 @@ struct Args {
     jobs: usize,
     workspace_mib: u64,
     pocket_sidecar: bool,
+    /// `--audio tac`: embed TAC audio in the TNV3 (single output file).
+    tac_audio: Option<TacAudio>,
     rust_c_orchestrator: bool,
     json_events: bool,
     control_stdin: bool,
     allow_nonatomic_copy: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct TacAudio {
+    bitrate_kbps: u32,
+    tac_tool: Option<PathBuf>,
 }
 
 fn on_path(name: &str) -> Option<PathBuf> {
@@ -1219,7 +1244,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--tac-tool PATH|NAME]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1602,6 +1627,9 @@ fn effective_settings(args: &Args) -> serde_json::Value {
         "audio": if args.pocket_sidecar {Some(serde_json::json!({
             "format": "mp3-sidecar", "sample_rate": 48000,
             "channels": 2, "bit_rate": 128000
+        }))} else if let Some(t) = &args.tac_audio {Some(serde_json::json!({
+            "format": "tac-embedded", "sample_rate": 48000,
+            "channels": 2, "bit_rate": t.bitrate_kbps * 1000
         }))} else {None},
         "projected_workspace_budget_bytes": if args.rust_c_orchestrator {Some(args.workspace_mib * 1024 * 1024)} else {None}
     })
@@ -1703,6 +1731,10 @@ where
     let mut workspace_mib = 512u64;
     let mut workspace_mib_explicit = false;
     let mut pocket_sidecar = true;
+    let mut audio_mode: Option<String> = None;
+    let mut audio_bitrate = 96u32;
+    let mut tac_tool = None;
+    let mut legacy_audio_flag = false;
     let mut rust_c_orchestrator = false;
     let mut json_events = false;
     let mut control_stdin = false;
@@ -1714,6 +1746,7 @@ where
             .ok_or_else(|| format!("option name must be UTF-8: {}", key.to_string_lossy()))?;
         if key_text == "--video-only" {
             pocket_sidecar = false;
+            legacy_audio_flag = true;
             continue;
         }
         if key_text == "--rust-c-orchestrator" {
@@ -1756,6 +1789,7 @@ where
             match EncoderProfile::resolve(&value)? {
                 EncoderProfile::PocketSidecarV1 => pocket_sidecar = true,
             }
+            legacy_audio_flag = true;
             continue;
         }
         let value = it
@@ -1768,6 +1802,17 @@ where
             "--ffprobe" => ffprobe = Some(PathBuf::from(value)),
             "--tvc-encoder" => tvc_encoder = Some(PathBuf::from(value)),
             "--tnv3-tool" => tnv3_tool = Some(PathBuf::from(value)),
+            "--tac-tool" => tac_tool = Some(PathBuf::from(value)),
+            "--audio" => {
+                audio_mode = Some(value.to_str().ok_or("--audio must be UTF-8")?.to_owned())
+            }
+            "--audio-bitrate" => {
+                audio_bitrate = value
+                    .to_str()
+                    .ok_or("audio bit rate must be UTF-8")?
+                    .parse()
+                    .map_err(|_| "audio bit rate must be an integer from 16 to 512 (kbit/s)")?
+            }
             "--qp" => {
                 qp = value
                     .to_str()
@@ -1801,6 +1846,30 @@ where
     }
     if qp > 51 || jobs == 0 {
         return Err("QP must be 0–51 and jobs must be positive".into());
+    }
+    let mut tac_requested = false;
+    if let Some(mode) = audio_mode.as_deref() {
+        if legacy_audio_flag {
+            return Err("--audio cannot be combined with --video-only or --profile".into());
+        }
+        match mode {
+            "tac" => {
+                tac_requested = true;
+                pocket_sidecar = false;
+            }
+            "mp3-sidecar" => pocket_sidecar = true,
+            "none" => pocket_sidecar = false,
+            _ => return Err("--audio must be tac, mp3-sidecar or none".into()),
+        }
+    }
+    if !(16..=512).contains(&audio_bitrate) {
+        return Err("audio bit rate must be an integer from 16 to 512 (kbit/s)".into());
+    }
+    if !tac_requested && (tac_tool.is_some() || audio_bitrate != 96) {
+        return Err("--audio-bitrate and --tac-tool require --audio tac".into());
+    }
+    if tac_requested && output.extension() != Some(OsStr::new("tnv3")) {
+        return Err("--audio tac requires an OUTPUT path ending in .tnv3".into());
     }
     if !(16..=800).contains(&width) || width % 2 != 0 || level > 3 {
         return Err("width must be an even integer from 16 to 800 and level 0 (automatic), 1, 2, or 3".into());
@@ -1895,6 +1964,16 @@ where
         jobs,
         workspace_mib,
         pocket_sidecar,
+        tac_audio: if tac_requested {
+            Some(TacAudio {
+                bitrate_kbps: audio_bitrate,
+                tac_tool: tac_tool.map(resolve_executable_arg).or_else(|| {
+                    select_codec_tool(root.as_deref(), explicit_root, "tac", "tools/tac_ref/tac")
+                }),
+            })
+        } else {
+            None
+        },
         rust_c_orchestrator,
         json_events,
         control_stdin,
@@ -1924,6 +2003,98 @@ fn run(_args: Args) -> Result<(), RunError> {
     Err(RunError::unclassified(
         "Atomic no-replace publication is unsupported on this platform in this prototype",
     ))
+}
+
+/// Adds TAC audio to the staged video-only TNV3: demux to TVC, encode the source audio (fitted to the
+/// video duration), mux with the C tool, then write the result back into the staged payload (same
+/// inode, so publication sees it). Not cancellable once started.
+fn add_tac_audio(
+    input: &Path,
+    tac: &TacAudio,
+    tools: &Tools,
+    staged: &mut publication::ProtectedStage,
+    parent: &Path,
+    frames: u32,
+    level: u8,
+) -> Result<(), RunError> {
+    use std::{fs, io::{Read, Seek, SeekFrom, Write}};
+    let tnv3 = tools
+        .tnv3_tool
+        .as_ref()
+        .ok_or_else(|| RunError::dependency("--audio tac requires --tnv3-tool or --codec-root".to_owned()))?;
+    let tac_tool = tac
+        .tac_tool
+        .as_ref()
+        .ok_or_else(|| RunError::dependency("--audio tac requires --tac-tool or --codec-root".to_owned()))?;
+    required_file(tac_tool, "TAC encoder").map_err(RunError::dependency)?;
+    let dir = staged.stage_dir(parent);
+    let video = staged.video_path(parent);
+    let mut header = [0u8; 64];
+    {
+        let mut f = fs::File::open(&video).map_err(|e| RunError::io(format!("Could not read staged TNV3: {e}")))?;
+        f.read_exact(&mut header).map_err(|e| RunError::io(format!("Could not read staged TNV3 header: {e}")))?;
+    }
+    let u32at = |o: usize| u32::from_le_bytes([header[o], header[o + 1], header[o + 2], header[o + 3]]);
+    let (fps_n, fps_d) = (u32at(12), u32at(16));
+    if &header[..4] != b"TNV3" || fps_n == 0 || fps_d == 0 {
+        return Err(RunError::io("The staged video is not a valid TNV3 file.".to_owned()));
+    }
+    let crc = header[6] & 1 != 0;
+    let seconds = f64::from(frames) * f64::from(fps_d) / f64::from(fps_n);
+    let tvc = dir.join("video.tvc");
+    let wav_tac = dir.join("audio.tac");
+    let muxed = dir.join("with-audio.tnv3");
+    let mut demux = Command::new(tnv3);
+    demux.arg("demux").arg(&video).arg(&tvc);
+    run_tool_blocking(demux, "tnv3 demux")?;
+    c_audio::encode_audio(
+        &c_audio::EncodeTools { ffmpeg: tools.ffmpeg.clone(), tac: tac_tool.clone() },
+        input,
+        &wav_tac,
+        tac.bitrate_kbps,
+        2,
+        Some(seconds),
+    )
+    .map_err(|e| RunError::io(format!("TAC audio encoding failed: {e}")))?;
+    let mut inputs = c_mux::Inputs::default();
+    inputs.video = tvc.clone();
+    inputs.audio = Some(wav_tac.clone());
+    inputs.crc = crc;
+    inputs.trim_audio = true;
+    if level != 0 {
+        inputs.level = Some(level);
+    }
+    c_mux::mux(tnv3, &inputs, &muxed).map_err(|e| RunError::io(format!("Muxing TAC audio failed: {e}")))?;
+    let mut src = fs::File::open(&muxed).map_err(|e| RunError::io(format!("Could not read muxed TNV3: {e}")))?;
+    let out = staged.writer();
+    out.set_len(0).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
+    out.seek(SeekFrom::Start(0)).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
+    std::io::copy(&mut src, out).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
+    out.flush().map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
+    for p in [&tvc, &wav_tac, &muxed] {
+        let _ = fs::remove_file(p);
+    }
+    Ok(())
+}
+
+fn run_tool_blocking(mut command: Command, label: &str) -> Result<(), RunError> {
+    let out = command
+        .output()
+        .map_err(|e| RunError::dependency(format!("Could not start {label}: {e}")))?;
+    if out.status.success() {
+        return Ok(());
+    }
+    let mut d = String::from_utf8_lossy(&out.stderr).into_owned();
+    d.truncate(d.char_indices().nth(1024).map_or(d.len(), |(i, _)| i));
+    Err(RunError::io(format!("{label} failed ({}): {d}", out.status)))
+}
+
+/// Refuses to start the (uncancellable) audio step if a stop was already requested.
+fn claim_publication_check(state: &AtomicU8) -> Result<(), RunError> {
+    if state.load(Ordering::Acquire) != 0 {
+        return Err(RunError::cancelled("encoding stopped before output publication"));
+    }
+    Ok(())
 }
 
 fn claim_publication(state: &AtomicU8) -> Result<(), RunError> {
@@ -2027,7 +2198,7 @@ fn run(args: Args) -> Result<(), RunError> {
 
     if args.json_events {
         emit_event(serde_json::json!({
-            "schema": 1, "event": "plan", "profile": {"id": if args.pocket_sidecar {"pocket-sidecar"} else {"video-only"}, "version": 1},
+            "schema": 1, "event": "plan", "profile": {"id": if args.pocket_sidecar {"pocket-sidecar"} else if args.tac_audio.is_some() {"tac-embedded"} else {"video-only"}, "version": 1},
             "input": args.input.display().to_string(), "files": if args.pocket_sidecar {2} else {1},
             "qp": args.qp, "jobs": args.jobs,
             "effective_settings": effective_settings(&args),
@@ -2360,6 +2531,20 @@ fn run(args: Args) -> Result<(), RunError> {
             report.diagnostics,
         )
     };
+    if let Some(tac) = &args.tac_audio {
+        if args.rust_c_orchestrator {
+            claim_publication_check(&control_state)?;
+        }
+        if let Err(mut error) = add_tac_audio(&args.input, tac, &tools, &mut staged, parent, frames, level) {
+            if error.cleanup_unverified {
+                let path = staged.retain();
+                error
+                    .message
+                    .push_str(&format!("; staging retained at {}", path.display()));
+            }
+            return Err(error);
+        }
+    }
     let (byte_size, audio_byte_size, sync_warning, audio_warning) = if args.pocket_sidecar {
         let audio_path = staged.audio_path(parent);
         let duration = format!("{:.9}", f64::from(frames) / 24.0);
@@ -2445,6 +2630,8 @@ fn run(args: Args) -> Result<(), RunError> {
             "Wrote {}TNV3: {} frames, level {}, {}, {} bytes{}",
             if args.pocket_sidecar {
                 "TNV3 + MP3 sidecar; "
+            } else if args.tac_audio.is_some() {
+                "TNV3 with embedded TAC audio; "
             } else {
                 "video-only "
             },
@@ -3206,6 +3393,7 @@ mod tests {
             jobs: 1,
             workspace_mib: 512,
             pocket_sidecar: false,
+            tac_audio: None,
             rust_c_orchestrator: true,
             json_events: false,
             control_stdin: false,
@@ -3267,6 +3455,7 @@ mod tests {
             jobs: 1,
             workspace_mib: 512,
             pocket_sidecar: false,
+            tac_audio: None,
             rust_c_orchestrator: true,
             json_events: false,
             control_stdin: false,
@@ -3281,6 +3470,33 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(5));
         assert!(!output.exists());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn audio_option_selects_tac_and_rejects_conflicts() {
+        let base = || {
+            let mut a: Vec<OsString> = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
+            a.extend(required_options());
+            a
+        };
+        let with = |extra: &[&str]| {
+            let mut a = base();
+            a.extend(extra.iter().map(|s| OsString::from(*s)));
+            parse_args(a)
+        };
+        let tac = with(&["--audio", "tac", "--audio-bitrate", "128"]).unwrap().unwrap();
+        assert!(!tac.pocket_sidecar);
+        assert_eq!(tac.tac_audio.as_ref().map(|t| t.bitrate_kbps), Some(128));
+        let mp3 = with(&["--audio", "mp3-sidecar"]).unwrap().unwrap();
+        assert!(mp3.pocket_sidecar && mp3.tac_audio.is_none());
+        let none = with(&["--audio", "none"]).unwrap().unwrap();
+        assert!(!none.pocket_sidecar && none.tac_audio.is_none());
+        assert!(parse_args(base()).unwrap().unwrap().pocket_sidecar, "default stays the MP3 sidecar");
+        assert!(with(&["--audio", "tac", "--video-only"]).is_err());
+        assert!(with(&["--video-only", "--audio", "tac"]).is_err());
+        assert!(with(&["--audio", "ogg"]).is_err());
+        assert!(with(&["--audio-bitrate", "128"]).is_err());
+        assert!(with(&["--audio", "tac", "--audio-bitrate", "8"]).is_err());
     }
 
     #[test]

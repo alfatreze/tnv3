@@ -63,7 +63,7 @@ pub fn run(argv: &[OsString]) -> ExitCode {
     let (Some(tac), Some(ffmpeg)) = (tac, ffmpeg) else {
         return fail(3, "Could not find the tac tool and FFmpeg; use --codec-root, --tac-tool and --ffmpeg.", json);
     };
-    match c_audio::encode_audio(&EncodeTools { ffmpeg, tac }, input, output, kbps, channels) {
+    match c_audio::encode_audio(&EncodeTools { ffmpeg, tac }, input, output, kbps, channels, None) {
         Ok(r) => {
             let line = if json {
                 serde_json::json!({"command":"encode-audio","schema":1,"status":"ok","bitrate_kbps":kbps,
