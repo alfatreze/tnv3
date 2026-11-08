@@ -2,6 +2,8 @@ mod check;
 mod decode_audio;
 mod encode_audio;
 mod mux_command;
+mod subtitles;
+mod build_subtitles;
 mod child_supervisor;
 mod info;
 mod probe;
@@ -1131,6 +1133,8 @@ struct Args {
     tac_audio: Option<TacAudio>,
     /// Zero-based index among the source's audio streams (`--audio-track`).
     audio_track: u32,
+    /// `--subtitle-*`: text subtitle tracks to author into the file.
+    subtitles: subtitles::Request,
     rust_c_orchestrator: bool,
     json_events: bool,
     control_stdin: bool,
@@ -1246,7 +1250,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME] [--subtitle-file FILE[:lang[:default][:forced]]]... [--subtitle-track N[:lang[:default][:forced]]]... [--subtitle-font FILE.ttf]... [--subtitle-sizes WxH,...] [--subtitle-outline W[,W...]] [--subtitle-styles FILE.json] [--subtitle-builder-arg ARG]... [--subtitle-builder PATH]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli build-subtitles OUTPUT.bin --video WxH (--track FILE[:lang[:default][:forced]] | --from-source INPUT --source-track N[:lang[:default][:forced]])... [--font FILE.ttf]... [--sizes WxH,...] [--fps N/D] [--styles FILE.json] [--outline-width W[,W...]] [--builder-arg ARG]... [--builder PATH] [--python PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1736,6 +1740,7 @@ where
     let mut audio_mode: Option<String> = None;
     let mut audio_bitrate = 96u32;
     let mut audio_track = 0u32;
+    let mut subs = subtitles::Request::default();
     let mut tac_tool = None;
     let mut legacy_audio_flag = false;
     let mut rust_c_orchestrator = false;
@@ -1809,6 +1814,18 @@ where
             "--audio" => {
                 audio_mode = Some(value.to_str().ok_or("--audio must be UTF-8")?.to_owned())
             }
+            "--subtitle-file" => {
+                subs.files.push(subtitles::parse_file_track(value.to_str().ok_or("subtitle option must be UTF-8")?)?)
+            }
+            "--subtitle-track" => {
+                subs.source_tracks.push(subtitles::parse_source_track(value.to_str().ok_or("subtitle option must be UTF-8")?)?)
+            }
+            "--subtitle-font" => subs.fonts.push(value.to_str().ok_or("subtitle option must be UTF-8")?.to_owned()),
+            "--subtitle-sizes" => subs.sizes = Some(value.to_str().ok_or("subtitle option must be UTF-8")?.to_owned()),
+            "--subtitle-outline" => subs.outline_width = Some(value.to_str().ok_or("subtitle option must be UTF-8")?.to_owned()),
+            "--subtitle-styles" => subs.styles = Some(PathBuf::from(value)),
+            "--subtitle-builder-arg" => subs.extra.push(value.clone()),
+            "--subtitle-builder" => subs.builder = Some(PathBuf::from(value)),
             "--audio-track" => {
                 audio_track = value
                     .to_str()
@@ -1952,6 +1969,19 @@ where
         None => root.as_ref().ok_or_else(|| ArgError::Dependency("Could not find Tau codecs checkout; use --codec-root, --script, or TAU_CODECS_ROOT".into()))?
             .join("tools/tnv3_ref/encode_film.py"),
     };
+    let subtitles = {
+            if !subs.is_empty() && output.extension() != Some(OsStr::new("tnv3")) {
+                return Err("Subtitles require an OUTPUT path ending in .tnv3".into());
+            }
+            if subs.is_empty()
+                && (!subs.fonts.is_empty() || subs.sizes.is_some() || subs.outline_width.is_some()
+                    || subs.styles.is_some() || !subs.extra.is_empty() || subs.builder.is_some())
+            {
+                return Err("--subtitle-font, -sizes, -outline, -styles, -builder-arg and -builder need --subtitle-file or --subtitle-track".into());
+            }
+            subs.python = if python.as_os_str().is_empty() { None } else { Some(python.clone()) };
+            subs
+    };
     Ok(Some(Args {
         input,
         output,
@@ -1992,6 +2022,7 @@ where
             None
         },
         audio_track,
+        subtitles,
         rust_c_orchestrator,
         json_events,
         control_stdin,
@@ -2026,10 +2057,11 @@ fn run(_args: Args) -> Result<(), RunError> {
 /// Adds TAC audio to the staged video-only TNV3: demux to TVC, encode the source audio (fitted to the
 /// video duration), mux with the C tool, then write the result back into the staged payload (same
 /// inode, so publication sees it). Not cancellable once started.
-fn add_tac_audio(
+fn add_audio_and_subtitles(
     input: &Path,
     track: u32,
-    tac: &TacAudio,
+    tac: Option<&TacAudio>,
+    subs: &subtitles::Request,
     tools: &Tools,
     staged: &mut publication::ProtectedStage,
     parent: &Path,
@@ -2041,11 +2073,17 @@ fn add_tac_audio(
         .tnv3_tool
         .as_ref()
         .ok_or_else(|| RunError::dependency("--audio tac requires --tnv3-tool or --codec-root".to_owned()))?;
-    let tac_tool = tac
-        .tac_tool
-        .as_ref()
-        .ok_or_else(|| RunError::dependency("--audio tac requires --tac-tool or --codec-root".to_owned()))?;
-    required_file(tac_tool, "TAC encoder").map_err(RunError::dependency)?;
+    let tac_tool = match tac {
+        Some(t) => {
+            let p = t
+                .tac_tool
+                .as_ref()
+                .ok_or_else(|| RunError::dependency("--audio tac requires --tac-tool or --codec-root".to_owned()))?;
+            required_file(p, "TAC encoder").map_err(RunError::dependency)?;
+            Some(p)
+        }
+        None => None,
+    };
     let dir = staged.stage_dir(parent);
     let video = staged.video_path(parent);
     let mut header = [0u8; 64];
@@ -2059,6 +2097,7 @@ fn add_tac_audio(
         return Err(RunError::io("The staged video is not a valid TNV3 file.".to_owned()));
     }
     let crc = header[6] & 1 != 0;
+    let picture = (u32::from(u16::from_le_bytes([header[8], header[9]])), u32::from(u16::from_le_bytes([header[10], header[11]])));
     let seconds = f64::from(frames) * f64::from(fps_d) / f64::from(fps_n);
     let tvc = dir.join("video.tvc");
     let wav_tac = dir.join("audio.tac");
@@ -2066,32 +2105,56 @@ fn add_tac_audio(
     let mut demux = Command::new(tnv3);
     demux.arg("demux").arg(&video).arg(&tvc);
     run_tool_blocking(demux, "tnv3 demux")?;
-    c_audio::encode_audio(
-        &c_audio::EncodeTools { ffmpeg: tools.ffmpeg.clone(), tac: tac_tool.clone() },
-        input,
-        &wav_tac,
-        tac.bitrate_kbps,
-        2,
-        Some(seconds),
-        track,
-    )
-    .map_err(|e| RunError::io(format!("TAC audio encoding failed: {e}")))?;
+    if let (Some(tac), Some(tac_tool)) = (tac, tac_tool) {
+        c_audio::encode_audio(
+            &c_audio::EncodeTools { ffmpeg: tools.ffmpeg.clone(), tac: tac_tool.clone() },
+            input,
+            &wav_tac,
+            tac.bitrate_kbps,
+            2,
+            Some(seconds),
+            track,
+        )
+        .map_err(|e| RunError::io(format!("TAC audio encoding failed: {e}")))?;
+    }
+    let area = dir.join("subtitles.bin");
+    let mut warnings = Vec::new();
+    if !subs.is_empty() {
+        let work = dir.join("subs-work");
+        fs::create_dir(&work).map_err(|e| RunError::io(format!("Could not create a subtitle workspace: {e}")))?;
+        let report = subtitles::build(
+            subs,
+            Some(input),
+            Some(&tools.ffmpeg),
+            picture,
+            Some((fps_n, fps_d)),
+            &work,
+            &area,
+        )
+        .map_err(|(_, e)| RunError::io(format!("Subtitle authoring failed: {e}")));
+        let _ = fs::remove_dir_all(&work);
+        warnings = report?.warnings;
+    }
+    if !warnings.is_empty() {
+        eprintln!("Subtitle warnings:\n{}", warnings.join("\n"));
+    }
     let mut inputs = c_mux::Inputs::default();
     inputs.video = tvc.clone();
-    inputs.audio = Some(wav_tac.clone());
+    inputs.audio = tac_tool.map(|_| wav_tac.clone());
+    inputs.subtitles = (!subs.is_empty()).then(|| area.clone());
     inputs.crc = crc;
     inputs.trim_audio = true;
     if level != 0 {
         inputs.level = Some(level);
     }
-    c_mux::mux(tnv3, &inputs, &muxed).map_err(|e| RunError::io(format!("Muxing TAC audio failed: {e}")))?;
+    c_mux::mux(tnv3, &inputs, &muxed).map_err(|e| RunError::io(format!("Muxing audio and subtitles failed: {e}")))?;
     let mut src = fs::File::open(&muxed).map_err(|e| RunError::io(format!("Could not read muxed TNV3: {e}")))?;
     let out = staged.writer();
     out.set_len(0).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
     out.seek(SeekFrom::Start(0)).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
     std::io::copy(&mut src, out).map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
     out.flush().map_err(|e| RunError::io(format!("Could not rewrite staged TNV3: {e}")))?;
-    for p in [&tvc, &wav_tac, &muxed] {
+    for p in [&tvc, &wav_tac, &area, &muxed] {
         let _ = fs::remove_file(p);
     }
     Ok(())
@@ -2551,11 +2614,11 @@ fn run(args: Args) -> Result<(), RunError> {
             report.diagnostics,
         )
     };
-    if let Some(tac) = &args.tac_audio {
+    if args.tac_audio.is_some() || !args.subtitles.is_empty() {
         if args.rust_c_orchestrator {
             claim_publication_check(&control_state)?;
         }
-        if let Err(mut error) = add_tac_audio(&args.input, args.audio_track, tac, &tools, &mut staged, parent, frames, level) {
+        if let Err(mut error) = add_audio_and_subtitles(&args.input, args.audio_track, args.tac_audio.as_ref(), &args.subtitles, &tools, &mut staged, parent, frames, level) {
             if error.cleanup_unverified {
                 let path = staged.retain();
                 error
@@ -2652,6 +2715,8 @@ fn run(args: Args) -> Result<(), RunError> {
                 "TNV3 + MP3 sidecar; "
             } else if args.tac_audio.is_some() {
                 "TNV3 with embedded TAC audio; "
+            } else if !args.subtitles.is_empty() {
+                "TNV3 with subtitles, no audio; "
             } else {
                 "video-only "
             },
@@ -2822,6 +2887,9 @@ fn main() -> ExitCode {
     }
     if argv.first().is_some_and(|arg| arg == OsStr::new("encode-audio")) {
         return encode_audio::run(&argv);
+    }
+    if argv.first().is_some_and(|arg| arg == OsStr::new("build-subtitles")) {
+        return build_subtitles::run(&argv);
     }
     if argv.first().is_some_and(|arg| arg == OsStr::new("mux")) {
         return mux_command::run(&argv);
@@ -3415,6 +3483,7 @@ mod tests {
             pocket_sidecar: false,
             tac_audio: None,
             audio_track: 0,
+            subtitles: subtitles::Request::default(),
             rust_c_orchestrator: true,
             json_events: false,
             control_stdin: false,
@@ -3478,6 +3547,7 @@ mod tests {
             pocket_sidecar: false,
             tac_audio: None,
             audio_track: 0,
+            subtitles: subtitles::Request::default(),
             rust_c_orchestrator: true,
             json_events: false,
             control_stdin: false,
@@ -3492,6 +3562,30 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(5));
         assert!(!output.exists());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn subtitle_options_parse_and_are_validated() {
+        let base = || {
+            let mut a: Vec<OsString> = vec!["encode".into(), "in.mp4".into(), "out.tnv3".into()];
+            a.extend(required_options());
+            a
+        };
+        let with = |extra: &[&str]| {
+            let mut a = base();
+            a.extend(extra.iter().map(|s| OsString::from(*s)));
+            parse_args(a)
+        };
+        assert!(parse_args(base()).unwrap().unwrap().subtitles.is_empty());
+        let a = with(&["--subtitle-track", "1:spa:default", "--subtitle-file", "x.srt:eng", "--subtitle-font", "f.ttf", "--subtitle-sizes", "16x24,20x28"]).unwrap().unwrap();
+        assert_eq!(a.subtitles.source_tracks.len(), 1);
+        assert_eq!(a.subtitles.source_tracks[0].0, 1);
+        assert!(a.subtitles.source_tracks[0].1.default);
+        assert_eq!(a.subtitles.files[0].language.as_deref(), Some("eng"));
+        assert_eq!(a.subtitles.sizes.as_deref(), Some("16x24,20x28"));
+        assert!(with(&["--subtitle-font", "f.ttf"]).is_err(), "options need a track");
+        assert!(with(&["--subtitle-track", "x"]).is_err());
+        assert!(with(&["--subtitle-file", "x.srt:eng:loud"]).is_err());
     }
 
     #[test]

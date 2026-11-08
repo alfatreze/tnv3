@@ -22,3 +22,4 @@
 | TAC default audio in `encode` (owner 2026-11-08) | default is now embedded TAC; MP3 pair only on explicit flag | owner | DONE; Tauri app does not use this CLI (still MP3 pair); Omega callers unknown |
 | Tauri app on TAC (owner 2026-11-08) | one `.tnv3` with embedded TAC; MP3 UI removed; UI/player not run | owner | DONE in code, UI unverified |
 | Audio track selection (owner 2026-11-08) | CLI `--audio-track`, app dropdown; subtitle selection waits for authoring | owner | DONE (audio); subtitle OPEN |
+| Subtitle authoring (owner 2026-11-08) | wrapper of Tau V `tst_build.py`: `build-subtitles`, `encode --subtitle-*`, app dropdown; clamp warnings reported | owner | FIRST VERSION DONE; Rust port, ASS styles, presets open |

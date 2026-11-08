@@ -623,6 +623,8 @@ struct AdvancedSettings {
     level: Option<u8>,
     /// Zero-based index among the source's audio streams; `None` is the first.
     audio_track: Option<u32>,
+    /// Zero-based index among the source's text subtitle streams to author into the file; `None` = none.
+    subtitle_track: Option<u32>,
 }
 impl AdvancedSettings {
     fn track(self) -> u32 {
@@ -660,6 +662,8 @@ struct Dependencies {
     tvc_encoder: String,
     tnv3_tool: String,
     tac_tool: String,
+    /// Tau V's `tst_build.py` (needs Python 3 with Pillow); required only when subtitles are selected.
+    tst_builder: String,
     workspace_limit_bytes: u64,
 }
 fn selected_file(value: &str, label: &str) -> Result<Option<PathBuf>, String> {
@@ -747,8 +751,11 @@ fn encode_pair_impl(
                 .into(),
         );
     }
-    if advanced.track() > 127 {
-        return Err("Choose an audio track from 0 to 127.".into());
+    if advanced.track() > 127 || advanced.subtitle_track.is_some_and(|t| t > 127) {
+        return Err("Choose an audio track and a subtitle track from 0 to 127.".into());
+    }
+    if advanced.subtitle_track.is_some() && advanced.audio != AudioFormat::Tac {
+        return Err("Subtitles need the embedded TAC output.".into());
     }
     if pure_rust && advanced.level() != 0 {
         return Err(
@@ -1243,7 +1250,7 @@ fn encode_pair_impl(
                 fallbacks.push(dir.join("..").join("tac_ref").join(executable_name("tac")));
             }
         }
-        Some(build_tnv3_with_tac(
+        let (guard, file, sub_warnings) = build_tnv3_with_tac(
             &mut tvc,
             &video_tmp.0,
             &audio_tmp.0,
@@ -1251,7 +1258,12 @@ fn encode_pair_impl(
             dependencies,
             &fallbacks,
             control,
-        )?)
+            input,
+            ffmpeg,
+            advanced.subtitle_track,
+        )?;
+        warnings.extend(sub_warnings);
+        Some((guard, file))
     } else {
         None
     };
@@ -1400,7 +1412,10 @@ fn build_tnv3_with_tac(
     dependencies: &Dependencies,
     fallbacks: &[PathBuf],
     control: &JobControl,
-) -> Result<(Temporary, File), String> {
+    input: &Path,
+    ffmpeg: &Path,
+    subtitle_track: Option<u32>,
+) -> Result<(Temporary, File, Vec<String>), String> {
     let tnv3 = resolve_tool(&dependencies.tnv3_tool, "TNV3 tool", fallbacks)?;
     let tac = resolve_tool(&dependencies.tac_tool, "TAC encoder", fallbacks)?;
     control.checkpoint()?;
@@ -1414,11 +1429,14 @@ fn build_tnv3_with_tac(
         video_source = guard.0.clone();
         _wrapped = Some(guard);
     }
-    let mut header = [0u8; 8];
+    let mut header = [0u8; 64];
     File::open(&video_source)
         .and_then(|mut f| f.read_exact(&mut header))
         .map_err(|e| format!("Could not read the temporary video header: {e}"))?;
     let crc = header[6] & 1 != 0;
+    let word = |o: usize| u32::from(u16::from_le_bytes([header[o], header[o + 1]]));
+    let long = |o: usize| u32::from_le_bytes([header[o], header[o + 1], header[o + 2], header[o + 3]]);
+    let (picture_w, picture_h, fps_n, fps_d) = (word(8), word(10), long(12), long(16));
     let (tvc_guard, tvc_file) = temporary_file("tvc")?;
     drop(tvc_file);
     let (tac_guard, tac_file) = temporary_file("tac")?;
@@ -1429,17 +1447,68 @@ fn build_tnv3_with_tac(
     let mut enc = Command::new(&tac);
     enc.arg("enc").arg(wav_path).arg(&tac_guard.0).arg("-b").arg("96");
     run_cancellable(enc, "TAC encoding", control)?;
+    let mut warnings = Vec::new();
+    let (area_guard, area_file) = temporary_file("bin")?;
+    drop(area_file);
+    if let Some(track) = subtitle_track {
+        let python = selected_file(&dependencies.python, "Python")?
+            .map(|p| p.into_os_string())
+            .or_else(|| std::env::var_os("TAU_PYTHON"))
+            .unwrap_or_else(|| if cfg!(windows) { "python".into() } else { "python3".into() });
+        let builder = selected_file(&dependencies.tst_builder, "Subtitle builder")?
+            .or_else(|| std::env::var_os("TAU_TST_BUILD").map(PathBuf::from).filter(|p| p.is_file()))
+            .ok_or("Subtitles need the subtitle builder (tst_build.py); set it in Dependency settings.")?;
+        let font = builder
+            .parent()
+            .map(|d| d.join("fonts").join("Roboto-Regular.ttf"))
+            .filter(|p| p.is_file())
+            .ok_or("No subtitle font found next to the subtitle builder (fonts/Roboto-Regular.ttf).")?;
+        let (srt_guard, srt_file) = temporary_file("srt")?;
+        drop(srt_file);
+        let mut extract = Command::new(ffmpeg);
+        extract
+            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
+            .arg(input)
+            .arg("-map")
+            .arg(format!("0:s:{track}"))
+            .args(["-c:s", "srt", "-f", "srt"])
+            .arg(&srt_guard.0);
+        run_cancellable(extract, "Subtitle extraction (only text subtitles can be converted)", control)?;
+        let mut build = Command::new(python);
+        build
+            .arg(&builder)
+            .arg("--track")
+            .arg(format!("{}", srt_guard.0.display()))
+            .args(["--sizes", "16x24,20x28,26x36", "--font"])
+            .arg(&font)
+            .arg("--video")
+            .arg(format!("{picture_w}x{picture_h}"))
+            .arg("--fps")
+            .arg(format!("{fps_n}/{fps_d}"))
+            .arg("-o")
+            .arg(&area_guard.0);
+        let details = run_cancellable(build, "Subtitle builder", control)?;
+        warnings.extend(
+            details
+                .lines()
+                .filter(|l| l.to_ascii_lowercase().contains("warning"))
+                .map(|l| format!("Subtitles: {l}")),
+        );
+    }
     let (out_guard, out_file) = temporary_file("tnv3")?;
     drop(out_file);
     let mut mux = Command::new(&tnv3);
     mux.arg("mux").arg(&tvc_guard.0).arg("-a").arg(&tac_guard.0).arg("-T");
+    if subtitle_track.is_some() {
+        mux.arg("-s").arg(&area_guard.0);
+    }
     if crc {
         mux.arg("-c");
     }
     mux.arg("-o").arg(&out_guard.0);
     run_cancellable(mux, "TNV3 audio mux", control)?;
     let file = File::open(&out_guard.0).map_err(|e| format!("Could not open muxed TNV3: {e}"))?;
-    Ok((out_guard, file))
+    Ok((out_guard, file, warnings))
 }
 
 fn codec_script(app: &tauri::AppHandle) -> PathBuf {
@@ -1679,6 +1748,70 @@ fn parse_audio_tracks(json: &[u8]) -> Result<Vec<AudioTrack>, String> {
             title: text(s.get("tags").and_then(|t| t.get("title"))),
         })
         .collect())
+}
+
+#[derive(Serialize, Debug, PartialEq, Eq)]
+struct SubtitleTrack {
+    /// Zero-based position among the subtitle streams (what `subtitleTrack` selects).
+    index: u32,
+    codec: String,
+    language: String,
+    title: String,
+    /// Text subtitles can be converted; image subtitles (PGS, VobSub, DVB) cannot.
+    text: bool,
+}
+
+fn parse_subtitle_tracks(json: &[u8]) -> Result<Vec<SubtitleTrack>, String> {
+    let root: serde_json::Value =
+        serde_json::from_slice(json).map_err(|_| "FFprobe returned unreadable stream data.".to_owned())?;
+    let streams = root
+        .get("streams")
+        .and_then(|v| v.as_array())
+        .ok_or("FFprobe returned no stream list.")?;
+    let text = |v: Option<&serde_json::Value>| v.and_then(|v| v.as_str()).unwrap_or("").to_owned();
+    Ok(streams
+        .iter()
+        .filter(|s| s.get("codec_type").and_then(|v| v.as_str()) == Some("subtitle"))
+        .enumerate()
+        .map(|(i, s)| {
+            let codec = text(s.get("codec_name"));
+            let image = ["hdmv_pgs_subtitle", "dvd_subtitle", "dvb_subtitle", "xsub", "pgssub", "dvdsub"].contains(&codec.as_str());
+            SubtitleTrack {
+                index: i as u32,
+                language: text(s.get("tags").and_then(|t| t.get("language"))),
+                title: text(s.get("tags").and_then(|t| t.get("title"))),
+                text: !image,
+                codec,
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn list_subtitle_tracks(
+    app: tauri::AppHandle,
+    input: String,
+    dependencies: Dependencies,
+) -> Result<Vec<SubtitleTrack>, String> {
+    let ffmpeg =
+        selected_file(&dependencies.ffmpeg, "FFmpeg")?.unwrap_or_else(|| ffmpeg_path(&app));
+    let ffprobe = selected_file(&dependencies.ffprobe, "FFprobe")?
+        .unwrap_or_else(|| ffmpeg.with_file_name(executable_name("ffprobe")));
+    tauri::async_runtime::spawn_blocking(move || {
+        let out = Command::new(&ffprobe)
+            .args(["-v", "error", "-select_streams", "s", "-show_entries",
+                "stream=index,codec_type,codec_name:stream_tags=language,title", "-of", "json", "-i"])
+            .arg(&input)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|e| format!("Could not start FFprobe: {e}"))?;
+        if !out.status.success() {
+            return Err("FFprobe could not read the subtitle tracks of this file.".to_owned());
+        }
+        parse_subtitle_tracks(&out.stdout)
+    })
+    .await
+    .map_err(|e| format!("Track listing stopped: {e}"))?
 }
 
 #[tauri::command]
@@ -2278,6 +2411,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
             list_audio_tracks,
+            list_subtitle_tracks,
             check_source,
             stop_source_check,
             respond_source_error,
@@ -3384,6 +3518,7 @@ mod tests {
             tvc_encoder: PathBuf::from(tvc).display().to_string(),
             tnv3_tool: PathBuf::from(tnv3).display().to_string(),
             tac_tool: String::new(),
+            tst_builder: String::new(),
             workspace_limit_bytes: 512u64 * 1024 * 1024,
         };
         let f = selected_file(&dependencies.ffmpeg, "FFmpeg")
@@ -3432,6 +3567,70 @@ mod tests {
         assert!(parse_audio_tracks(b"not json").is_err());
         assert!(parse_audio_tracks(b"{}").is_err());
         assert!(parse_audio_tracks(br#"{"streams":[]}"#).unwrap().is_empty());
+    }
+    #[test]
+    fn subtitle_track_list_flags_image_subtitles() {
+        let json = br#"{"streams":[{"codec_type":"subtitle","codec_name":"subrip","tags":{"language":"eng"}},{"codec_type":"subtitle","codec_name":"hdmv_pgs_subtitle","tags":{"language":"jpn","title":"Signs"}},{"codec_type":"subtitle","codec_name":"ass"}]}"#;
+        let tracks = parse_subtitle_tracks(json).unwrap();
+        assert_eq!(tracks.iter().map(|t| t.text).collect::<Vec<_>>(), [true, false, true]);
+        assert_eq!((tracks[1].index, tracks[1].language.as_str(), tracks[1].title.as_str()), (1, "jpn", "Signs"));
+        assert!(parse_subtitle_tracks(b"nope").is_err());
+    }
+    #[test]
+    fn real_media_selected_subtitle_track_is_authored_into_the_file() {
+        let (Some(ffmpeg), Some(tvc), Some(tnv3), Some(tac), Some(builder)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+            std::env::var_os("TAU_TEST_TAC"),
+            std::env::var_os("TAU_TEST_TST_BUILD"),
+        ) else {
+            return;
+        };
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(&tnv3).display().to_string(),
+            tac_tool: PathBuf::from(tac).display().to_string(),
+            tst_builder: PathBuf::from(builder).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default()
+        };
+        let (srt, f) = temporary_file("srt").unwrap();
+        drop(f);
+        std::fs::write(&srt.0, "1\n00:00:00,200 --> 00:00:01,000\nEnglish\n\n2\n00:00:01,200 --> 00:00:01,900\nHello <i>there</i>\n").unwrap();
+        let (src, f) = temporary_file("mkv").unwrap();
+        drop(f);
+        assert!(Command::new(&ffmpeg).args([
+            "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24:duration=2",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2", "-i",
+        ]).arg(&srt.0).args(["-map", "0", "-map", "1", "-map", "2", "-c:v", "mpeg4", "-c:a", "aac", "-c:s", "srt"]).arg(&src.0).status().unwrap().success());
+        let (reserve, f) = temporary_file("tnv3").unwrap();
+        drop(f);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let folder = reserve.0.parent().unwrap();
+        let settings = AdvancedSettings { subtitle_track: Some(0), ..Default::default() };
+        let result = encode_pair(Path::new(&ffmpeg), &src.0, folder, name, 30, None, settings, &dependencies, |_| {}).unwrap();
+        let video = Temporary(PathBuf::from(&result.video));
+        let info = tau_video::Tnv3Reader::open(File::open(&video.0).unwrap()).unwrap().info().clone();
+        assert!(info.flags & 4 != 0 && info.subtitle_length > 0, "subtitle area present");
+        let check = Command::new(&tnv3).arg("check").arg(&video.0).output().unwrap();
+        assert!(String::from_utf8_lossy(&check.stdout).contains("valid"), "{check:?}");
+        // a missing builder fails before anything is published
+        let no_builder = Dependencies { tst_builder: String::new(), ..dependencies.clone() };
+        let (reserve2, f) = temporary_file("tnv3").unwrap();
+        drop(f);
+        std::fs::remove_file(&reserve2.0).unwrap();
+        let name2 = reserve2.0.file_stem().unwrap().to_str().unwrap();
+        let prior = std::env::var_os("TAU_TST_BUILD");
+        // SAFETY: tests that touch this variable run in this single test only.
+        unsafe { std::env::remove_var("TAU_TST_BUILD") };
+        let error = encode_pair(Path::new(&ffmpeg), &src.0, folder, name2, 30, None, settings, &no_builder, |_| {}).unwrap_err();
+        if let Some(p) = prior {
+            unsafe { std::env::set_var("TAU_TST_BUILD", p) };
+        }
+        assert!(error.contains("subtitle builder"), "{error}");
+        assert!(!reserve2.0.exists());
     }
     #[test]
     fn real_media_selected_audio_track_is_the_one_encoded() {
