@@ -124,24 +124,21 @@ impl Options {
     }
 }
 
-/// The built-in default fonts: Roboto Regular as the default face and Roboto Italic as its italic face
+/// The built-in default fonts: Roboto Regular as the default face with its Italic, Bold and Bold Italic
 /// (SIL Open Font License 1.1, `LICENSES/OFL-Roboto.txt`). Use them when the caller gives no font.
 pub fn default_fonts() -> Vec<FontSpec> {
+    let face = |style: Style, data: &[u8], label: &str| FontSpec {
+        family: String::new(),
+        style,
+        data: data.to_vec(),
+        label: format!("{label} (built in)"),
+        scale: None,
+    };
     vec![
-        FontSpec {
-            family: String::new(),
-            style: Style::Regular,
-            data: include_bytes!("../../assets/fonts/Roboto-Regular.ttf").to_vec(),
-            label: "Roboto-Regular.ttf (built in)".into(),
-            scale: None,
-        },
-        FontSpec {
-            family: String::new(),
-            style: Style::Italic,
-            data: include_bytes!("../../assets/fonts/Roboto-Italic.ttf").to_vec(),
-            label: "Roboto-Italic.ttf (built in)".into(),
-            scale: None,
-        },
+        face(Style::Regular, include_bytes!("../../assets/fonts/Roboto-Regular.ttf"), "Roboto-Regular.ttf"),
+        face(Style::Italic, include_bytes!("../../assets/fonts/Roboto-Italic.ttf"), "Roboto-Italic.ttf"),
+        face(Style::Bold, include_bytes!("../../assets/fonts/Roboto-Bold.ttf"), "Roboto-Bold.ttf"),
+        face(Style::BoldItalic, include_bytes!("../../assets/fonts/Roboto-BoldItalic.ttf"), "Roboto-BoldItalic.ttf"),
     ]
 }
 
@@ -176,9 +173,22 @@ mod tests {
         assert_eq!(ev[1].colour, 2, "the second event starts in the Yellow style colour");
     }
     #[test]
+    fn bold_and_bold_italic_styles_use_their_own_faces() {
+        let ass = "[V4+ Styles]\nFormat: Name, Fontname, PrimaryColour, Bold, Italic\nStyle: Default,Roboto,&H00FFFFFF,0,0\nStyle: Strong,Roboto,&H00FFFFFF,-1,0\n[Events]\nFormat: Layer, Start, End, Style, Text\nDialogue: 0,0:00:01.00,0:00:02.00,Default,Plain\nDialogue: 0,0:00:03.00,0:00:04.00,Strong,Bold {\\i1}both{\\i0}\n";
+        let mut o = Options::new(
+            vec![TrackInput { name: "x.ass".into(), text: ass.into(), language: "eng".into(), default: false, forced: false, quiet_font_fallback: true }],
+            default_fonts(),
+            (400, 224),
+        );
+        o.cells = vec![(20, 28)];
+        let (_, info) = build_area(&o).unwrap();
+        assert!(info.warnings.is_empty(), "{:?}", info.warnings);
+        assert_eq!(info.tracks[0].variants[0].faces, 3, "regular, bold and bold italic");
+    }
+    #[test]
     fn built_in_fonts_load_and_cover_basic_latin() {
         let fonts = default_fonts();
-        assert_eq!(fonts.len(), 2);
+        assert_eq!(fonts.len(), 4);
         let (_, info) = build_area(&Options::new(
             vec![TrackInput { name: "a.srt".into(), text: "1\n00:00:01,000 --> 00:00:02,000\nHello <i>there</i> \u{e9}\n".into(), language: "eng".into(), default: false, forced: false, quiet_font_fallback: false }],
             fonts,
@@ -186,7 +196,7 @@ mod tests {
         ))
         .unwrap();
         assert!(info.warnings.is_empty(), "{:?}", info.warnings);
-        assert_eq!(info.tracks[0].variants[0].faces, 2, "regular and italic faces both used");
+        assert_eq!(info.tracks[0].variants[0].faces, 2, "regular and italic faces both used (bold is only loaded when asked for)");
     }
     #[test]
     fn font_argument_forms_are_parsed() {

@@ -34,7 +34,7 @@ The optional `subtitle-builder` feature of `tau-video` uses the crates `ab_glyph
 
 ## Bundled fonts
 
-`tau-video/assets/fonts/Roboto-Regular.ttf` and `Roboto-Italic.ttf` (the default subtitle fonts, built into the subtitle builder) are Roboto, copyright The Roboto Project Authors, under the SIL Open Font License 1.1 (`LICENSES/OFL-Roboto.txt`, also `tau-video/assets/fonts/OFL-Roboto.txt`). They are byte-identical to the copies in Tau V (`tools/tst_ref/fonts`, same SHA-256). The font files are not covered by the Apache-2.0 licence of the rest of the repository.
+`tau-video/assets/fonts/Roboto-Regular.ttf`, `Roboto-Italic.ttf`, `Roboto-Bold.ttf` and `Roboto-BoldItalic.ttf` (the default subtitle fonts, built into the subtitle builder) are Roboto, copyright The Roboto Project Authors, under the SIL Open Font License 1.1 (`LICENSES/OFL-Roboto.txt`, also `tau-video/assets/fonts/OFL-Roboto.txt`). Regular and Italic are byte-identical to the copies in Tau V (`tools/tst_ref/fonts`, same SHA-256); Bold and Bold Italic come from the same Roboto release (the static files of the Google Fonts download in the owner's font folder, with the same OFL text and the same metrics as Regular). The font files are not covered by the Apache-2.0 licence of the rest of the repository.
 
 ## Components with separate terms
 

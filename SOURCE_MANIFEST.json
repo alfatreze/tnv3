@@ -33,7 +33,7 @@
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
     },
     "NOTICE.md": {
-      "sha256": "c0ecae9d88bfc86d8dba9b320db9e8268ad5845b54d593ede7a0fe5e031f1cf5",
+      "sha256": "3a27e3acffce234747ad691e53bf3e8f3d0dd68580d97f2c8f2660de3b8d6b47",
       "status": "modified_for_release",
       "upstream_path": "NOTICE.md",
       "upstream_sha256": "048c7efac7fb80d4ce1971ed7a6fc54938ba1fc7de5fc49be167c534ba3bb0d1",
