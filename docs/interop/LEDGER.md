@@ -36,3 +36,4 @@
 | Bundle Roboto Bold (owner 2026-11-08) | Bold and Bold Italic added to the built-in subtitle fonts | owner | DONE |
 | Silent test skips (owner 2026-11-08) | guard tests + one conformance environment; TAC audio now cancellable | owner | DONE |
 | Reader drawing vs tst_render.py | 266 frames x 3 layers identical (`make compare-render`) | owner | DONE; offer to mention in next message to Tau V |
+| Panic-freedom fuzz (audit §7) | mutation tests over readers, muxer, area parser, builder; one panic found and fixed | owner | DONE first level |

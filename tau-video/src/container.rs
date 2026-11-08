@@ -238,6 +238,9 @@ pub fn mux_streams<W: Write + Seek>(
         if options.trim_audio && dur < u64::from(nsamp) {
             nsamp = dur as u32;
             ntac = (nsamp + 1023) / 1024 + 1;
+            if ntac as usize > tac.len() {
+                return Err(MuxError::Invalid("TAC sample count does not match its frame count."));
+            }
         }
     }
     let audio = options.audio.unwrap_or(&[]);
