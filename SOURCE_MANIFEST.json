@@ -1509,7 +1509,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "bb47cf1ff2750ce758227668d77d7cfccabb786bbc2977c91902854797eedba5",
+      "sha256": "21c8ede14c5ec3a88111b86d2a523652c33adc731eef03e56f5a54fc120b854b",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {

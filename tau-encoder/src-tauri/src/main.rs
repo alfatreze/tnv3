@@ -512,6 +512,33 @@ fn with_diagnostics(message: String, details: &str) -> String {
     }
 }
 
+/// Shows the encode progress on the app's Dock icon (macOS), the taskbar button (Windows) or the launcher
+/// (Linux); `None` clears it. Video counts for 0..90 %, then audio 92 %, saving 98 %; probing and unknown
+/// totals show as indeterminate.
+fn show_system_progress(app: &tauri::AppHandle, progress: Option<&Progress>) {
+    use tauri::window::{ProgressBarState, ProgressBarStatus};
+    let Some(window) = app.get_webview_window("main") else { return };
+    let state = match progress {
+        None => ProgressBarState { status: Some(ProgressBarStatus::None), progress: None },
+        Some(p) => match system_progress_percent(p) {
+            Some(percent) => ProgressBarState { status: Some(ProgressBarStatus::Normal), progress: Some(percent) },
+            None => ProgressBarState { status: Some(ProgressBarStatus::Indeterminate), progress: None },
+        },
+    };
+    let _ = window.set_progress_bar(state);
+}
+
+fn system_progress_percent(p: &Progress) -> Option<u64> {
+    match (p.phase, p.total_frames_estimate) {
+        ("video" | "c-video", Some(total)) if total > 0 => {
+            Some((f64::from(p.frames.min(total)) / f64::from(total) * 90.0) as u64)
+        }
+        ("audio", _) => Some(92),
+        ("saving", _) => Some(98),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Serialize, Debug)]
 struct Progress {
     phase: &'static str,
@@ -2260,6 +2287,7 @@ async fn encode(
     } else {
         None
     };
+    let dock_app = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let reporter = app.clone();
         let decision_app = app.clone();
@@ -2296,6 +2324,7 @@ async fn encode(
                 Ok(())
             },
             move |event| {
+                show_system_progress(&reporter, Some(&event));
                 let _ = reporter.emit("encode-progress", event);
             },
         );
@@ -2305,6 +2334,7 @@ async fn encode(
         encoded
     })
     .await;
+    show_system_progress(&dock_app, None);
     native_event_loop_done.store(true, Ordering::Release);
     let dispatcher_panicked = native_event_dispatcher
         .is_some_and(|dispatcher| dispatcher.join().is_err());
@@ -3595,6 +3625,20 @@ mod tests {
             .filter(|n| std::env::var_os(n).is_none_or(|v| v != "python3" && !Path::new(&v).exists()))
             .collect();
         assert!(missing.is_empty(), "These variables are unset or point nowhere: {missing:?}. Run `make rust-conformance`, or set TAU_ALLOW_SKIP=1 to skip on purpose.");
+    }
+    #[test]
+    fn system_progress_maps_phases_to_percent_or_indeterminate() {
+        let p = |phase, frames, total| Progress { phase, frames, total_frames_estimate: total, remaining_seconds: None };
+        assert_eq!(system_progress_percent(&p("video", 0, Some(100))), Some(0));
+        assert_eq!(system_progress_percent(&p("video", 50, Some(100))), Some(45));
+        assert_eq!(system_progress_percent(&p("video", 100, Some(100))), Some(90));
+        assert_eq!(system_progress_percent(&p("video", 250, Some(100))), Some(90), "estimate overshoot is clamped");
+        assert_eq!(system_progress_percent(&p("c-video", 3, Some(6))), Some(45));
+        assert_eq!(system_progress_percent(&p("video", 10, None)), None, "unknown total: indeterminate");
+        assert_eq!(system_progress_percent(&p("video", 10, Some(0))), None);
+        assert_eq!(system_progress_percent(&p("probing", 0, None)), None);
+        assert_eq!(system_progress_percent(&p("audio", 0, None)), Some(92));
+        assert_eq!(system_progress_percent(&p("saving", 0, None)), Some(98));
     }
     #[test]
     fn audio_track_list_numbers_only_audio_streams_and_reads_tags() {

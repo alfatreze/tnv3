@@ -38,3 +38,5 @@
 | Reader drawing vs tst_render.py | 266 frames x 3 layers identical (`make compare-render`) | owner | DONE; offer to mention in next message to Tau V |
 | Panic-freedom fuzz (audit §7) | mutation tests over readers, muxer, area parser, builder; one panic found and fixed | owner | DONE first level |
 | Subtitles in the player (owner 2026-11-08) | overlay from the Rust reader, menu, forced-only when off; real window not driven | owner | DONE in code; open question for Tau V: does the Pocket scale a 400-wide picture? |
+| Speed comparison (owner 2026-11-08) | Rust+C = Python+C; Tau V's encode_film.py is slower and 2.9% larger because their tvc_enc.c is older | owner | DONE; tell Tau V their tvc_enc copy is older |
+| Dock progress (owner 2026-11-08) | native progress bar during encode, cleared at the end | owner | DONE in code, Dock not seen |
