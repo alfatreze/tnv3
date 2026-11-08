@@ -382,7 +382,7 @@ fn preflight_output_directory(
     }
     Ok(())
 }
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct ResultInfo {
     frames: u32,
     level: u8,
@@ -598,9 +598,20 @@ fn estimated_frames_native(ffmpeg: &Path, input: &Path, control: &JobControl) ->
     Ok(parse_duration(&details).map(|seconds| (seconds * 24.0).ceil() as u32))
 }
 
+/// Audio stored with the video. TAC is embedded in the .tnv3 (default); the MP3 sidecar is the
+/// parked legacy pairing and is only used when asked for explicitly.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum AudioFormat {
+    #[default]
+    Tac,
+    Mp3,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 struct AdvancedSettings {
+    audio: AudioFormat,
     round_down: bool,
     eof_pass: bool,
     trim_mp3_delay: bool,
@@ -623,7 +634,7 @@ impl AdvancedSettings {
         }
     }
     fn audio_filter(self) -> &'static str {
-        if self.trim_mp3_delay {
+        if self.audio == AudioFormat::Mp3 && self.trim_mp3_delay {
             "atrim=start_sample=1105,asetpts=PTS-STARTPTS,apad"
         } else {
             "apad"
@@ -640,6 +651,7 @@ struct Dependencies {
     script: String,
     tvc_encoder: String,
     tnv3_tool: String,
+    tac_tool: String,
     workspace_limit_bytes: u64,
 }
 fn selected_file(value: &str, label: &str) -> Result<Option<PathBuf>, String> {
@@ -733,7 +745,12 @@ fn encode_pair_impl(
         );
     }
     let video_path = folder.join(format!("{name}.tnv3"));
-    let audio_path = folder.join(format!("{name}.mp3"));
+    let tac_audio = advanced.audio == AudioFormat::Tac;
+    let audio_path = if tac_audio {
+        video_path.clone()
+    } else {
+        folder.join(format!("{name}.mp3"))
+    };
     preflight_output_directory(folder, &video_path, &audio_path)?;
     control.checkpoint()?;
     progress(Progress {
@@ -754,7 +771,7 @@ fn encode_pair_impl(
         remaining_seconds: None,
     });
     let mut warnings = Vec::new();
-    let (_video_tmp, mut tvc) = temporary_file("tnv3")?;
+    let (video_tmp, mut tvc) = temporary_file("tnv3")?;
     let stats = if let Some((script, ffprobe)) = c_tools {
         progress(Progress {
             phase: "c-video",
@@ -1100,7 +1117,7 @@ fn encode_pair_impl(
         remaining_seconds: None,
     });
     control.checkpoint()?;
-    let (audio_tmp, audio_file) = temporary_file("mp3")?;
+    let (audio_tmp, audio_file) = temporary_file(if tac_audio { "wav" } else { "mp3" })?;
     drop(audio_file);
     let duration = format!("{:.9}", f64::from(stats.frames) / 24.0);
     let mut audio_command = Command::new(ffmpeg);
@@ -1121,13 +1138,12 @@ fn encode_pair_impl(
             "48000",
             "-ac",
             "2",
-            "-c:a",
-            "libmp3lame",
-            "-b:a",
-            "128k",
-            "-f",
-            "mp3",
         ])
+        .args(if tac_audio {
+            ["-c:a", "pcm_s16le", "-f", "wav"].as_slice()
+        } else {
+            ["-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"].as_slice()
+        })
         .arg(&audio_tmp.0)
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
@@ -1196,7 +1212,7 @@ fn encode_pair_impl(
     };
     if !status.success() {
         return Err(with_diagnostics(
-            process_failed(status, "MP3 encoding"),
+            process_failed(status, if tac_audio { "Audio conversion" } else { "MP3 encoding" }),
             &details,
         ));
     }
@@ -1208,6 +1224,26 @@ fn encode_pair_impl(
             &details,
         ));
     }
+    let tac_result = if tac_audio {
+        let mut fallbacks = Vec::new();
+        if let Some((script, _)) = c_tools {
+            if let Some(dir) = script.parent() {
+                fallbacks.push(dir.join(executable_name("tnv3")));
+                fallbacks.push(dir.join("..").join("tac_ref").join(executable_name("tac")));
+            }
+        }
+        Some(build_tnv3_with_tac(
+            &mut tvc,
+            &video_tmp.0,
+            &audio_tmp.0,
+            pure_rust,
+            dependencies,
+            &fallbacks,
+            control,
+        )?)
+    } else {
+        None
+    };
     control.begin_publish()?;
     progress(Progress {
         phase: "saving",
@@ -1217,6 +1253,38 @@ fn encode_pair_impl(
     });
     tvc.seek(SeekFrom::Start(0))
         .map_err(|e| format!("Could not read temporary video: {e}"))?;
+    if let Some((final_tmp, _)) = tac_result {
+        let mut video = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&video_path)
+            .map_err(|e| format!("Could not create video output: {e}"))?;
+        let result = (|| {
+            io::copy(
+                &mut File::open(&final_tmp.0).map_err(|e| e.to_string())?,
+                &mut video,
+            )
+            .map_err(|e| format!("Could not copy TNV3: {e}"))?;
+            video
+                .sync_all()
+                .map_err(|e| format!("Could not finish output file: {e}"))
+        })();
+        drop(video);
+        if let Err(e) = result {
+            return match std::fs::remove_file(&video_path) {
+                Ok(()) => Err(e),
+                Err(cleanup) => Err(format!("{e} Could not remove incomplete video: {cleanup}")),
+            };
+        }
+        return Ok(ResultInfo {
+            frames: stats.frames,
+            level: stats.level,
+            reencoded: stats.reencoded,
+            video: video_path.display().to_string(),
+            audio: String::new(),
+            warnings,
+        });
+    }
     let mut video = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -1269,6 +1337,100 @@ fn encode_pair_impl(
         warnings,
     })
 }
+/// Finds a tool: the configured path, else the first existing fallback.
+fn resolve_tool(configured: &str, label: &str, fallbacks: &[PathBuf]) -> Result<PathBuf, String> {
+    if let Some(path) = selected_file(configured, label)? {
+        return Ok(path);
+    }
+    fallbacks
+        .iter()
+        .find(|p| p.is_file())
+        .cloned()
+        .ok_or_else(|| format!("{label} is required for TAC audio; set it in Dependency settings or bundle it with the app."))
+}
+
+/// Runs a short-lived child, polling so Stop can kill it. Returns its captured stderr.
+fn run_cancellable(mut command: Command, label: &str, control: &JobControl) -> Result<String, String> {
+    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+    let mut child = command.spawn().map_err(|e| format!("Could not start {label}: {e}"))?;
+    let stderr = child.stderr.take().ok_or("Could not capture tool diagnostics.")?;
+    let log = capture_diagnostics(stderr);
+    let status = loop {
+        if let Err(stop) = control.checkpoint() {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = finish_diagnostics(log);
+            return Err(stop);
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(50)),
+            Err(e) => {
+                let _ = child.kill();
+                return Err(format!("Could not wait for {label}: {e}"));
+            }
+        }
+    };
+    let details = finish_diagnostics(log)?;
+    if !status.success() {
+        return Err(with_diagnostics(process_failed(status, label), &details));
+    }
+    Ok(details)
+}
+
+/// Turns the finished video-only stream plus the WAV into one TNV3 with embedded TAC audio:
+/// (pure-Rust only: wrap the TVC in TNV3), `tnv3 demux` to TVC, `tac enc`, `tnv3 mux -a`.
+/// Returns the temporary result (guard and file).
+fn build_tnv3_with_tac(
+    tvc: &mut File,
+    video_path: &Path,
+    wav_path: &Path,
+    pure_rust: bool,
+    dependencies: &Dependencies,
+    fallbacks: &[PathBuf],
+    control: &JobControl,
+) -> Result<(Temporary, File), String> {
+    let tnv3 = resolve_tool(&dependencies.tnv3_tool, "TNV3 tool", fallbacks)?;
+    let tac = resolve_tool(&dependencies.tac_tool, "TAC encoder", fallbacks)?;
+    control.checkpoint()?;
+    let mut video_source = video_path.to_path_buf();
+    let mut _wrapped = None;
+    if pure_rust {
+        let (guard, mut file) = temporary_file("tnv3")?;
+        tvc.seek(SeekFrom::Start(0)).map_err(|e| format!("Could not read temporary video: {e}"))?;
+        tau_video::container::mux_tvc(tvc, &mut file).map_err(|e| format!("Could not create TNV3: {e}"))?;
+        file.sync_all().map_err(|e| format!("Could not write temporary TNV3: {e}"))?;
+        video_source = guard.0.clone();
+        _wrapped = Some(guard);
+    }
+    let mut header = [0u8; 8];
+    File::open(&video_source)
+        .and_then(|mut f| f.read_exact(&mut header))
+        .map_err(|e| format!("Could not read the temporary video header: {e}"))?;
+    let crc = header[6] & 1 != 0;
+    let (tvc_guard, tvc_file) = temporary_file("tvc")?;
+    drop(tvc_file);
+    let (tac_guard, tac_file) = temporary_file("tac")?;
+    drop(tac_file);
+    let mut demux = Command::new(&tnv3);
+    demux.arg("demux").arg(&video_source).arg(&tvc_guard.0);
+    run_cancellable(demux, "TNV3 demux", control)?;
+    let mut enc = Command::new(&tac);
+    enc.arg("enc").arg(wav_path).arg(&tac_guard.0).arg("-b").arg("96");
+    run_cancellable(enc, "TAC encoding", control)?;
+    let (out_guard, out_file) = temporary_file("tnv3")?;
+    drop(out_file);
+    let mut mux = Command::new(&tnv3);
+    mux.arg("mux").arg(&tvc_guard.0).arg("-a").arg(&tac_guard.0).arg("-T");
+    if crc {
+        mux.arg("-c");
+    }
+    mux.arg("-o").arg(&out_guard.0);
+    run_cancellable(mux, "TNV3 audio mux", control)?;
+    let file = File::open(&out_guard.0).map_err(|e| format!("Could not open muxed TNV3: {e}"))?;
+    Ok((out_guard, file))
+}
+
 fn codec_script(app: &tauri::AppHandle) -> PathBuf {
     if let Ok(dir) = app.path().resource_dir() {
         let p = dir.join("codec-tools/tnv3_ref/encode_film.py");
@@ -1437,6 +1599,10 @@ fn discover_tools(
     tvc_extra.extend(bundled(&tvc_bundle));
     let mut tnv3_extra = env_path("TAU_TNV3");
     tnv3_extra.extend(bundled(&tnv3_bundle));
+    let tac_name = executable_name("tac");
+    let tac_bundle = format!("codec-tools/tac_ref/{tac_name}");
+    let mut tac_extra = env_path("TAU_TAC");
+    tac_extra.extend(bundled(&tac_bundle));
     vec![
         discovery_entry("ffmpeg", Some(ffmpeg_auto), ffmpeg_extra, &["ffmpeg"]),
         discovery_entry("ffprobe", Some(ffprobe_auto), ffprobe_extra, &["ffprobe"]),
@@ -1461,6 +1627,12 @@ fn discover_tools(
             "tnv3Tool",
             tool_auto("TAU_TNV3", &tnv3_bundle, &tnv3_name),
             tnv3_extra,
+            &[],
+        ),
+        discovery_entry(
+            "tacTool",
+            tool_auto("TAU_TAC", &tac_bundle, &format!("../tac_ref/{tac_name}")),
+            tac_extra,
             &[],
         ),
     ]
@@ -1820,6 +1992,10 @@ async fn encode(
             if dependencies.tnv3_tool.trim().is_empty() && tnv3.is_file() {
                 dependencies.tnv3_tool = tnv3.display().to_string();
             }
+            let tac = dir.join("codec-tools/tac_ref").join(executable_name("tac"));
+            if dependencies.tac_tool.trim().is_empty() && tac.is_file() {
+                dependencies.tac_tool = tac.display().to_string();
+            }
         }
     }
     let native_event_dispatcher = if workflow == "native" {
@@ -1937,18 +2113,61 @@ async fn encode(
     }
     result.map_err(|e| format!("Encoder task stopped: {e}"))?
 }
+/// Finds a bundled or development tool for decoding embedded audio.
+fn locate_tool(app: &tauri::AppHandle, env: &str, bundled: &str, repo: &str) -> Option<PathBuf> {
+    if let Some(p) = std::env::var_os(env).map(PathBuf::from).filter(|p| p.is_file()) {
+        return Some(p);
+    }
+    if let Ok(dir) = app.path().resource_dir() {
+        let p = dir.join(bundled);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(repo);
+    p.is_file().then_some(p)
+}
+
+/// Decodes the TAC audio of `path` to a temporary WAV the page can play. Slow for long films.
+fn decode_embedded_audio(app: &tauri::AppHandle, path: &Path) -> Result<PathBuf, String> {
+    let tnv3 = locate_tool(app, "TAU_TNV3", &format!("codec-tools/tnv3_ref/{}", executable_name("tnv3")),
+        &format!("../../tools/tnv3_ref/{}", executable_name("tnv3")))
+        .ok_or("The TNV3 tool is needed to play embedded audio; set TAU_TNV3 or bundle it with the app.")?;
+    let tac = locate_tool(app, "TAU_TAC", &format!("codec-tools/tac_ref/{}", executable_name("tac")),
+        &format!("../../tools/tac_ref/{}", executable_name("tac")))
+        .ok_or("The TAC decoder is needed to play embedded audio; set TAU_TAC or bundle it with the app.")?;
+    let dir = std::env::temp_dir().join("tau-encoder-player");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Could not prepare audio cache: {e}"))?;
+    let out = dir.join(format!("audio-{}.wav", std::process::id()));
+    let _ = std::fs::remove_file(&out);
+    tau_video::c_audio::decode_audio(&tau_video::c_audio::Tools { tnv3, tac }, path, &out)
+        .map_err(|e| format!("Could not decode the embedded audio: {e}"))?;
+    Ok(out)
+}
+
 #[tauri::command]
-fn player_open(
+async fn player_open(
     app: tauri::AppHandle,
     path: String,
     state: tauri::State<'_, Mutex<Option<player::Player>>>,
 ) -> Result<player::PlayerInfo, String> {
-    let (player, info) = player::Player::open(Path::new(&path))?;
+    let worker_app = app.clone();
+    let (player, mut info) = tauri::async_runtime::spawn_blocking(move || {
+        let (player, mut info) = player::Player::open(Path::new(&path))?;
+        if info.audio_source == Some("embedded-tac") {
+            let wav = decode_embedded_audio(&worker_app, Path::new(&path))?;
+            info.audio = Some(wav.to_string_lossy().into_owned());
+        }
+        Ok::<_, String>((player, info))
+    })
+    .await
+    .map_err(|e| format!("Player stopped: {e}"))??;
     if let Some(ref audio) = info.audio {
         app.asset_protocol_scope()
             .allow_file(audio)
             .map_err(|e| e.to_string())?;
     }
+    let _ = &mut info;
     *state.lock().map_err(|_| "Player state unavailable.")? = Some(player);
     Ok(info)
 }
@@ -2004,6 +2223,9 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn legacy_mp3() -> AdvancedSettings {
+        AdvancedSettings { audio: AudioFormat::Mp3, ..Default::default() }
+    }
 
     #[test]
     fn stop_signals_source_even_if_gate_state_is_poisoned() {
@@ -2146,7 +2368,7 @@ mod tests {
                 30,
                 None,
                 false,
-                AdvancedSettings::default(),
+                legacy_mp3(),
                 &dependencies,
                 &control,
                 |_| Ok(()),
@@ -2231,7 +2453,7 @@ mod tests {
             30,
             None,
             false,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &dependencies,
             &control,
             |_| Ok(()),
@@ -2347,7 +2569,7 @@ mod tests {
                 30,
                 tools,
                 false,
-                AdvancedSettings::default(),
+                legacy_mp3(),
                 &deps,
                 &JobControl::default(),
                 |details| {
@@ -2369,7 +2591,7 @@ mod tests {
                 30,
                 tools,
                 false,
-                AdvancedSettings::default(),
+                legacy_mp3(),
                 &deps,
                 &control,
                 |_| panic!("a requested stop should take precedence over a warning prompt"),
@@ -2393,7 +2615,7 @@ mod tests {
                 30,
                 tools,
                 false,
-                AdvancedSettings::default(),
+                legacy_mp3(),
                 &deps,
                 &JobControl::default(),
                 |_| {
@@ -2569,6 +2791,7 @@ mod tests {
                 drop(file);
                 std::fs::remove_file(&reserve.0).unwrap();
                 let settings = AdvancedSettings {
+                    audio: AudioFormat::Mp3,
                     width: Some(width),
                     height: Some(720),
                     ..Default::default()
@@ -2607,6 +2830,7 @@ mod tests {
                 std::fs::remove_file(&reserve.0).unwrap();
                 let name = reserve.0.file_stem().unwrap().to_str().unwrap();
                 let settings = AdvancedSettings {
+                    audio: AudioFormat::Mp3,
                     width: Some(width),
                     height: Some(height),
                     level: Some(level),
@@ -2650,6 +2874,7 @@ mod tests {
                 None
             };
             let settings = AdvancedSettings {
+                audio: AudioFormat::Mp3,
                 width: Some(800),
                 height: Some(720),
                 level: Some(1),
@@ -2732,7 +2957,7 @@ mod tests {
             "movie",
             30,
             None,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &Dependencies::default(),
             |_| {},
         );
@@ -2770,7 +2995,7 @@ mod tests {
             "movie",
             30,
             None,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &Dependencies::default(),
             |_| progress_seen.set(true),
         );
@@ -2855,7 +3080,7 @@ mod tests {
                 &format!("{name}{suffix}"),
                 30,
                 c_tools,
-                AdvancedSettings::default(),
+                legacy_mp3(),
                 &Dependencies::default(),
                 |_| {},
             )
@@ -2890,7 +3115,7 @@ mod tests {
             name,
             30,
             None,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &Dependencies::default(),
             |_| {},
         )
@@ -2926,10 +3151,11 @@ mod tests {
         ] {
             let mut baseline_pulse = None;
             for (label, settings) in [
-                ("default", AdvancedSettings::default()),
+                ("default", legacy_mp3()),
                 (
                     "down",
                     AdvancedSettings {
+                        audio: AudioFormat::Mp3,
                         round_down: true,
                         ..Default::default()
                     },
@@ -2937,6 +3163,7 @@ mod tests {
                 (
                     "pass",
                     AdvancedSettings {
+                        audio: AudioFormat::Mp3,
                         round_down: true,
                         eof_pass: true,
                         ..Default::default()
@@ -2945,6 +3172,7 @@ mod tests {
                 (
                     "trim",
                     AdvancedSettings {
+                        audio: AudioFormat::Mp3,
                         trim_mp3_delay: true,
                         ..Default::default()
                     },
@@ -3081,6 +3309,7 @@ mod tests {
             script: script_guard.0.display().to_string(),
             tvc_encoder: PathBuf::from(tvc).display().to_string(),
             tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            tac_tool: String::new(),
             workspace_limit_bytes: 512u64 * 1024 * 1024,
         };
         let f = selected_file(&dependencies.ffmpeg, "FFmpeg")
@@ -3103,7 +3332,7 @@ mod tests {
             name,
             30,
             Some((&script, &probe)),
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &dependencies,
             |_| {},
         )
@@ -3118,6 +3347,94 @@ mod tests {
         for name in ["", "..", "CON", "a/b", "bad.", "a\\b", "x:y"] {
             assert!(!safe_name(name));
         }
+    }
+    #[test]
+    fn real_media_default_embeds_tac_audio_in_one_file() {
+        let (Some(ffmpeg), Some(tvc), Some(tnv3), Some(tac)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+            std::env::var_os("TAU_TEST_TAC"),
+        ) else {
+            return;
+        };
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(&tnv3).display().to_string(),
+            tac_tool: PathBuf::from(tac).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default()
+        };
+        let (src_guard, src_file) = temporary_file("mp4").unwrap();
+        drop(src_file);
+        let status = Command::new(&ffmpeg)
+            .args([
+                "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24:duration=2",
+                "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=2",
+                "-c:v", "mpeg4", "-c:a", "aac",
+            ])
+            .arg(&src_guard.0)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let (reserve, f) = temporary_file("tnv3").unwrap();
+        drop(f);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let folder = reserve.0.parent().unwrap();
+        let result = encode_pair(
+            Path::new(&ffmpeg),
+            &src_guard.0,
+            folder,
+            name,
+            30,
+            None,
+            AdvancedSettings::default(),
+            &dependencies,
+            |_| {},
+        )
+        .unwrap();
+        let video = Temporary(PathBuf::from(&result.video));
+        assert!(result.audio.is_empty(), "TAC is embedded; there is no sidecar");
+        assert!(!video.0.with_extension("mp3").exists());
+        let info = tau_video::Tnv3Reader::open(File::open(&video.0).unwrap()).unwrap().info().clone();
+        assert_eq!(info.frame_count, 48);
+        assert_eq!((info.audio_channels, info.audio_samples), (2, 96_000), "audio fitted to the video");
+        assert!(info.flags & 2 != 0);
+        let check = Command::new(&tnv3).arg("check").arg(&video.0).output().unwrap();
+        assert!(String::from_utf8_lossy(&check.stdout).contains("valid"), "{:?}", check);
+        // an existing output is never overwritten
+        assert!(
+            encode_pair(Path::new(&ffmpeg), &src_guard.0, folder, name, 30, None,
+                AdvancedSettings::default(), &dependencies, |_| {})
+            .is_err()
+        );
+    }
+    #[test]
+    fn tac_audio_without_configured_tools_fails_before_publication() {
+        let Some(ffmpeg) = std::env::var_os("TAU_TEST_FFMPEG") else { return };
+        let (Some(tvc), Some(tnv3)) = (std::env::var_os("TAU_TEST_TVC"), std::env::var_os("TAU_TEST_TNV3")) else { return };
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(tnv3).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default() // no TAC tool
+        };
+        let (src_guard, src_file) = temporary_file("mp4").unwrap();
+        drop(src_file);
+        assert!(Command::new(&ffmpeg).args([
+            "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24:duration=1",
+            "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-c:v", "mpeg4", "-c:a", "aac",
+        ]).arg(&src_guard.0).status().unwrap().success());
+        let (reserve, f) = temporary_file("tnv3").unwrap();
+        drop(f);
+        std::fs::remove_file(&reserve.0).unwrap();
+        let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+        let folder = reserve.0.parent().unwrap();
+        let error = encode_pair(Path::new(&ffmpeg), &src_guard.0, folder, name, 30, None,
+            AdvancedSettings::default(), &dependencies, |_| {}).unwrap_err();
+        assert!(error.contains("TAC encoder"), "{error}");
+        assert!(!reserve.0.exists());
     }
     #[test]
     fn real_media_pair_and_no_overwrite() {
@@ -3172,7 +3489,7 @@ mod tests {
             name,
             30,
             None,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &dependencies,
             |p| phases.push(p),
         )
@@ -3242,7 +3559,7 @@ mod tests {
                 name,
                 30,
                 None,
-                AdvancedSettings::default(),
+                legacy_mp3(),
                 &dependencies,
                 |_| {}
             )
@@ -3259,7 +3576,7 @@ mod tests {
                 &c_name,
                 30,
                 Some((Path::new(&script), Path::new(&probe))),
-                AdvancedSettings::default(),
+                legacy_mp3(),
                 &dependencies,
                 |_| {},
             )
@@ -3356,7 +3673,7 @@ mod tests {
             name,
             30,
             None,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &dependencies,
             |_| {},
         );
@@ -3407,7 +3724,7 @@ mod tests {
             30,
             None,
             true,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &Dependencies::default(),
             &JobControl::default(),
             |_| Ok(()),
@@ -3481,7 +3798,7 @@ mod tests {
             name,
             30,
             None,
-            AdvancedSettings::default(),
+            legacy_mp3(),
             &dependencies,
             |event| {
                 if event.phase == "video" {

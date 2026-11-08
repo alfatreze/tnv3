@@ -1,7 +1,7 @@
 <script lang="ts">
   import { open } from '@tauri-apps/plugin-dialog';
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-  type Info = { width: number; height: number; fps_num: number; fps_den: number; frames: number; audio: string | null };
+  type Info = { width: number; height: number; fps_num: number; fps_den: number; frames: number; audio: string | null; audio_source: string | null };
   let info: Info | null = null, path = '', playing = false, done = false, loading = false, playPending = false, error = '', frame = 0;
   let scale = 1;
   let canvas: HTMLCanvasElement, audio: HTMLAudioElement, generation = 0, playAttempt = 0, origin = 0, pausedAt = 0, running = false, runner: Promise<void> | null = null;
@@ -83,7 +83,7 @@
 <section aria-label="Local preview" class="preview">
   <h2>Local preview</h2><p class="help">Open a TNV3 file to preview it with its matching MP3 sidecar.</p>
   <div class="player-actions"><button type="button" onclick={choose} disabled={loading}>{loading ? 'Loading…' : 'Open video'}</button><button type="button" onclick={toggle} disabled={!info || done || loading || playPending}>{playPending ? 'Starting…' : playing ? 'Pause' : 'Play'}</button></div>
-  {#if info}<p class="help filename">{path.split(/[\\/]/).pop()} · {info.audio ? 'MP3 sidecar found' : 'No MP3 sidecar — silent'}</p>{/if}
+  {#if info}<p class="help filename">{path.split(/[\\/]/).pop()} · {info.audio_source === 'embedded-tac' ? 'Embedded TAC audio' : info.audio_source === 'mp3-sidecar' ? 'MP3 sidecar found' : 'No audio — silent'}</p>{/if}
   <label class="preview-scale" for="preview-scale">Display scale <select id="preview-scale" bind:value={scale}><option value={1}>1× — actual size</option><option value={2}>2×</option><option value={4}>4×</option></select></label>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex: the viewport needs keyboard focus for scrolling. -->
   <div class="preview-viewport" tabindex="0" role="region" aria-label="Video preview; scroll to see enlarged video"><canvas bind:this={canvas} width={info?.width || 400} height={info?.height || 226} style:width="{(info?.width || 400) * scale}px" style:height="{(info?.height || 226) * scale}px" aria-label="Decoded video preview"></canvas></div>

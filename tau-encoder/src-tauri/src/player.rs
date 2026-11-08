@@ -17,6 +17,8 @@ pub struct PlayerInfo {
     pub fps_den: u32,
     pub frames: u32,
     pub audio: Option<String>,
+    /// `"mp3-sidecar"`, or `"embedded-tac"` (the caller decodes it and fills `audio`), or none.
+    pub audio_source: Option<&'static str>,
 }
 pub struct Player {
     reader: Tnv3Reader<File>,
@@ -43,6 +45,13 @@ impl Player {
         } else {
             None
         };
+        let audio_source = if audio.is_some() {
+            Some("mp3-sidecar")
+        } else if info.audio_channels > 0 && info.flags & 2 != 0 {
+            Some("embedded-tac")
+        } else {
+            None
+        };
         let result = PlayerInfo {
             width: info.width,
             height: info.height,
@@ -50,6 +59,7 @@ impl Player {
             fps_den: info.fps_den,
             frames: info.frame_count,
             audio,
+            audio_source,
         };
         Ok((
             Self {

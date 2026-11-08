@@ -20,3 +20,4 @@
 | TAC encode in CLI (owner 2026-11-08) | `encode-audio` command via FFmpeg + `tac enc`; `encode` integration open | owner | PARTLY DONE |
 | TAC audio inside `encode` (owner 2026-11-08) | `--audio tac` opt-in on both backends; default still MP3 sidecar | owner | DONE; default switch open (owner decision) |
 | TAC default audio in `encode` (owner 2026-11-08) | default is now embedded TAC; MP3 pair only on explicit flag | owner | DONE; Tauri app does not use this CLI (still MP3 pair); Omega callers unknown |
+| Tauri app on TAC (owner 2026-11-08) | one `.tnv3` with embedded TAC; MP3 UI removed; UI/player not run | owner | DONE in code, UI unverified |

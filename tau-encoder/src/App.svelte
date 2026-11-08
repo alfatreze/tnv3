@@ -45,18 +45,19 @@
   let workflow: 'python' | 'native' = 'python', workspaceMib = 512;
   let page: 'encoder' | 'decoder' | 'settings' = 'encoder';
   let player: { pausePlayback: () => void } | undefined;
-  let roundDown = false, eofPass = false, trimMp3Delay = false;
-  type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool';
-  let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '' };
+  let roundDown = false, eofPass = false;
+  type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool' | 'tacTool';
+  let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '', tacTool: '' };
   type ToolDiscovery = { key: DependencyKey; automatic: string; candidates: string[] };
   let discovered: ToolDiscovery[] = [], discoveryError = '', discovering = false, discoveryRequest = 0;
   const dependencyFields: { key: DependencyKey; label: string; help: string }[] = [
-    { key: 'ffmpeg', label: 'FFmpeg', help: 'Video decoding and MP3 encoding, both encoders' },
+    { key: 'ffmpeg', label: 'FFmpeg', help: 'Video and audio decoding, both encoders' },
     { key: 'ffprobe', label: 'FFprobe', help: 'Source inspection for the C encoder' },
     { key: 'python', label: 'Python 3', help: 'Runs the C encoder script' },
     { key: 'script', label: 'C encoder script', help: 'Select encode_film.py' },
     { key: 'tvcEncoder', label: 'TVC encoder', help: 'Select tvc_enc (or tvc_enc.exe)' },
     { key: 'tnv3Tool', label: 'TNV3 tool', help: 'Select tnv3 (or tnv3.exe)' },
+    { key: 'tacTool', label: 'TAC audio encoder', help: 'Select tac (or tac.exe)' },
   ];
   function saveDependencies() {
     try { localStorage.setItem('tau-encoder-dependencies', JSON.stringify(dependencies)); } catch { /* Keep settings for this session. */ }
@@ -178,9 +179,9 @@
       });
       const width = outputWidth(), height = 720;
       encodeRunning = true;
-      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, trimMp3Delay, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
+      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { roundDown, eofPass, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
-      message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video} and ${result.audio}. Level limits may cause automatic quality reductions.`;
+      message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video}${result.audio ? ' and ' + result.audio : ' (audio is inside the file)'}. Level limits may cause automatic quality reductions.`;
     } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); unlistenSourceCancelled?.(); encodeRunning = false; encodeRegistered = false; stopRequested = false; busy = false; }
   }
 </script>
@@ -199,11 +200,11 @@
   <main>
   {#if page === 'encoder'}
   <header><div><p class="eyebrow">VIDEO CONVERSION</p><h1>Encoder</h1></div></header>
-  <p class="intro">Convert a video into a Tau video and matching audio file.</p>
+  <p class="intro">Convert a video into a Tau video file with its audio inside.</p>
   <section aria-label="Video settings">
     <div class="field"><label for="input">Source video <small>MP4, MKV, MOV and more</small></label><div class="pick"><input id="input" value={input} readonly placeholder="Choose a video file" /><button type="button" onclick={chooseInput} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="folder">Output folder <small>Choose a folder or card</small></label><div class="pick"><input id="folder" value={folder} readonly placeholder="Choose where to save" /><button type="button" onclick={chooseFolder} disabled={busy}>Browse</button></div></div>
-    <div class="field"><label for="name">File name <small>Creates matching .tnv3 and .mp3 files</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
+    <div class="field"><label for="name">File name <small>Creates one .tnv3 file with audio inside</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
     {#if mode === 'c'}
       <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (default)</option><option value="native">Experimental Python-free Rust + C</option></select>
@@ -236,7 +237,7 @@
     {#if warning}<div class="status warning-summary" role="alert"><strong>Output created with source warnings</strong>{#each warningExplanations(warning) as explanation}<p>{explanation}</p>{/each}<details><summary>Show original decoder messages</summary><pre class="warning">{warning}</pre></details></div>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
-  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo MP3. Some videos may fail or require lower quality. Time estimates cover video processing only. The Python workflow stops after the current phase; the native workflow requests that its running tools stop.</p></aside>
+  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo TAC audio stored inside the .tnv3 file. Some videos may fail or require lower quality. Time estimates cover video processing only. The Python workflow stops after the current phase; the native workflow requests that its running tools stop.</p></aside>
   {:else if page === 'decoder'}
     <header><div><p class="eyebrow">LOCAL PREVIEW</p><h1>Decoder</h1></div></header>
     <p class="intro">Test player for local TNV3 video and matching audio files.</p>
@@ -272,8 +273,6 @@
       <p>May reduce repeated frames for some sources; can shift timing or omit the last frame.</p>
       <label><input type="checkbox" bind:checked={eofPass} disabled={busy || !roundDown} /> Pass the final frame with round-down</label>
       <p>May restore a final frame, but can add an extra frame.</p>
-      <label><input type="checkbox" bind:checked={trimMp3Delay} disabled={busy} /> Test MP3 delay compensation</label>
-      <p>Removes the first 1,105 audio samples (23 ms) before MP3 encoding. This may improve or worsen sync and permanently removes that audio.</p>
     </details>
     <section class="recovery-settings" aria-label="Source error handling"><h2>Source error handling</h2><label><input type="checkbox" checked={alwaysContinue} onchange={(event) => { alwaysContinue = (event.currentTarget as HTMLInputElement).checked; saveRecoveryPreference(); }} disabled={busy} /> Always continue when source errors are found</label><p class="help">When off, the native C workflow asks when it finds a source problem. The Python workflow checks the source before encoding, which can take as long as decoding. When on, the app continues without asking and reports errors with the result.</p></section>
   {/if}
