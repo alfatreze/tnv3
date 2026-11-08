@@ -54,6 +54,13 @@ rust-safe-rate:
 # Conformance run against the pinned Tau V vectors (read in place; see tests/pins). Unlike `rust-test`,
 # this sets the variables that otherwise make the reference tests return early without checking anything.
 TAU_V_ROOT ?= $(CURDIR)/../tau-nu/.claude/worktrees/codec-alternatives
+# Our own draft 1.5/1.6 vectors: regenerate, check the C checker against the spec-derived expectations, then the Rust checker.
+.PHONY: vectors-15-16
+vectors-15-16: all
+	python3 -I tests/vectors/make_vectors_15_16.py --verify
+	git diff --exit-code -- tests/vectors/tnv3_15_16
+	cargo test --manifest-path tau-video-cli/Cargo.toml --test vectors_15_16
+
 .PHONY: rust-conformance
 rust-conformance: all
 	python3 -I tests/pins/check_pins.py --root "$(TAU_V_ROOT)" --skip-films

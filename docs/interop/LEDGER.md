@@ -28,3 +28,4 @@
 | R-4 clamp case | what the spec says when the stack does not fit above row 0 | Tau V | OPEN (we follow their tool) |
 | Default subtitle font (owner 2026-11-08) | Roboto Regular+Italic bundled in `tau-video/assets/fonts` (OFL); Google Fonts chooser is a future request | owner | DONE; chooser OPEN (future) |
 | 800-wide encode and probe (owner 2026-11-08) | real `--width 800` encode valid on both backends; `probe --width` | owner | DONE; device limit 640x400 (Tau V 006) |
+| 1.5/1.6 vectors as files (owner 2026-11-08) | 18 files in `tests/vectors/tnv3_15_16`, both checkers agree; Tau V may pin them | owner | DONE (offer to Tau V in the next message) |

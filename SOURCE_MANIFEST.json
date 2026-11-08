@@ -27,7 +27,7 @@
       "note": "Apache-2.0 text; the upstream MIT original is LICENSES/MIT-HarpMudd.txt"
     },
     "Makefile": {
-      "sha256": "6d684d5eca7004b564b7de78696cc3bb90c5a50f2e5df0554df94e9fea9802d6",
+      "sha256": "dd57d24bce913109e19489c96a9ef669bf3a37f833822031c332be5c6fbaabde",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"

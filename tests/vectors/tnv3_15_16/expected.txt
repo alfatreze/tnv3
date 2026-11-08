@@ -1,0 +1,18 @@
+ok15_w0_draft14_compatible valid sha256=987a1dae25f917cc88377ec324f0e6c625fcfa7e67629042b2d74534fbfb1393  # outline_w 0: no outline plane (draft 1.4 layout)
+ok15_w1_w2_two_sizes valid sha256=d02d2ee8d905cfb308d5d677dd2781b7bb32006f24ca63a7e2f0bb4f0bc0fe68  # outline widths 1 and 2 on two sizes, planes equal the dilation
+ok15_w4_largest valid sha256=5d19e999b294da433fdfd4f3157ea9e390c8ed6e1d770ca81c7efa89d62bd7e7  # outline_w 4, the largest allowed
+ok15_event_bottom_exact valid sha256=a0033babd90197b0ce0e7d6d15b84e98d488bd64446e7efbc9fc74efec750a18  # one line ending exactly on row 720 (y + 1 * cell_h = 720)
+ok15_two_lines_bottom_exact valid sha256=5e12d907f1298564db183a6de36afcc723a9156696307cf41012abc472e3bf5a  # two lines ending exactly on row 720 (y + 2 * cell_h = 720)
+ok16_codec_id_zero valid sha256=30bcbb03265b7fcaaf03ae802130bad4f1cf947f15649467a3808f20e3c1e0c4  # header byte 22 = 0 (TVC) with subtitles present
+bad15_outline_w5 invalid sha256=ae0005d2c0276afa5f32006bdfbd6b8073acdbc0ac7e5571d6ef457c4623cc96  # outline_w 5 is above 4 (plane built consistently for w = 5)
+bad15_plane_not_dilation invalid sha256=a33e7a5b2f4ef5ece93cb40a5adea3003d51281c106dcfcff99c2cf1636fd5c1  # one outline pixel differs from the dilation of the fill
+bad15_outline_padding_bits invalid sha256=467ff1a5f6da472ecbdd3ed68ac50012a000b18e5acc17031ebe1be0f74aa3bb  # a padding bit of an outline row is set
+bad15_variant_reserved_byte invalid sha256=33eac8c27f286ccc48665aef4a9afe2160db936949c8bcba4a4f4a3b1bbe1a53  # variant reserved byte is 1
+bad15_plane_missing invalid sha256=f78779b94469353b2afc311e2b2a6f88c6b055515c21e407648b88e291a25a56  # outline_w 1 but the glyph table has no outline planes (length is fill-only)
+bad15_table_one_byte_short invalid sha256=5020364279f2b5f961420a26a555e5373977805c10bf8e085b91ecf451959e09  # glyph table one byte shorter than 4 + n * record
+bad15_event_below_grid invalid sha256=844b0076c8293db89891d7fcd7b910ecc9a497958151cb170320c0e0839c5b6c  # one line ends on row 721 (y + cell_h > 720)
+bad15_event_below_grid_break invalid sha256=f113c65d3c6bd69fee8ed6338fc56159545279efb1a760e21e05ce5dc50d6606  # two lines end on row 721 (y + 2 * cell_h > 720)
+bad16_codec_id_1 invalid sha256=f4751ba4dc3af20156ff145480c09999b3ee4e37ed235d2a9eb8f053f5a62dff  # header byte 22 (video_codec) = 1, header CRC fixed
+bad16_codec_id_255 invalid sha256=4a67ca49dddb321f8fb24625c083d5a8e05a245dbf20333121f31d5f0ec7b7c0  # header byte 22 (video_codec) = 255, header CRC fixed
+bad16_reserved_byte_23 invalid sha256=12becead4adcc4d6ec642e7c90493823f95e31bb7d1c52c81df829e597ef3f45  # header byte 23 (reserved) = 1, header CRC fixed
+bad16_codec_id_without_subtitles invalid sha256=544cbf980c8bfa4cd52da8b75b0f55874959b53fd8d33e5b99f3872f9bf371fa  # header byte 22 = 1 on a video-only file, header CRC fixed
