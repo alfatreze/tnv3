@@ -1367,6 +1367,7 @@ pub mod c_audio;
 pub mod c_mux;
 #[cfg(feature = "c-subtitles")]
 pub mod c_subtitles;
+pub mod subtitle_read;
 #[cfg(feature = "subtitle-builder")]
 pub mod subtitle;
 

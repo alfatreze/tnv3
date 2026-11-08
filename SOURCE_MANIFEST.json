@@ -979,7 +979,7 @@
       "sha256": "e4178814ebba4d08c04cccbc83b531918b499f7ec92a00329f3b55ce5de79c45"
     },
     "tau-video/src/lib.rs": {
-      "sha256": "e1cb054547f0bce78bc90df17356485780d97a1937e2f3b67f934dcc93364287",
+      "sha256": "fc8855aba914d837ea8e4cf10af39cdcf2bc11cc70558be1434a6b85a682c68d",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video/src/tvc/b-mb-reference.bin": {
@@ -1641,7 +1641,7 @@
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "e80a17a61638ea26300bd78b5ec22a837d60c5f1d1d6b63a8849c44e77106a92",
+      "sha256": "ef9038ffcf3ea97b34710dbf815d4df6f18a504afc117dbe90b00632092e8767",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/smoke.py": {
