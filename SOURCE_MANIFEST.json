@@ -1455,7 +1455,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "60f968e905122755985f4759ee6414211f00cd8a3f7fcce47db5dea5483168ad",
+      "sha256": "8c408933da9ede483f52b461aab431d3d5b4ffb875d8e6c7b02106fd07bd77f9",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/index.html": {
@@ -1470,7 +1470,7 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "15a10a4b69f0f06e2185b0ef98820434d96bfe6b1bb222a4523303893031dddf",
+      "sha256": "ca8b9addb4443b43b55ca7c6cac41dcaee6d3630927b1f5d3b7423c29b8c25d0",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/main.ts": {
