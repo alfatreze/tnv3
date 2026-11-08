@@ -7,7 +7,7 @@ use tau_video::{
     subtitle_read::{GRID_H, GRID_W, GlyphRef, SubtitleArea},
 };
 
-const USAGE: &str = "Usage: tau-codecs-cli subtitles FILE.tnv3 [--json] [--events] [--render SECONDS OUT.ppm] [--track N] [--variant N]";
+const USAGE: &str = "Usage: tau-codecs-cli subtitles FILE.tnv3 [--json] [--events] [--render SECONDS OUT.ppm] [--layers OUT.bin] [--track N] [--variant N]\n       (FILE may also be a bare subtitle area, as written by build-subtitles)";
 
 fn fail(code: u8, message: &str, json: bool) -> ExitCode {
     if json {
@@ -50,6 +50,7 @@ fn summary(area: &SubtitleArea) -> serde_json::Value {
 pub fn run(argv: &[OsString]) -> ExitCode {
     let json = argv.iter().any(|a| a == OsStr::new("--json"));
     let (mut file, mut events, mut render, mut track, mut variant) = (None::<PathBuf>, false, None::<(f64, PathBuf)>, 0usize, 0usize);
+    let mut layers = None::<PathBuf>;
     let mut i = 1;
     while i < argv.len() {
         match argv[i].to_str().unwrap_or("") {
@@ -59,6 +60,11 @@ pub fn run(argv: &[OsString]) -> ExitCode {
                 let k = argv[i].to_str().unwrap_or("").to_owned();
                 let Some(n) = argv.get(i + 1).and_then(|v| v.to_str()).and_then(|s| s.parse::<usize>().ok()) else { return fail(2, USAGE, json) };
                 if k == "--track" { track = n } else { variant = n }
+                i += 1;
+            }
+            "--layers" => {
+                let Some(o) = argv.get(i + 1) else { return fail(2, USAGE, json) };
+                layers = Some(PathBuf::from(o));
                 i += 1;
             }
             "--render" => {
@@ -75,14 +81,21 @@ pub fn run(argv: &[OsString]) -> ExitCode {
         i += 1;
     }
     let Some(file) = file else { return fail(2, USAGE, json) };
-    let reader = match fs::File::open(&file) {
-        Ok(f) => f,
+    let bytes_head = match fs::read(&file) {
+        Ok(b) => b,
         Err(e) => return fail(3, &format!("Could not open input: {e}"), json),
     };
-    let area = match Tnv3Reader::open(reader).and_then(|mut r| r.read_subtitle_area()) {
-        Ok(a) => a,
-        Err(tau_video::Error::Io(e)) => return fail(3, &format!("Could not read input: {e}"), json),
-        Err(e) => return fail(1, &format!("Invalid file: {e}"), json),
+    let area = if bytes_head.starts_with(b"TNV3") {
+        match Tnv3Reader::open(std::io::Cursor::new(&bytes_head)).and_then(|mut r| r.read_subtitle_area()) {
+            Ok(a) => a,
+            Err(tau_video::Error::Io(e)) => return fail(3, &format!("Could not read input: {e}"), json),
+            Err(e) => return fail(1, &format!("Invalid file: {e}"), json),
+        }
+    } else {
+        match tau_video::subtitle_read::parse_subtitle_area(&bytes_head) {
+            Ok(a) => Some(a),
+            Err(e) => return fail(1, &format!("Invalid file: {e}"), json),
+        }
     };
     let Some(area) = area else {
         let line = if json { serde_json::json!({"command":"subtitles","schema":1,"status":"ok","has_subtitles":false}).to_string() } else { "No subtitle area.".to_owned() };
@@ -117,6 +130,22 @@ pub fn run(argv: &[OsString]) -> ExitCode {
             drop(f);
             let _ = fs::remove_file(out);
             return fail(3, &format!("Could not write the picture: {e}"), json);
+        }
+    }
+    if let Some(path) = &layers {
+        let Some((seconds, _)) = &render else { return fail(2, "--layers needs --render SECONDS OUT.ppm.", json) };
+        let frame = v.render((seconds * 48000.0).round() as u32);
+        let mut raw = frame.text.clone();
+        raw.extend(&frame.colour);
+        raw.extend(&frame.outline);
+        let mut f = match fs::OpenOptions::new().write(true).create_new(true).open(path) {
+            Ok(f) => f,
+            Err(e) => return fail(if e.kind() == std::io::ErrorKind::AlreadyExists { 2 } else { 3 }, &format!("Output {}: {e}", path.display()), json),
+        };
+        if let Err(e) = f.write_all(&raw).and_then(|_| f.sync_all()) {
+            drop(f);
+            let _ = fs::remove_file(path);
+            return fail(3, &format!("Could not write the layers: {e}"), json);
         }
     }
     let mut value = summary(&area);

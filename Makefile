@@ -73,6 +73,12 @@ TEST_ENV = TAU_TVC_VECTOR_DIR="$(TAU_V_ROOT)/tools/tvc_ref/vectors" TAU_VIDEO_VE
 	TAU_TEST_TVC_ENC="$(CURDIR)/tools/tvc_ref/tvc_enc" TAU_TEST_TAC="$(CURDIR)/tools/tac_ref/tac" \
 	TAU_TEST_FONT="$(TAU_V_ROOT)/tools/tst_ref/fonts/Roboto-Regular.ttf"
 
+# Pixel comparison of our subtitle reader/renderer with Tau V's tst_render.py (needs Python 3 with Pillow).
+.PHONY: compare-render
+compare-render:
+	cargo build --manifest-path tau-video-cli/Cargo.toml
+	python3 -I tests/compare_tst_render.py --tau-v "$(TAU_V_ROOT)" --cli tau-video-cli/target/debug/tau-codecs-cli
+
 .PHONY: rust-conformance
 rust-conformance: all
 	python3 -I tests/pins/check_pins.py --root "$(TAU_V_ROOT)" --skip-films

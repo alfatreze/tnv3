@@ -50,3 +50,25 @@ fn render_writes_a_ppm_once_and_never_overwrites() {
     assert_eq!(run(&[v.to_str().unwrap(), "--render", "0.02", out.to_str().unwrap()]).0, 2, "output exists");
     fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn reads_a_bare_area_and_writes_the_three_layers() {
+    let file = fs::read(vector("ok15_w1_w2_two_sizes")).unwrap();
+    let so = u32::from_le_bytes(file[44..48].try_into().unwrap()) as usize;
+    let sl = u32::from_le_bytes(file[48..52].try_into().unwrap()) as usize;
+    let dir = std::env::temp_dir().join(format!("tau-subs-layers-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir(&dir).unwrap();
+    let area = dir.join("area.bin");
+    fs::write(&area, &file[so..so + sl]).unwrap();
+    let (ppm, layers) = (dir.join("f.ppm"), dir.join("l.bin"));
+    let (code, out) = run(&[area.to_str().unwrap(), "--json", "--render", "0.02", ppm.to_str().unwrap(), "--layers", layers.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}");
+    let raw = fs::read(&layers).unwrap();
+    assert_eq!(raw.len(), 3 * 800 * 720);
+    assert!(raw[..800 * 720].iter().any(|&a| a > 0), "text plane has coverage");
+    assert!(raw[2 * 800 * 720..].iter().any(|&a| a > 0), "outline plane has coverage");
+    assert_eq!(run(&[area.to_str().unwrap(), "--render", "0.02", dir.join("g.ppm").to_str().unwrap(), "--layers", layers.to_str().unwrap()]).0, 2, "layers file exists");
+    assert_eq!(run(&[area.to_str().unwrap(), "--layers", dir.join("h.bin").to_str().unwrap()]).0, 2, "--layers needs --render");
+    fs::remove_dir_all(&dir).unwrap();
+}
