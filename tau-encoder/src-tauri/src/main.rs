@@ -2517,14 +2517,19 @@ fn locate_tool(app: &tauri::AppHandle, env: &str, bundled: &str, repo: &str) -> 
     p.is_file().then_some(p)
 }
 
-/// Decodes the TAC audio of `path` to a temporary WAV the page can play. Slow for long films.
+/// Decodes the TAC audio of `path` to a temporary WAV the page can play (a few seconds for a long film).
 fn decode_embedded_audio(app: &tauri::AppHandle, path: &Path) -> Result<PathBuf, String> {
     let tnv3 = locate_tool(app, "TAU_TNV3", &format!("codec-tools/tnv3_ref/{}", executable_name("tnv3")),
         &format!("../../tools/tnv3_ref/{}", executable_name("tnv3")))
         .ok_or("The TNV3 tool is needed to play embedded audio; set TAU_TNV3 or bundle it with the app.")?;
-    let tac = locate_tool(app, "TAU_TAC", &format!("codec-tools/tac_ref/{}", executable_name("tac")),
-        &format!("../../tools/tac_ref/{}", executable_name("tac")))
-        .ok_or("The TAC decoder is needed to play embedded audio; set TAU_TAC or bundle it with the app.")?;
+    // Playback uses the integer decoder `tac_fx` (the model of the Pocket's hardware decoder, within one sample of
+    // the reference): about 40 times faster than the floating-point `tac` (3.7 s against 166 s for a 28 minute
+    // episode), so opening a film is not a wait. The float decoder is only a fallback.
+    let tac = locate_tool(app, "TAU_TAC_FX", &format!("codec-tools/tac_ref/{}", executable_name("tac_fx")),
+        &format!("../../tools/tac_ref/{}", executable_name("tac_fx")))
+        .or_else(|| locate_tool(app, "TAU_TAC", &format!("codec-tools/tac_ref/{}", executable_name("tac")),
+            &format!("../../tools/tac_ref/{}", executable_name("tac"))))
+        .ok_or("The TAC decoder is needed to play embedded audio; set TAU_TAC_FX or bundle it with the app.")?;
     let dir = std::env::temp_dir().join("tau-encoder-player");
     std::fs::create_dir_all(&dir).map_err(|e| format!("Could not prepare audio cache: {e}"))?;
     let out = dir.join(format!("audio-{}.wav", std::process::id()));

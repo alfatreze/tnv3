@@ -1455,7 +1455,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "4752bc2183363c65c9fdf0ef7364617ad07a8bea12d21f3b136cb0440f117bed",
+      "sha256": "b39353f47bb002041a317b617f42bae55e2621e314904bb23700059606ff2830",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/index.html": {
@@ -1509,7 +1509,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "d2041e2bd1b2fd801a7a258ad39940ed58c552facceb0b7459e1ad773b70cf89",
+      "sha256": "d58951f0c41eb91d805ca8f814df1ed40d57066e8f1d5b23c41bd8f00bf5ea29",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
@@ -1535,7 +1535,7 @@
       "sha256": "2112075c5be446be329537e8d9b02df1e02c37f3224e82ff5deeb67779d9c71e"
     },
     "tau-encoder/scripts/build-codec-tools.sh": {
-      "sha256": "df910373a082555e3a31f609cd19eda9d44de360e482cea0429e30b38c657198"
+      "sha256": "1ff28559a2edffcbd85b9f39f06d59819f5e904454ad47590f26964b4169f247"
     },
     "tau-encoder/src/Player.svelte": {
       "sha256": "e6ab141ab8876229113eb2786b1a2401b25a08e8f2ddab63f17601ca6cf342ef"
