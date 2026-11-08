@@ -223,9 +223,39 @@ pub fn extract_text_subtitle(ffmpeg: &Path, input: &Path, track: u32, output: &P
     Ok(())
 }
 
+/// Picks the language of the `track`-th (zero-based) line of FFprobe's `stream_tags=language` CSV output:
+/// two to four ASCII letters, lower-cased (`und` is kept); anything else is `None`.
+pub fn language_from_lines(text: &str, track: u32) -> Option<String> {
+    let tag = text.lines().nth(track as usize)?.trim().to_ascii_lowercase();
+    ((2..=4).contains(&tag.len()) && tag.bytes().all(|b| b.is_ascii_lowercase())).then_some(tag)
+}
+
+/// The language tag of the `track`-th (zero-based) subtitle stream of `input`, when FFprobe reports a usable one.
+pub fn stream_language(ffprobe: &Path, input: &Path, track: u32) -> Option<String> {
+    let out = Command::new(ffprobe)
+        .args(["-v", "error", "-select_streams", "s", "-show_entries", "stream_tags=language", "-of", "csv=p=0", "-i"])
+        .arg(input)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    out.status.success().then(|| language_from_lines(&String::from_utf8_lossy(&out.stdout), track)).flatten()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn language_tags_are_validated_and_picked_by_stream_order() {
+        let csv = "eng\nJPN\n\nund\nx\npt-BR\nabcde\n";
+        assert_eq!(language_from_lines(csv, 0).as_deref(), Some("eng"));
+        assert_eq!(language_from_lines(csv, 1).as_deref(), Some("jpn"), "lower-cased");
+        assert_eq!(language_from_lines(csv, 2), None, "a stream without a tag");
+        assert_eq!(language_from_lines(csv, 3).as_deref(), Some("und"));
+        assert_eq!(language_from_lines(csv, 4), None, "one letter");
+        assert_eq!(language_from_lines(csv, 5), None, "not letters only");
+        assert_eq!(language_from_lines(csv, 6), None, "five letters");
+        assert_eq!(language_from_lines(csv, 9), None, "no such stream");
+    }
     fn opts() -> BuildOptions {
         BuildOptions {
             python: "python3".into(),

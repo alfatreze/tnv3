@@ -98,6 +98,20 @@ fn control_eof_stops_direct_ffmpeg_leaf_without_publishing_or_overwriting() {
 
 #[test]
 fn sigint_stops_direct_ffmpeg_leaf_without_publishing() {
+    stops_and_cleans_up_on_signal("INT");
+}
+
+#[test]
+fn sigterm_stops_direct_ffmpeg_leaf_without_publishing_or_orphans() {
+    stops_and_cleans_up_on_signal("TERM");
+}
+
+#[test]
+fn sighup_stops_direct_ffmpeg_leaf_without_publishing_or_orphans() {
+    stops_and_cleans_up_on_signal("HUP");
+}
+
+fn stops_and_cleans_up_on_signal(signal: &str) {
     let dir = temp_dir();
     let input = dir.join("input.mov");
     let ffmpeg = dir.join("ffmpeg");
@@ -111,7 +125,7 @@ fn sigint_stops_direct_ffmpeg_leaf_without_publishing() {
     executable(
         &ffmpeg,
         &format!(
-            "#!/usr/bin/env python3\nimport pathlib, time\npathlib.Path('{}').write_text('started')\nwhile True: time.sleep(1)\n",
+            "#!/usr/bin/env python3\nimport os, pathlib, time\npathlib.Path('{}').write_text(str(os.getpid()))\nwhile True: time.sleep(1)\n",
             marker.display()
         ),
     );
@@ -145,7 +159,7 @@ fn sigint_stops_direct_ffmpeg_leaf_without_publishing() {
     // the normal cancellation status instead of dying immediately.
     assert!(
         Command::new("kill")
-            .args(["-INT", &child.id().to_string()])
+            .args([&format!("-{signal}"), &child.id().to_string()])
             .status()
             .unwrap()
             .success()
@@ -153,13 +167,20 @@ fn sigint_stops_direct_ffmpeg_leaf_without_publishing() {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         if let Some(status) = child.try_wait().unwrap() {
-            assert_eq!(status.code(), Some(4));
+            assert_eq!(status.code(), Some(4), "SIG{signal} is a cooperative cancellation");
             break;
         }
-        assert!(Instant::now() < deadline, "CLI did not stop after SIGINT");
+        assert!(Instant::now() < deadline, "CLI did not stop after SIG{signal}");
         thread::sleep(Duration::from_millis(10));
     }
     assert!(!output.exists(), "cancelled encode published output");
+    // the tool the CLI started must be gone too, not left running as an orphan
+    let pid = fs::read_to_string(&marker).unwrap().trim().to_owned();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while Command::new("kill").args(["-0", &pid]).stderr(Stdio::null()).status().unwrap().success() {
+        assert!(Instant::now() < deadline, "the fake FFmpeg (pid {pid}) is still running after SIG{signal}");
+        thread::sleep(Duration::from_millis(20));
+    }
     fs::remove_dir_all(dir).unwrap();
 }
 

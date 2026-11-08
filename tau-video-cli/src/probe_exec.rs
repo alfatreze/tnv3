@@ -872,6 +872,8 @@ fn signal_group(pgid: rustix::process::Pid) -> Result<bool, ProbeError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Serialises the tests that list or create `tau-probe-sample-<pid>-*` folders.
+    static SAMPLE_STAGING: std::sync::Mutex<()> = std::sync::Mutex::new(());
     use std::os::unix::process::CommandExt;
 
     #[test]
@@ -983,6 +985,9 @@ mod tests {
     #[test]
     fn sample_encoder_timeout_kills_group_and_removes_verified_staging() {
         use std::os::unix::fs::PermissionsExt;
+        // Both tests that create sample staging folders share the process-id prefix; without this lock the other one
+        // could add or remove a folder between this test's two directory listings (an observed rare failure under load).
+        let _serial = SAMPLE_STAGING.lock().unwrap_or_else(|e| e.into_inner());
         let path = std::env::temp_dir().join(format!("tau-probe-sleeper-{}", std::process::id()));
         std::fs::write(&path, "#!/bin/sh\nsleep 30\n").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -1012,6 +1017,7 @@ mod tests {
 
     #[test]
     fn uncertain_cleanup_retains_sample_staging_and_reports_location() {
+        let _serial = SAMPLE_STAGING.lock().unwrap_or_else(|e| e.into_inner());
         let directory = create_sample_directory().unwrap();
         let guard = SampleDirectory {
             path: directory.clone(),

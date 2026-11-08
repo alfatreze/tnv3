@@ -263,7 +263,13 @@ fn build_native(
             tau_video::c_subtitles::extract_text_subtitle(ffmpeg, source, *index, &file, "ass").map_err(classify)?;
             extracted.push(file.clone());
             quiet.insert(file.clone());
-            specs.push((file, flags.clone()));
+            let mut flags = flags.clone();
+            if flags.language.is_none() {
+                // the stream's own language tag, when FFprobe can be found next to FFmpeg or on the PATH
+                let probe = Some(ffmpeg.with_file_name("ffprobe")).filter(|p| p.is_file()).or_else(|| on_path("ffprobe"));
+                flags.language = probe.and_then(|p| tau_video::c_subtitles::stream_language(&p, source, *index));
+            }
+            specs.push((file, flags));
         }
         for (path, flags) in specs {
             let bytes = fs::read(&path).map_err(|e| (3u8, format!("Subtitle file {}: {e}", path.display())))?;

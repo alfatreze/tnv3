@@ -1455,7 +1455,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "95f098e6d652637f7607c49fc870f918c8653354031542ce7d4130086c7c8a21",
+      "sha256": "4752bc2183363c65c9fdf0ef7364617ad07a8bea12d21f3b136cb0440f117bed",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/index.html": {
@@ -1480,11 +1480,11 @@
       "sha256": "0ecfffb7d5f56008bc478b1d2f17f8e098b64ea7065a190e763befb504dc6014"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
-      "sha256": "21d3bae669dc92bf1a0ada14dfd414c075a03edf90f9bf687112d68f1b0c31fc",
+      "sha256": "913cba038785666aa7e079194a808bc744c4f06f5acfe7a204f7dba7302e77fa",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "03ad409105ffc12392e8450f7f37e686771f8cf5c9a8095bc92f1ed2a43edb28",
+      "sha256": "20c0ac0d915557387ff939b708cb64a22b4c9f5500b0d4b499d948542dfeb0fc",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/build.rs": {
@@ -1509,7 +1509,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "b95570c982e0b69f01b38615e7a799caf1043c1efe4cbddf08d51dd21fae7990",
+      "sha256": "d2041e2bd1b2fd801a7a258ad39940ed58c552facceb0b7459e1ad773b70cf89",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
@@ -1641,7 +1641,7 @@
     },
     "tau-video-cli/src/main.rs": {
       "status": "new_release_file",
-      "sha256": "3ce9edc1e9345e52c37330d8aec4f9f7f99e4830af04831654bdb7939f941255",
+      "sha256": "dd24e36b53ca486ffa178fa38e06d4b7f9a72b517aad22d41641cf8ba4912afd",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-video-cli/smoke.py": {

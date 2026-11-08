@@ -28,8 +28,8 @@ use tau_video::c_encoder::{self, Options, Tools};
 use tau_video::experimental_c_orchestrator::{self, Options as RustCOptions, Tools as RustCTools};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
-/// Convert terminal SIGINT into the same cooperative cancellation path as
-/// control-stdin EOF. The handler itself is owned by signal-hook; work happens
+/// Convert SIGINT (terminal), SIGTERM (`kill`, a quitting parent) and SIGHUP (closed terminal) into the same
+/// cooperative cancellation path as control-stdin EOF, so the supervised tools are stopped too. The handler itself is owned by signal-hook; work happens
 /// on this listener thread, where it is safe to lock/send the active child stop.
 #[cfg(unix)]
 struct SigintCancellation {
@@ -44,9 +44,13 @@ impl SigintCancellation {
         stop: std::sync::Arc<AtomicBool>,
         active_stop: std::sync::Arc<std::sync::Mutex<Option<mpsc::Sender<()>>>>,
     ) -> Result<Self, RunError> {
-        let mut signals = signal_hook::iterator::Signals::new([signal_hook::consts::SIGINT])
+        let mut signals = signal_hook::iterator::Signals::new([
+            signal_hook::consts::SIGINT,
+            signal_hook::consts::SIGTERM,
+            signal_hook::consts::SIGHUP,
+        ])
             .map_err(|error| {
-                RunError::io(format!("Could not install SIGINT cancellation: {error}"))
+                RunError::io(format!("Could not install signal cancellation: {error}"))
             })?;
         let handle = signals.handle();
         let thread = std::thread::Builder::new()
@@ -66,7 +70,7 @@ impl SigintCancellation {
                     }
                 }
             })
-            .map_err(|error| RunError::io(format!("Could not start SIGINT listener: {error}")))?;
+            .map_err(|error| RunError::io(format!("Could not start the signal listener: {error}")))?;
         Ok(Self {
             handle,
             thread: Some(thread),
@@ -1249,7 +1253,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME] [--subtitle-file FILE[:lang[:default][:forced]]]... [--subtitle-track N[:lang[:default][:forced]]]... [--subtitle-font FILE.ttf]... [--subtitle-sizes WxH,...] [--subtitle-outline W[,W...]] [--subtitle-styles FILE.json] [--subtitle-builder-arg ARG]... [--subtitle-builder PATH]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--width 16..800] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli subtitles FILE.tnv3|AREA.bin [--json] [--events] [--render SECONDS OUT.ppm [--layers OUT.bin]] [--track N] [--variant N]\n       tau-codecs-cli build-subtitles OUTPUT.bin --video WxH (--track FILE[:lang[:default][:forced]] | --from-source INPUT --source-track N[:lang[:default][:forced]])... [--font FILE.ttf]... [--sizes WxH,...] [--fps N/D] [--styles FILE.json] [--outline-width W[,W...]] [--builder-arg ARG]... [--builder PATH] [--python PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME] [--subtitle-file FILE[:lang[:default][:forced]]]... [--subtitle-track N[:lang[:default][:forced]]]... [--subtitle-font FILE.ttf]... [--subtitle-sizes WxH,...] [--subtitle-outline W[,W...]] [--subtitle-styles FILE.json] [--subtitle-builder-arg ARG]... [--subtitle-builder PATH]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--width 16..800] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli subtitles FILE.tnv3|AREA.bin [--json] [--events] [--render SECONDS OUT.ppm [--layers OUT.bin]] [--track N] [--variant N]\n       tau-codecs-cli build-subtitles OUTPUT.bin --video WxH (--track FILE[:lang[:default][:forced]] | --from-source INPUT --source-track N[:lang[:default][:forced]])... [--font FILE.ttf]... [--sizes WxH,...] [--fps N/D] [--styles FILE.json] [--outline-width W[,W...]] [--builder-arg ARG]... [--builder PATH] [--python PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT, SIGTERM and SIGHUP cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2056,6 +2060,20 @@ fn run(_args: Args) -> Result<(), RunError> {
 /// Adds TAC audio to the staged video-only TNV3: demux to TVC, encode the source audio (fitted to the
 /// video duration), mux with the C tool, then write the result back into the staged payload (same
 /// inode, so publication sees it). Not cancellable once started.
+/// Removes the listed files or folders when dropped (errors ignored).
+struct StageScratch(Vec<PathBuf>);
+impl Drop for StageScratch {
+    fn drop(&mut self) {
+        for p in &self.0 {
+            if p.is_dir() {
+                let _ = std::fs::remove_dir_all(p);
+            } else {
+                let _ = std::fs::remove_file(p);
+            }
+        }
+    }
+}
+
 fn add_audio_and_subtitles(
     input: &Path,
     track: u32,
@@ -2081,6 +2099,9 @@ fn add_audio_and_subtitles(
         None => None,
     };
     let dir = staged.stage_dir(parent);
+    // Everything this step puts in the private staging directory is removed on every exit, including a stop
+    // request or a failure (the stage itself only removes its own payload files).
+    let _scratch = StageScratch(["audio.wav", "audio.tac", "subtitles.bin", "subs-work"].iter().map(|n| dir.join(n)).collect());
     let video = staged.video_path(parent);
     let mut header = [0u8; 64];
     {

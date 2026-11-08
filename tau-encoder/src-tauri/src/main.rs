@@ -1558,6 +1558,14 @@ fn build_tnv3_with_tac(
                 .map_err(|e| e.to_string())?],
             None => tau_video::subtitle::default_fonts(),
         };
+        // the stream's own language tag (three letters), else "und"
+        let ffprobe_language = {
+            let probe = selected_file(&dependencies.ffprobe, "FFprobe")
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| ffmpeg.with_file_name(executable_name("ffprobe")));
+            tau_video::c_subtitles::stream_language(&probe, input, track)
+        };
         let (srt_guard, srt_file) = temporary_file("ass")?;
         drop(srt_file);
         let mut extract = Command::new(ffmpeg);
@@ -1576,7 +1584,7 @@ fn build_tnv3_with_tac(
             vec![tau_video::subtitle::TrackInput {
                 name: "subtitles.ass".into(),
                 text,
-                language: "und".into(),
+                language: ffprobe_language.unwrap_or_else(|| "und".into()),
                 default: true,
                 forced: false,
                 quiet_font_fallback: true,
@@ -2601,6 +2609,75 @@ fn player_close(state: tauri::State<'_, Mutex<Option<player::Player>>>) -> Resul
     *state.lock().map_err(|_| "Player state unavailable.")? = None;
     Ok(())
 }
+/// Outcome of [`stop_encode_for_quit`].
+#[derive(Debug, PartialEq, Eq)]
+enum QuitWait {
+    NothingRunning,
+    /// The encode was stopped and has finished.
+    Stopped,
+    /// Saving had already started, so it could not be stopped; it finished by itself.
+    SavingFinished,
+    TimedOut,
+}
+
+/// Stops the running encode (if any) and waits until it is over (the busy flag clears) or `limit` passes, so the
+/// tools it started are gone before the app exits.
+fn stop_encode_for_quit(
+    active: &ActiveEncode,
+    decisions: &SourceDecisionState,
+    busy: &Mutex<bool>,
+    limit: std::time::Duration,
+) -> QuitWait {
+    let control = active.0.lock().ok().and_then(|g| g.clone());
+    let Some(control) = control else { return QuitWait::NothingRunning };
+    let stopped = control.request_stop().is_ok();
+    let _ = cancel_pending_source_decision(decisions);
+    let started = std::time::Instant::now();
+    while busy.lock().is_ok_and(|b| *b) {
+        if started.elapsed() > limit {
+            return QuitWait::TimedOut;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    if stopped { QuitWait::Stopped } else { QuitWait::SavingFinished }
+}
+
+fn encode_running(app: &tauri::AppHandle) -> bool {
+    app.state::<ActiveEncode>().0.lock().is_ok_and(|g| g.is_some())
+}
+
+static QUIT_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+
+/// Asks before closing or quitting during an encode. "Keep encoding" leaves everything running; "Stop and quit"
+/// stops the encode (its tools are stopped, nothing is published), waits for it, then exits.
+fn confirm_quit(app: &tauri::AppHandle) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    if QUIT_DIALOG_OPEN.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let handle = app.clone();
+    app.dialog()
+        .message("An encode is still running. If you quit now it is stopped and no file is saved.")
+        .title("Encode in progress")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom("Stop and quit".into(), "Keep encoding".into()))
+        .show(move |stop| {
+            QUIT_DIALOG_OPEN.store(false, Ordering::Release);
+            if !stop {
+                return;
+            }
+            std::thread::spawn(move || {
+                stop_encode_for_quit(
+                    &handle.state::<ActiveEncode>(),
+                    &handle.state::<SourceDecisionState>(),
+                    &handle.state::<Mutex<bool>>(),
+                    std::time::Duration::from_secs(30),
+                );
+                handle.exit(0);
+            });
+        });
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(Mutex::new(false))
@@ -2609,6 +2686,30 @@ fn main() {
         .manage(SourceDecisionState::default())
         .manage(ActiveEncode::default())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            // `kill` (SIGTERM) or a closed terminal (SIGHUP) end an encode cleanly: its tools are stopped first.
+            // SIGKILL and a force quit cannot be intercepted; the app simply dies, as the OS intends.
+            #[cfg(unix)]
+            {
+                let handle = app.handle().clone();
+                if let Ok(mut signals) = signal_hook::iterator::Signals::new([signal_hook::consts::SIGTERM, signal_hook::consts::SIGHUP]) {
+                    std::thread::Builder::new().name("tau-quit-signal".into()).spawn(move || {
+                        if signals.forever().next().is_some() {
+                            stop_encode_for_quit(
+                                &handle.state::<ActiveEncode>(),
+                                &handle.state::<SourceDecisionState>(),
+                                &handle.state::<Mutex<bool>>(),
+                                std::time::Duration::from_secs(10),
+                            );
+                            std::process::exit(143);
+                        }
+                    })?;
+                }
+            }
+            #[cfg(not(unix))]
+            let _ = app;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
             list_audio_tracks,
@@ -2627,8 +2728,19 @@ fn main() {
             open_log_folder,
             player_close
         ])
-        .run(tauri::generate_context!())
-        .expect("Failed to start Tau Encoder");
+        .build(tauri::generate_context!())
+        .expect("Failed to start Tau Encoder")
+        .run(|app, event| match event {
+            tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if encode_running(app) => {
+                api.prevent_close();
+                confirm_quit(app);
+            }
+            tauri::RunEvent::ExitRequested { api, code: None, .. } if encode_running(app) => {
+                api.prevent_exit();
+                confirm_quit(app);
+            }
+            _ => {}
+        });
 }
 
 #[cfg(test)]
@@ -3776,6 +3888,50 @@ mod tests {
         assert!(missing.is_empty(), "These variables are unset or point nowhere: {missing:?}. Run `make rust-conformance`, or set TAU_ALLOW_SKIP=1 to skip on purpose.");
     }
     #[test]
+    fn quit_stops_a_running_encode_waits_for_it_and_reports_each_case() {
+        use std::time::Duration;
+        let decisions = SourceDecisionState::default();
+        // nothing running
+        let none = ActiveEncode::default();
+        assert_eq!(stop_encode_for_quit(&none, &decisions, &Mutex::new(false), Duration::from_millis(100)), QuitWait::NothingRunning);
+        // a running encode: the stop request is made and the call waits until the encode clears the busy flag
+        let control = Arc::new(JobControl::default());
+        let active = ActiveEncode(Mutex::new(Some(control.clone())));
+        let busy = Arc::new(Mutex::new(true));
+        let (watch, flag) = (control.clone(), busy.clone());
+        let worker = std::thread::spawn(move || {
+            while !watch.stop_requested.load(Ordering::Acquire) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            std::thread::sleep(Duration::from_millis(120));
+            *flag.lock().unwrap() = false; // the encode noticed the stop and finished
+        });
+        assert_eq!(stop_encode_for_quit(&active, &decisions, &busy, Duration::from_secs(5)), QuitWait::Stopped);
+        worker.join().unwrap();
+        assert!(control.stop_requested.load(Ordering::Acquire));
+        // an encode that does not end: the wait gives up
+        let stuck = ActiveEncode(Mutex::new(Some(Arc::new(JobControl::default()))));
+        assert_eq!(stop_encode_for_quit(&stuck, &decisions, &Mutex::new(true), Duration::from_millis(200)), QuitWait::TimedOut);
+        // saving already started: it cannot be stopped, the call waits for it to finish
+        let saving = Arc::new(JobControl::default());
+        saving.begin_publish().unwrap();
+        let active = ActiveEncode(Mutex::new(Some(saving)));
+        let busy = Arc::new(Mutex::new(true));
+        let flag = busy.clone();
+        let finisher = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            *flag.lock().unwrap() = false;
+        });
+        assert_eq!(stop_encode_for_quit(&active, &decisions, &busy, Duration::from_secs(5)), QuitWait::SavingFinished);
+        finisher.join().unwrap();
+        // a waiting source-decision prompt is answered "stop"
+        let (tx, rx) = mpsc::sync_channel(1);
+        *decisions.0.lock().unwrap() = Some(PendingSourceDecision { job_id: "j".into(), reply: tx });
+        let active = ActiveEncode(Mutex::new(Some(Arc::new(JobControl::default()))));
+        stop_encode_for_quit(&active, &decisions, &Mutex::new(false), Duration::from_millis(100));
+        assert_eq!(rx.try_recv(), Ok(false));
+    }
+    #[test]
     fn log_start_event_records_settings_tools_and_machine_and_logging_defaults_on() {
         assert!(AdvancedSettings::default().keep_log(), "the log is on unless the setting says false");
         assert!(!AdvancedSettings { keep_log: Some(false), ..Default::default() }.keep_log());
@@ -3853,7 +4009,7 @@ mod tests {
         assert!(Command::new(&ffmpeg).args([
             "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24:duration=2",
             "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2", "-i",
-        ]).arg(&srt.0).args(["-map", "0", "-map", "1", "-map", "2", "-c:v", "mpeg4", "-c:a", "aac", "-c:s", "srt"]).arg(&src.0).status().unwrap().success());
+        ]).arg(&srt.0).args(["-map", "0", "-map", "1", "-map", "2", "-c:v", "mpeg4", "-c:a", "aac", "-c:s", "srt", "-metadata:s:s:0", "language=por"]).arg(&src.0).status().unwrap().success());
         let (reserve, f) = temporary_file("tnv3").unwrap();
         drop(f);
         std::fs::remove_file(&reserve.0).unwrap();
@@ -3864,6 +4020,9 @@ mod tests {
         let video = Temporary(PathBuf::from(&result.video));
         let info = tau_video::Tnv3Reader::open(File::open(&video.0).unwrap()).unwrap().info().clone();
         assert!(info.flags & 4 != 0 && info.subtitle_length > 0, "subtitle area present");
+        let area = tau_video::Tnv3Reader::open(File::open(&video.0).unwrap()).unwrap().read_subtitle_area().unwrap().unwrap();
+        assert_eq!(area.tracks[0].language, "por", "the stream's own language tag is used");
+        assert_eq!(area.tracks[0].variants.len(), 4, "the four Pocket sizes");
         let check = Command::new(&tnv3).arg("check").arg(&video.0).output().unwrap();
         assert!(String::from_utf8_lossy(&check.stdout).contains("valid"), "{check:?}");
         // with no font configured the built-in Roboto is used

@@ -11,7 +11,7 @@ default = []
 experimental-rust-encoder = ["tau-video/experimental-rust-encoder", "tau-video/safe-rate"]
 
 [dependencies]
-tau-video = { path = "../../tau-video", features = ["c-encoder", "experimental-c-orchestrator", "c-audio-decoder", "subtitle-builder"] }
+tau-video = { path = "../../tau-video", features = ["c-encoder", "experimental-c-orchestrator", "c-audio-decoder", "subtitle-builder", "c-subtitles"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
@@ -24,6 +24,9 @@ opt-level = 3
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

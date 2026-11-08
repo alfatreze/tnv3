@@ -44,3 +44,4 @@
 | Subtitle sizes (owner 2026-11-08, Tau V 001 F-004 / R-004, 002 F-009) | Pocket defaults 32x44..56x76, outline 2,3,3,4, bar; 1 MB warning | owner | DONE; my miss: defaults of tst_build.py were ported without applying their messages |
 | Encode log (owner 2026-11-08) | JSON-lines per encode, Settings toggle default on | owner | DONE |
 | First real episode on the Pocket (owner 2026-11-08) | works on the Pocket per owner; subtitles were too small | owner | see 6k |
+| Pending fixes 1-3 and 5 (owner 2026-11-08) | SIGTERM/HUP stop CLI cleanly (+ staging cleanup fix), subtitle language from stream, flaky probe test fixed, quit dialog during encode | owner | DONE; dialog not seen in the real window |
