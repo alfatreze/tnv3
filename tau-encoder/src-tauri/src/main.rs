@@ -662,8 +662,8 @@ struct Dependencies {
     tvc_encoder: String,
     tnv3_tool: String,
     tac_tool: String,
-    /// Tau V's `tst_build.py` (needs Python 3 with Pillow); required only when subtitles are selected.
-    tst_builder: String,
+    /// TrueType font for drawn subtitles; required only when subtitles are selected.
+    subtitle_font: String,
     workspace_limit_bytes: u64,
 }
 fn selected_file(value: &str, label: &str) -> Result<Option<PathBuf>, String> {
@@ -1451,18 +1451,14 @@ fn build_tnv3_with_tac(
     let (area_guard, area_file) = temporary_file("bin")?;
     drop(area_file);
     if let Some(track) = subtitle_track {
-        let python = selected_file(&dependencies.python, "Python")?
-            .map(|p| p.into_os_string())
-            .or_else(|| std::env::var_os("TAU_PYTHON"))
-            .unwrap_or_else(|| if cfg!(windows) { "python".into() } else { "python3".into() });
-        let builder = selected_file(&dependencies.tst_builder, "Subtitle builder")?
-            .or_else(|| std::env::var_os("TAU_TST_BUILD").map(PathBuf::from).filter(|p| p.is_file()))
-            .ok_or("Subtitles need the subtitle builder (tst_build.py); set it in Dependency settings.")?;
-        let font = builder
-            .parent()
-            .map(|d| d.join("fonts").join("Roboto-Regular.ttf"))
-            .filter(|p| p.is_file())
-            .ok_or("No subtitle font found next to the subtitle builder (fonts/Roboto-Regular.ttf).")?;
+        let font_path = selected_file(&dependencies.subtitle_font, "Subtitle font")?
+            .or_else(|| std::env::var_os("TAU_SUBTITLE_FONT").map(PathBuf::from).filter(|p| p.is_file()))
+            .or_else(|| {
+                std::env::var_os("TAU_V_ROOT")
+                    .map(|r| PathBuf::from(r).join("tools/tst_ref/fonts/Roboto-Regular.ttf"))
+                    .filter(|p| p.is_file())
+            })
+            .ok_or("Subtitles need a font: choose a .ttf file as the subtitle font in Dependency settings.")?;
         let (srt_guard, srt_file) = temporary_file("srt")?;
         drop(srt_file);
         let mut extract = Command::new(ffmpeg);
@@ -1474,26 +1470,28 @@ fn build_tnv3_with_tac(
             .args(["-c:s", "srt", "-f", "srt"])
             .arg(&srt_guard.0);
         run_cancellable(extract, "Subtitle extraction (only text subtitles can be converted)", control)?;
-        let mut build = Command::new(python);
-        build
-            .arg(&builder)
-            .arg("--track")
-            .arg(format!("{}", srt_guard.0.display()))
-            .args(["--sizes", "16x24,20x28,26x36", "--font"])
-            .arg(&font)
-            .arg("--video")
-            .arg(format!("{picture_w}x{picture_h}"))
-            .arg("--fps")
-            .arg(format!("{fps_n}/{fps_d}"))
-            .arg("-o")
-            .arg(&area_guard.0);
-        let details = run_cancellable(build, "Subtitle builder", control)?;
-        warnings.extend(
-            details
-                .lines()
-                .filter(|l| l.to_ascii_lowercase().contains("warning"))
-                .map(|l| format!("Subtitles: {l}")),
+        control.checkpoint()?;
+        let text = std::fs::read_to_string(&srt_guard.0)
+            .map_err(|e| format!("Could not read the extracted subtitles: {e}"))?;
+        let font = tau_video::subtitle::FontSpec::from_argument(&font_path.display().to_string())
+            .map_err(|e| e.to_string())?;
+        let mut options = tau_video::subtitle::Options::new(
+            vec![tau_video::subtitle::TrackInput {
+                name: "subtitles.srt".into(),
+                text,
+                language: "und".into(),
+                default: true,
+                forced: false,
+            }],
+            vec![font],
+            (picture_w, picture_h),
         );
+        options.fps = Some((fps_n, fps_d));
+        options.cells = vec![(16, 24), (20, 28), (26, 36)];
+        let (area, info) = tau_video::subtitle::build_area(&options)
+            .map_err(|e| format!("Subtitle authoring failed: {e}"))?;
+        std::fs::write(&area_guard.0, &area).map_err(|e| format!("Could not write the subtitle area: {e}"))?;
+        warnings.extend(info.warnings.iter().map(|w| format!("Subtitles: {w}")));
     }
     let (out_guard, out_file) = temporary_file("tnv3")?;
     drop(out_file);
@@ -3518,7 +3516,7 @@ mod tests {
             tvc_encoder: PathBuf::from(tvc).display().to_string(),
             tnv3_tool: PathBuf::from(tnv3).display().to_string(),
             tac_tool: String::new(),
-            tst_builder: String::new(),
+            subtitle_font: String::new(),
             workspace_limit_bytes: 512u64 * 1024 * 1024,
         };
         let f = selected_file(&dependencies.ffmpeg, "FFmpeg")
@@ -3583,7 +3581,7 @@ mod tests {
             std::env::var_os("TAU_TEST_TVC"),
             std::env::var_os("TAU_TEST_TNV3"),
             std::env::var_os("TAU_TEST_TAC"),
-            std::env::var_os("TAU_TEST_TST_BUILD"),
+            std::env::var_os("TAU_TEST_FONT"),
         ) else {
             return;
         };
@@ -3591,7 +3589,7 @@ mod tests {
             tvc_encoder: PathBuf::from(tvc).display().to_string(),
             tnv3_tool: PathBuf::from(&tnv3).display().to_string(),
             tac_tool: PathBuf::from(tac).display().to_string(),
-            tst_builder: PathBuf::from(builder).display().to_string(),
+            subtitle_font: PathBuf::from(builder).display().to_string(),
             workspace_limit_bytes: 512u64 * 1024 * 1024,
             ..Default::default()
         };
@@ -3616,20 +3614,28 @@ mod tests {
         assert!(info.flags & 4 != 0 && info.subtitle_length > 0, "subtitle area present");
         let check = Command::new(&tnv3).arg("check").arg(&video.0).output().unwrap();
         assert!(String::from_utf8_lossy(&check.stdout).contains("valid"), "{check:?}");
-        // a missing builder fails before anything is published
-        let no_builder = Dependencies { tst_builder: String::new(), ..dependencies.clone() };
+        // a missing font fails before anything is published
+        let no_builder = Dependencies { subtitle_font: String::new(), ..dependencies.clone() };
         let (reserve2, f) = temporary_file("tnv3").unwrap();
         drop(f);
         std::fs::remove_file(&reserve2.0).unwrap();
         let name2 = reserve2.0.file_stem().unwrap().to_str().unwrap();
-        let prior = std::env::var_os("TAU_TST_BUILD");
-        // SAFETY: tests that touch this variable run in this single test only.
-        unsafe { std::env::remove_var("TAU_TST_BUILD") };
-        let error = encode_pair(Path::new(&ffmpeg), &src.0, folder, name2, 30, None, settings, &no_builder, |_| {}).unwrap_err();
-        if let Some(p) = prior {
-            unsafe { std::env::set_var("TAU_TST_BUILD", p) };
+        let prior = (std::env::var_os("TAU_SUBTITLE_FONT"), std::env::var_os("TAU_V_ROOT"));
+        // SAFETY: tests that touch these variables run in this single test only.
+        unsafe {
+            std::env::remove_var("TAU_SUBTITLE_FONT");
+            std::env::remove_var("TAU_V_ROOT");
         }
-        assert!(error.contains("subtitle builder"), "{error}");
+        let error = encode_pair(Path::new(&ffmpeg), &src.0, folder, name2, 30, None, settings, &no_builder, |_| {}).unwrap_err();
+        unsafe {
+            if let Some(p) = prior.0 {
+                std::env::set_var("TAU_SUBTITLE_FONT", p);
+            }
+            if let Some(p) = prior.1 {
+                std::env::set_var("TAU_V_ROOT", p);
+            }
+        }
+        assert!(error.contains("font"), "{error}");
         assert!(!reserve2.0.exists());
     }
     #[test]

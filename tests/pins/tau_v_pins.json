@@ -3,7 +3,7 @@
   "purpose": "Pins to Tau V files, referenced in place and not copied (Tau V convention, docs/interop/README.md). Verify with tests/pins/check_pins.py.",
   "source_repo": "tau-nu/.claude/worktrees/codec-alternatives",
   "source_commit": "f930a740 (committed 2026-11-08; the 04d2a61d base plus the subtitle work)",
-  "source_tree_state": "committed; all 10 pinned hashes unchanged by the commit (verified)",
+  "source_tree_state": "2026-11-08 later: the pins from commit f930a740 plus uncommitted Tau V work (n22 vector, expected.txt, make_vectors.py); re-pin when Tau V commits",
   "pinned": "2026-11-08",
   "owner_go": "2026-11-08 (user: yes you can pin)",
   "files": [
@@ -387,10 +387,10 @@
     },
     {
       "path": "tools/tnv3_ref/vectors/expected.txt",
-      "sha256": "02e327d0d351c54d38ba83fd8f9b5d355385290ed990956d3a7c8677561341cd",
-      "bytes": 3478,
+      "sha256": "06b6efd8d297ac09d7d76f39240885f9e24e5aeeb1927d8bd1445210e6470dbd",
+      "bytes": 3580,
       "kind": "tnv3-vector",
-      "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+      "why": "TVC/TNV3 conformance vector expected.txt; re-pinned 2026-11-08 after Tau V added n22_video_codec (their 005 F-3), 31 vectors"
     },
     {
       "path": "tools/tnv3_ref/vectors/n01_header_crc.tnv3",
@@ -601,6 +601,27 @@
       "bytes": 113696,
       "kind": "tnv3-vector",
       "why": "TVC/TNV3 conformance vector (valid v*/p*, must-reject n*), expected.txt"
+    },
+    {
+      "path": "tools/tnv3_ref/vectors/n22_video_codec.tnv3",
+      "sha256": "26adbb000a3cb59971cb30ee06f0eee0b36c502cc66d96269e5c451740cb1fed",
+      "bytes": 68296,
+      "kind": "tnv3-vector",
+      "why": "must-reject: header byte 22 (video codec id) = 1, header CRC fixed (Tau V 005 F-3)"
+    },
+    {
+      "path": "tools/tst_ref/fonts/Roboto-Regular.ttf",
+      "sha256": "15256405ecb0d880678833a582760efad538ab2932318b52c8105b267d159459",
+      "bytes": 159108,
+      "kind": "font",
+      "why": "test font for the native subtitle builder (OFL, Tau V)"
+    },
+    {
+      "path": "tools/tst_ref/fonts/Roboto-Italic.ttf",
+      "sha256": "6a372c348dc20c246b92d60b9bda3c0a9ffedc129790ed3f31faf89daa99d793",
+      "bytes": 165268,
+      "kind": "font",
+      "why": "italic face used by the demon sample (OFL, Tau V)"
     }
   ]
 }

@@ -61,8 +61,8 @@
   let page: 'encoder' | 'decoder' | 'settings' = 'encoder';
   let player: { pausePlayback: () => void } | undefined;
   let roundDown = false, eofPass = false;
-  type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool' | 'tacTool' | 'tstBuilder';
-  let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '', tacTool: '', tstBuilder: '' };
+  type DependencyKey = 'ffmpeg' | 'ffprobe' | 'python' | 'script' | 'tvcEncoder' | 'tnv3Tool' | 'tacTool' | 'subtitleFont';
+  let dependencies: Record<DependencyKey, string> = { ffmpeg: '', ffprobe: '', python: '', script: '', tvcEncoder: '', tnv3Tool: '', tacTool: '', subtitleFont: '' };
   type ToolDiscovery = { key: DependencyKey; automatic: string; candidates: string[] };
   let discovered: ToolDiscovery[] = [], discoveryError = '', discovering = false, discoveryRequest = 0;
   const dependencyFields: { key: DependencyKey; label: string; help: string }[] = [
@@ -73,7 +73,7 @@
     { key: 'tvcEncoder', label: 'TVC encoder', help: 'Select tvc_enc (or tvc_enc.exe)' },
     { key: 'tnv3Tool', label: 'TNV3 tool', help: 'Select tnv3 (or tnv3.exe)' },
     { key: 'tacTool', label: 'TAC audio encoder', help: 'Select tac (or tac.exe)' },
-    { key: 'tstBuilder', label: 'Subtitle builder', help: 'Select tst_build.py (only needed to add subtitles; needs Python 3 with Pillow)' },
+    { key: 'subtitleFont', label: 'Subtitle font', help: 'Select a .ttf font (only needed to add subtitles)' },
   ];
   function saveDependencies() {
     try { localStorage.setItem('tau-encoder-dependencies', JSON.stringify(dependencies)); } catch { /* Keep settings for this session. */ }
@@ -220,7 +220,7 @@
   <section aria-label="Video settings">
     <div class="field"><label for="input">Source video <small>MP4, MKV, MOV and more</small></label><div class="pick"><input id="input" value={input} readonly placeholder="Choose a video file" /><button type="button" onclick={chooseInput} disabled={busy}>Browse</button></div></div>
     {#if audioTracks.length > 1}<div class="field"><label for="audioTrack">Audio track <small>This source has {audioTracks.length} audio tracks</small></label><select id="audioTrack" bind:value={audioTrack} disabled={busy}>{#each audioTracks as t}<option value={t.index}>{trackLabel(t)}</option>{/each}</select></div>{/if}
-    {#if subtitleTracks.length > 0}<div class="field"><label for="subtitleTrack">Subtitles <small>Text subtitles are drawn into the file; needs the subtitle builder in Settings</small></label><select id="subtitleTrack" bind:value={subtitleTrack} disabled={busy}><option value={-1}>No subtitles</option>{#each subtitleTracks as t}<option value={t.index} disabled={!t.text}>{subtitleLabel(t)}</option>{/each}</select></div>{/if}
+    {#if subtitleTracks.length > 0}<div class="field"><label for="subtitleTrack">Subtitles <small>Text subtitles are drawn into the file; needs a subtitle font in Settings</small></label><select id="subtitleTrack" bind:value={subtitleTrack} disabled={busy}><option value={-1}>No subtitles</option>{#each subtitleTracks as t}<option value={t.index} disabled={!t.text}>{subtitleLabel(t)}</option>{/each}</select></div>{/if}
     <div class="field"><label for="folder">Output folder <small>Choose a folder or card</small></label><div class="pick"><input id="folder" value={folder} readonly placeholder="Choose where to save" /><button type="button" onclick={chooseFolder} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="name">File name <small>Creates one .tnv3 file with audio inside</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}

@@ -1367,6 +1367,8 @@ pub mod c_audio;
 pub mod c_mux;
 #[cfg(feature = "c-subtitles")]
 pub mod c_subtitles;
+#[cfg(feature = "subtitle-builder")]
+pub mod subtitle;
 
 /// Experimental Y4M-to-C segment orchestration, disabled by default.
 #[cfg(feature = "experimental-c-orchestrator")]

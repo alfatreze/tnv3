@@ -13,6 +13,7 @@ c-encoder = ["dep:serde_json"]
 c-audio-decoder = []
 c-mux = []
 c-subtitles = []
+subtitle-builder = ["dep:ab_glyph", "dep:unicode-normalization", "dep:regex"]
 experimental-c-orchestrator = []
 experimental-rust-encoder = []
 mp3-cli = []
@@ -22,6 +23,9 @@ safe-rate = ["experimental-rust-encoder"]
 
 [dependencies]
 serde_json = { version = "1", optional = true }
+ab_glyph = { version = "0.2", optional = true }
+unicode-normalization = { version = "0.1", optional = true }
+regex = { version = "1", optional = true, default-features = false, features = ["std", "unicode-perl", "unicode-case", "unicode-gencat"] }
 
 [[bin]]
 name = "tau-video"

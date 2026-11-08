@@ -23,3 +23,6 @@
 | Tauri app on TAC (owner 2026-11-08) | one `.tnv3` with embedded TAC; MP3 UI removed; UI/player not run | owner | DONE in code, UI unverified |
 | Audio track selection (owner 2026-11-08) | CLI `--audio-track`, app dropdown; subtitle selection waits for authoring | owner | DONE (audio); subtitle OPEN |
 | Subtitle authoring (owner 2026-11-08) | wrapper of Tau V `tst_build.py`: `build-subtitles`, `encode --subtitle-*`, app dropdown; clamp warnings reported | owner | FIRST VERSION DONE; Rust port, ASS styles, presets open |
+| TV/005 F-3, 006 (their) | n22 vector pinned; 800 failure is their decoder size limit | Tau V | CLOSED here (to-tau-v/006) |
+| Pure-Rust subtitle builder (owner 2026-11-08) | native default; matches Tau V events byte-for-byte | owner | DONE; default font decision, R-4 clamp open |
+| R-4 clamp case | what the spec says when the stack does not fit above row 0 | Tau V | OPEN (we follow their tool) |

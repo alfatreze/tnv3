@@ -28,6 +28,10 @@ to third-party components. See `LICENSES/README.md`.
 - Source: <https://github.com/alfatreze/Tau-Alpha>
 - License for Tau-authored code and documentation: Apache-2.0 (MIT before 2026-11-08)
 
+## Rust dependencies of the subtitle builder
+
+The optional `subtitle-builder` feature of `tau-video` uses the crates `ab_glyph` (Apache-2.0), `unicode-normalization` (MIT or Apache-2.0) and `regex` (MIT or Apache-2.0), each under its own licence.
+
 ## Components with separate terms
 
 - Helix MP3 decoder: RealNetworks Public Source License 1.0. Its notices and

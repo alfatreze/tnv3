@@ -92,7 +92,7 @@ fn find_builder(explicit: Option<&Path>) -> Result<PathBuf, String> {
 
 /// Builds the area at `out`. `workdir` must exist and is used for extracted text; files created there
 /// are removed before returning. `source` and `ffmpeg` are needed only for source tracks.
-pub fn build(
+fn build_with_python(
     req: &Request,
     source: Option<&Path>,
     ffmpeg: Option<&Path>,
@@ -146,6 +146,168 @@ pub fn build(
             out,
         )
         .map_err(classify)
+    })();
+    for f in extracted {
+        let _ = fs::remove_file(f);
+    }
+    result
+}
+
+/// Whether the legacy Python builder was asked for (explicit path or `TAU_TST_BUILD`).
+fn wants_python(req: &Request) -> bool {
+    req.builder.is_some() || env::var_os("TAU_TST_BUILD").is_some()
+}
+
+/// Builds the area at `out`: natively in Rust by default; with Tau V's Python builder only when a builder
+/// path is given (`--builder`, `--subtitle-builder` or `TAU_TST_BUILD`). `workdir` must exist.
+pub fn build(
+    req: &Request,
+    source: Option<&Path>,
+    ffmpeg: Option<&Path>,
+    video: (u32, u32),
+    fps: Option<(u32, u32)>,
+    workdir: &Path,
+    out: &Path,
+) -> Result<BuildReport, (u8, String)> {
+    if wants_python(req) {
+        build_with_python(req, source, ffmpeg, video, fps, workdir, out)
+    } else {
+        build_native(req, source, ffmpeg, video, fps, workdir, out)
+    }
+}
+
+fn find_font() -> Option<String> {
+    env::var_os("TAU_SUBTITLE_FONT")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("TAU_V_ROOT").map(|r| PathBuf::from(r).join("tools/tst_ref/fonts/Roboto-Regular.ttf")))
+        .filter(|p| p.is_file())
+        .map(|p| p.display().to_string())
+}
+
+fn parse_sizes(s: &str) -> Result<Vec<(u32, u32)>, String> {
+    s.split(',')
+        .map(|p| {
+            let (w, h) = p.split_once('x').ok_or("sizes must be WxH,WxH,...")?;
+            Ok((w.parse().map_err(|_| "sizes must be WxH,WxH,...")?, h.parse().map_err(|_| "sizes must be WxH,WxH,...")?))
+        })
+        .collect()
+}
+
+fn apply_extra(o: &mut tau_video::subtitle::Options, extra: &[OsString]) -> Result<(), String> {
+    use tau_video::subtitle::{Align, Placement};
+    let mut it = extra.iter().map(|a| a.to_string_lossy().into_owned());
+    while let Some(k) = it.next() {
+        let mut val = |what: &str| it.next().ok_or_else(|| format!("{what} needs a value"));
+        match k.as_str() {
+            "--align" => o.align = match val("--align")?.as_str() { "center" => Align::Center, "block" => Align::Block, _ => return Err("--align is center or block".into()) },
+            "--placement" => o.placement = match val("--placement")?.as_str() { "auto" => Placement::Auto, "bar" => Placement::Bar, "picture" => Placement::Picture, _ => return Err("--placement is auto, bar or picture".into()) },
+            "--margin" => o.margin = val("--margin")?.parse().map_err(|_| "--margin is a number")?,
+            "--bottom" => o.bottom = val("--bottom")?.parse().map_err(|_| "--bottom is a number")?,
+            "--font-size" => o.font_size = Some(val("--font-size")?.parse().map_err(|_| "--font-size is a number")?),
+            "--italic-color" => {
+                let v = val("--italic-color")?;
+                let n = u32::from_str_radix(&v, 16).ok().filter(|_| v.len() == 6).ok_or("--italic-color is RRGGBB")?;
+                o.italic_rgb = ((n >> 16) as u8, (n >> 8) as u8, n as u8);
+            }
+            "--no-center-single" => o.center_single = false,
+            "--no-sdh" => o.sdh = false,
+            other => return Err(format!("unknown subtitle option {other} (native builder knows --align, --placement, --margin, --bottom, --font-size, --italic-color, --no-center-single, --no-sdh)")),
+        }
+    }
+    Ok(())
+}
+
+fn load_styles(path: &Path) -> Result<std::collections::BTreeMap<String, tau_video::subtitle::SpeakerStyle>, String> {
+    let text = fs::read_to_string(path).map_err(|e| format!("styles file {}: {e}", path.display()))?;
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("styles file: {e}"))?;
+    let obj = v.as_object().ok_or("styles file must be a JSON object")?;
+    let mut out = std::collections::BTreeMap::new();
+    for (k, s) in obj {
+        let o = s.as_object().filter(|o| !k.is_empty() && o.keys().all(|k| matches!(k.as_str(), "font" | "color" | "bold" | "italic")))
+            .ok_or_else(|| format!("styles file: entry {k:?} needs an object with font/color/bold/italic"))?;
+        out.insert(k.clone(), tau_video::subtitle::SpeakerStyle {
+            font: o.get("font").and_then(|x| x.as_str()).map(str::to_owned),
+            color: o.get("color").and_then(|x| x.as_str()).map(str::to_owned),
+            bold: o.get("bold").and_then(|x| x.as_bool()),
+            italic: o.get("italic").and_then(|x| x.as_bool()),
+        });
+    }
+    Ok(out)
+}
+
+fn build_native(
+    req: &Request,
+    source: Option<&Path>,
+    ffmpeg: Option<&Path>,
+    video: (u32, u32),
+    fps: Option<(u32, u32)>,
+    workdir: &Path,
+    out: &Path,
+) -> Result<BuildReport, (u8, String)> {
+    use tau_video::subtitle::{self, FontSpec, TrackInput};
+    let usage = |e: String| (2u8, e);
+    let font_args: Vec<String> = if req.fonts.is_empty() {
+        vec![find_font().ok_or_else(|| usage("A subtitle font is required: pass --font FILE.ttf (or set TAU_SUBTITLE_FONT).".into()))?]
+    } else {
+        req.fonts.clone()
+    };
+    let fonts = font_args.iter().map(|a| FontSpec::from_argument(a.as_str()).map_err(|e| usage(e.to_string()))).collect::<Result<Vec<_>, _>>()?;
+    let mut tracks = Vec::new();
+    let mut extracted = Vec::new();
+    let result = (|| {
+        let mut specs: Vec<(PathBuf, tau_video::c_subtitles::TrackSpec)> = req.files.iter().map(|t| (t.path.clone(), t.clone())).collect();
+        for (n, (index, flags)) in req.source_tracks.iter().enumerate() {
+            let (Some(source), Some(ffmpeg)) = (source, ffmpeg) else {
+                return Err((2, "Subtitle tracks from the source need the source file and FFmpeg.".to_owned()));
+            };
+            let file = workdir.join(format!("subtitle-{n}.srt"));
+            tau_video::c_subtitles::extract_text_subtitle(ffmpeg, source, *index, &file).map_err(classify)?;
+            extracted.push(file.clone());
+            specs.push((file, flags.clone()));
+        }
+        for (path, flags) in specs {
+            let bytes = fs::read(&path).map_err(|e| (3u8, format!("Subtitle file {}: {e}", path.display())))?;
+            let text = String::from_utf8(bytes).map_err(|_| (2u8, format!("Subtitle file {} is not UTF-8.", path.display())))?;
+            tracks.push(TrackInput {
+                name: path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()),
+                text,
+                language: flags.language.clone().unwrap_or_else(|| "und".into()),
+                default: flags.default,
+                forced: flags.forced,
+            });
+        }
+        let mut o = subtitle::Options::new(tracks, fonts, video);
+        o.fps = fps;
+        if let Some(sz) = &req.sizes {
+            o.cells = parse_sizes(sz).map_err(usage)?;
+        }
+        if let Some(w) = &req.outline_width {
+            o.outline_widths = w.split(',').map(|x| x.parse::<u8>().map_err(|_| usage("--outline-width is W or W,W,... (0..4)".into()))).collect::<Result<_, _>>()?;
+        }
+        if let Some(p) = &req.styles {
+            o.styles = load_styles(p).map_err(usage)?;
+        }
+        apply_extra(&mut o, &req.extra).map_err(usage)?;
+        let (area, info) = subtitle::build_area(&o).map_err(|e| (1u8, format!("Subtitle builder: {e}")))?;
+        let mut f = fs::OpenOptions::new().write(true).create_new(true).open(out).map_err(|e| (if e.kind() == std::io::ErrorKind::AlreadyExists { 2 } else { 3 }, format!("Output {}: {e}", out.display())))?;
+        use std::io::Write;
+        if let Err(e) = f.write_all(&area).and_then(|_| f.sync_all()) {
+            drop(f);
+            let _ = fs::remove_file(out);
+            return Err((3, format!("Could not write the subtitle area: {e}")));
+        }
+        let mut summary = Vec::new();
+        for t in &info.tracks {
+            for v in &t.variants {
+                summary.push(format!(
+                    "{} {}x{}: {} events ({} dropped), {} records ({} sdh, {} forced, {} colour switches), glyphs {} ({} B, {} faces), events {} B, font {:.2} px, {}, max lines {}, {} colours",
+                    t.name, v.cell.0, v.cell.1, t.events_in, t.dropped, v.events_out, v.sdh_events, v.forced_events, v.switches,
+                    v.glyphs, v.glyph_bytes, v.faces, v.sub_bytes, v.size, v.region, v.max_lines, t.colours
+                ));
+            }
+        }
+        summary.push(format!("area {} B", info.bytes));
+        Ok(BuildReport { bytes: info.bytes as u64, warnings: info.warnings, summary })
     })();
     for f in extracted {
         let _ = fs::remove_file(f);

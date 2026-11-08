@@ -1,0 +1,148 @@
+//! Pure-Rust subtitle area builder (TNV3 container section 6, drafts 1.4 to 1.6): SRT / ASS tracks and fonts in,
+//! one subtitle area out. It is a port of Tau V's reference builder `tools/tst_ref/tst_build.py` (layout,
+//! wrapping, stacking, palette, SDH and forced flags, baked outline, packing) with `ab_glyph` for glyph
+//! rasterisation instead of Pillow, so it needs no Python. Output is structurally the same as the
+//! reference's but not byte-identical: outlines are unhinted, so glyph pixels (and rarely a chosen font
+//! size or an advance) can differ. The area is checked with this crate's own subtitle validator before
+//! it is returned.
+//!
+//! Known gaps against the reference: ASS positioning and size overrides are ignored (as there); HTML
+//! entity and Unicode category handling are approximations (see `text.rs`); the placement case in which a
+//! stack does not fit above row 0 is reported as a warning and clamped to row 0, exactly like Tau V's tool
+//! (their known defect), not fixed.
+mod build;
+mod font;
+mod text;
+
+pub use build::{BuildInfo, TrackInfo, VariantInfo};
+pub use font::{FontSpec, Style};
+
+use std::{collections::BTreeMap, fmt};
+
+/// Failure of the builder.
+#[derive(Debug)]
+pub struct Error(pub String);
+impl Error {
+    pub(crate) fn new(s: impl Into<String>) -> Self {
+        Error(s.into())
+    }
+}
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for Error {}
+
+/// A subtitle track's text (SRT, or ASS/SSA when `name` ends in `.ass` or `.ssa`).
+#[derive(Clone, Debug)]
+pub struct TrackInput {
+    /// File name, used for the format decision and in messages.
+    pub name: String,
+    /// Decoded text (UTF-8; a BOM is removed).
+    pub text: String,
+    /// Two to four lower-case ASCII letters; `und` if unknown.
+    pub language: String,
+    pub default: bool,
+    pub forced: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Align {
+    /// One event per line, centred (default).
+    Center,
+    /// Lines with equal SDH state become one event with line breaks.
+    Block,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Placement {
+    Auto,
+    Bar,
+    Picture,
+}
+
+/// Speaker style sheet entry: a source line starting with the prefix is restyled.
+#[derive(Clone, Debug, Default)]
+pub struct SpeakerStyle {
+    pub font: Option<String>,
+    /// `RRGGBB` or a colour name.
+    pub color: Option<String>,
+    pub bold: Option<bool>,
+    pub italic: Option<bool>,
+}
+
+#[derive(Clone)]
+pub struct Options {
+    pub tracks: Vec<TrackInput>,
+    pub fonts: Vec<FontSpec>,
+    /// Cell sizes (width, height) with strictly increasing height.
+    pub cells: Vec<(u32, u32)>,
+    /// Picture size (it is centred vertically in the 800x720 grid).
+    pub video: (u32, u32),
+    /// Snap event times to picture boundaries.
+    pub fps: Option<(u32, u32)>,
+    /// Base font size in grid pixels (single size only); `None` = the largest that fits.
+    pub font_size: Option<f64>,
+    pub margin: u32,
+    pub bottom: u32,
+    pub align: Align,
+    pub placement: Placement,
+    /// Set the SDH flag automatically.
+    pub sdh: bool,
+    /// Prefix -> style (sorted by prefix).
+    pub styles: BTreeMap<String, SpeakerStyle>,
+    /// Colour for italics when the family has no italic face.
+    pub italic_rgb: (u8, u8, u8),
+    /// Centre a lone single line in the space of two (default on).
+    pub center_single: bool,
+    /// Baked outline radius 0..4: one value for every size, or one per size.
+    pub outline_widths: Vec<u8>,
+}
+impl Options {
+    /// Defaults of the reference builder for the given inputs.
+    pub fn new(tracks: Vec<TrackInput>, fonts: Vec<FontSpec>, video: (u32, u32)) -> Self {
+        Options {
+            tracks,
+            fonts,
+            cells: vec![(20, 28)],
+            video,
+            fps: None,
+            font_size: None,
+            margin: 40,
+            bottom: 24,
+            align: Align::Center,
+            placement: Placement::Auto,
+            sdh: true,
+            styles: BTreeMap::new(),
+            italic_rgb: (255, 224, 64),
+            center_single: true,
+            outline_widths: vec![2],
+        }
+    }
+}
+
+/// Builds the subtitle area. Warnings (placement clamps, clipped glyphs, missing characters, ...) are
+/// returned in [`BuildInfo::warnings`], never dropped.
+pub fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
+    build::build_area(o)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn font_argument_forms_are_parsed() {
+        let dir = std::env::temp_dir().join(format!("tau-font-arg-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.ttf");
+        std::fs::write(&f, b"not a font").unwrap();
+        let p = f.display().to_string();
+        let a = FontSpec::from_argument(&p).unwrap();
+        assert_eq!((a.family.as_str(), a.style, a.scale), ("", Style::Regular, None));
+        let b = FontSpec::from_argument(&format!("demon:bold={p}@1.5")).unwrap();
+        assert_eq!((b.family.as_str(), b.style, b.scale), ("demon", Style::Bold, Some(1.5)));
+        assert!(FontSpec::from_argument(&format!("x:fancy={p}")).is_err());
+        assert!(FontSpec::from_argument("/no/such.ttf").is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
