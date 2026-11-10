@@ -392,6 +392,7 @@ fn build_variant(
     forced: bool,
     outline_w: usize,
     warnings: &mut Vec<String>,
+    tick: &dyn Fn(f64),
 ) -> Result<(Vec<u8>, Vec<u8>, VariantInfo), Error> {
     let (cw, ch) = (cell.0 as usize, cell.1 as usize);
     let (vw, vh) = (o.video.0 as usize, o.video.1 as usize);
@@ -469,7 +470,11 @@ fn build_variant(
     let mut active: Vec<(u128, i64, i64)> = Vec::new();
     let mut recs: Vec<Rec> = Vec::new();
     let fbit = u8::from(forced);
-    for i in order {
+    let n_events = wrapped.len().max(1);
+    for (done, i) in order.into_iter().enumerate() {
+        if done % 8 == 0 {
+            tick(done as f64 / n_events as f64);
+        }
         let (st_ms, en_ms, lines) = &wrapped[i];
         let s0 = snap(*st_ms, o.fps);
         let mut s1 = snap(*en_ms, o.fps);
@@ -671,11 +676,24 @@ pub(crate) fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
     }
     let mut warnings = Vec::new();
     let (mut packed, mut infos) = (Vec::new(), Vec::new());
+    // progress: the variants take about 95% of the time (the rest is packing and the check)
+    let total_variants = (o.tracks.len() * o.cells.len()).max(1);
+    let mut variant_index = 0usize;
+    let report = |f: f64| {
+        if let Some(p) = &o.progress {
+            p(f.clamp(0.0, 1.0));
+        }
+    };
+    report(0.0);
     for t in &o.tracks {
         let trk = load_track(&t.name, &t.text, t.quiet_font_fallback, &fonts, &o.styles, o.italic_rgb, &mut warnings)?;
         let (mut vs, mut vinfo) = (Vec::new(), Vec::new());
         for (&cell, &ow) in o.cells.iter().zip(&ows) {
-            let (ev, gl, inf) = build_variant(&trk, &fonts, cell, o, t.forced, ow, &mut warnings)?;
+            let base = variant_index as f64;
+            let tick = |inner: f64| report((base + inner) / total_variants as f64 * 0.95);
+            let (ev, gl, inf) = build_variant(&trk, &fonts, cell, o, t.forced, ow, &mut warnings, &tick)?;
+            variant_index += 1;
+            report(variant_index as f64 / total_variants as f64 * 0.95);
             vs.push((ev, gl));
             vinfo.push(inf);
         }
@@ -693,6 +711,7 @@ pub(crate) fn build_area(o: &Options) -> Result<(Vec<u8>, BuildInfo), Error> {
         infos.push(TrackInfo { name: t.name.clone(), events_in: trk.n_in, dropped: trk.dropped, colours: trk.used_colours, variants: vinfo });
     }
     let area = pack_area(&packed)?;
+    report(0.98);
     crate::validate_subtitle_area(&area, 0).map_err(|e| Error::new(format!("area failed the container check: {e}")))?;
     let bytes = area.len();
     if bytes > super::POCKET_AREA_LIMIT {

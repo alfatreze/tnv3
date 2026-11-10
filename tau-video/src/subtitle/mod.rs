@@ -74,6 +74,9 @@ pub struct SpeakerStyle {
     pub italic: Option<bool>,
 }
 
+/// Called with the fraction of the build done, 0..=1, from the thread that builds (rising, not exact).
+pub type ProgressFn = std::sync::Arc<dyn Fn(f64) + Send + Sync>;
+
 #[derive(Clone)]
 pub struct Options {
     pub tracks: Vec<TrackInput>,
@@ -100,6 +103,8 @@ pub struct Options {
     pub center_single: bool,
     /// Baked outline radius 0..4: one value for every size, or one per size.
     pub outline_widths: Vec<u8>,
+    /// Progress callback (optional).
+    pub progress: Option<ProgressFn>,
 }
 /// Size variants Tau V settled on after watching on the Pocket (their interop messages 001 F-004 and 002 F-009;
 /// the first test sizes 16x24, 20x28 and 26x36 were judged too small): cell sizes and the baked outline width of each.
@@ -137,6 +142,7 @@ impl Options {
             italic_rgb: (255, 224, 64),
             center_single: true,
             outline_widths: vec![2],
+            progress: None,
         }
     }
 }
@@ -188,6 +194,27 @@ mod tests {
         let ev = &area.tracks[0].variants[0].events;
         assert_eq!(ev.len(), 2);
         assert_eq!(ev[1].colour, 2, "the second event starts in the Yellow style colour");
+    }
+    #[test]
+    fn progress_callback_rises_to_the_end() {
+        use std::sync::{Arc, Mutex};
+        let mut text = String::from("[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
+        for i in 0..40 {
+            text.push_str(&format!("Dialogue: 0,0:00:{:02}.00,0:00:{:02}.50,Default,,0,0,0,,Line number {i}\n", i % 59, i % 59));
+        }
+        let seen = Arc::new(Mutex::new(Vec::<f64>::new()));
+        let sink = seen.clone();
+        let mut o = Options::pocket(
+            vec![TrackInput { name: "x.ass".into(), text, language: "eng".into(), default: true, forced: false, quiet_font_fallback: true }],
+            default_fonts(),
+            (400, 224),
+        );
+        o.progress = Some(Arc::new(move |f| sink.lock().unwrap().push(f)));
+        build_area(&o).unwrap();
+        let v = seen.lock().unwrap().clone();
+        assert!(v.len() >= 8 && v.first() == Some(&0.0), "{v:?}");
+        assert!(v.windows(2).all(|w| w[1] >= w[0] - 1e-9), "never goes back: {v:?}");
+        assert!(*v.last().unwrap() >= 0.98 && v.iter().all(|f| (0.0..=1.0).contains(f)), "{v:?}");
     }
     #[test]
     fn bold_and_bold_italic_styles_use_their_own_faces() {

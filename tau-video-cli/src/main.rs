@@ -2172,7 +2172,7 @@ fn add_audio_and_subtitles(
             let channels = (!tools.ffprobe.as_os_str().is_empty()).then(|| prep::source_channels(&tools.ffprobe, input, track)).flatten();
             if prep::applies(&tac.prep, channels) {
                 let report = dir.join("audio-analysis.log");
-                let mut analyse = prep::analysis_command(&tools.ffmpeg, input, track, &tac.prep, &report);
+                let mut analyse = prep::analysis_command(&tools.ffmpeg, input, track, &tac.prep, &report, false);
                 let measured = match run_audio_step(&mut analyse, "FFmpeg loudness analysis", controlled) {
                     Ok(()) => prep::read_analysis(&report),
                     Err(e) if matches!(e.kind, RunErrorKind::Cancelled) => return Err(e),

@@ -50,8 +50,12 @@ pub enum IconPhase {
     Probing,
     /// Video encoding; `Some(fraction)` 0..=1, or `None` when the total is unknown (shimmer in the video segment).
     Video(Option<f32>),
-    Audio,
-    Subtitles,
+    /// Video encoding with the audio encoded beside it: the video fraction and the audio fraction (0..=1).
+    VideoAudio(Option<f32>, f32),
+    /// The audio step; `Some(fraction)` 0..=1, or `None` when its progress is unknown (shimmer).
+    Audio(Option<f32>),
+    /// The subtitle step, likewise.
+    Subtitles(Option<f32>),
     /// Writing the file: every segment full, a shimmer runs along the whole bar.
     Saving,
     Done,
@@ -126,15 +130,37 @@ pub fn compose(base: &Image, phase: IconPhase, has_subs: bool, t_ms: u64) -> Ima
             hot_head = Some(0);
         }
         IconPhase::Video(None) => busy[0] = true,
-        IconPhase::Audio => {
-            fill[0] = 1.0;
-            busy[1] = true;
+        IconPhase::VideoAudio(v, a) => {
+            match v {
+                Some(f) => {
+                    fill[0] = f.clamp(0.0, 1.0);
+                    hot_head = Some(0);
+                }
+                None => busy[0] = true,
+            }
+            fill[1] = a.clamp(0.0, 1.0);
         }
-        IconPhase::Subtitles => {
+        IconPhase::Audio(a) => {
+            fill[0] = 1.0;
+            match a {
+                Some(f) => {
+                    fill[1] = f.clamp(0.0, 1.0);
+                    hot_head = Some(1);
+                }
+                None => busy[1] = true,
+            }
+        }
+        IconPhase::Subtitles(s) => {
             fill[0] = 1.0;
             fill[1] = 1.0;
             if n > 2 {
-                busy[2] = true;
+                match s {
+                    Some(f) => {
+                        fill[2] = f.clamp(0.0, 1.0);
+                        hot_head = Some(2);
+                    }
+                    None => busy[2] = true,
+                }
             }
         }
         IconPhase::Saving => {
@@ -392,17 +418,36 @@ mod tests {
             let p = px(&f, x, y);
             u32::from(p[0]) + u32::from(p[1])
         };
-        for (phase, k) in [(IconPhase::Audio, 1usize), (IconPhase::Subtitles, 2)] {
+        for (phase, k) in [(IconPhase::Audio(None), 1usize), (IconPhase::Subtitles(None), 2)] {
             let values: Vec<u32> = (0..12).map(|i| sample(phase, k, i * 100)).collect();
             let (lo, hi) = (values.iter().min().unwrap(), values.iter().max().unwrap());
             assert!(hi - lo > 120, "{phase:?} segment must visibly animate: {values:?}");
         }
         // the earlier steps are shown complete while a later one runs
-        let f = compose(&b, IconPhase::Subtitles, true, 0);
+        let f = compose(&b, IconPhase::Subtitles(None), true, 0);
         assert!(amberish(px(&f, (s[0].0 + 30.0) as u32, y)) && amberish(px(&f, (s[1].0 + (s[1].1 - s[1].0) * 0.5) as u32, y)));
         // without subtitles the bar has two segments and the subtitle phase draws nothing extra
-        let two = compose(&b, IconPhase::Subtitles, false, 0);
+        let two = compose(&b, IconPhase::Subtitles(None), false, 0);
         assert_eq!(two.rgba.len(), b.rgba.len());
+    }
+
+    #[test]
+    fn audio_and_subtitle_steps_fill_with_their_fraction() {
+        let b = base();
+        let s = segments(b.w, true);
+        let y = (0.885 * b.w as f32) as u32;
+        let at = |phase: IconPhase, k: usize, frac: f32| {
+            let x = s[k].0 + (s[k].1 - s[k].0) * frac;
+            px(&compose(&b, phase, true, 0), x as u32, y)
+        };
+        // audio at 50%: lit before the middle of its segment, dark after it; the video segment is complete
+        assert!(amberish(at(IconPhase::Audio(Some(0.5)), 1, 0.25)) && !amberish(at(IconPhase::Audio(Some(0.5)), 1, 0.75)));
+        assert!(amberish(at(IconPhase::Audio(Some(0.5)), 0, 0.5)));
+        assert!(amberish(at(IconPhase::Subtitles(Some(0.5)), 2, 0.25)) && !amberish(at(IconPhase::Subtitles(Some(0.5)), 2, 0.75)));
+        // audio running beside the video: both fill independently
+        let both = IconPhase::VideoAudio(Some(0.5), 0.5);
+        assert!(amberish(at(both, 0, 0.25)) && !amberish(at(both, 0, 0.75)));
+        assert!(amberish(at(both, 1, 0.25)) && !amberish(at(both, 1, 0.75)));
     }
 
     #[test]
@@ -435,14 +480,14 @@ mod tests {
             (IconPhase::Video(Some(0.0)), true, 0),
             (IconPhase::Video(Some(0.35)), true, 200),
             (IconPhase::Video(Some(0.85)), true, 500),
-            (IconPhase::Audio, true, 150),
-            (IconPhase::Audio, true, 650),
-            (IconPhase::Subtitles, true, 300),
+            (IconPhase::Audio(None), true, 150),
+            (IconPhase::Audio(None), true, 650),
+            (IconPhase::Subtitles(None), true, 300),
             (IconPhase::Saving, true, 700),
             (IconPhase::Done, true, 0),
             (IconPhase::Failed, true, 0),
             (IconPhase::Video(Some(0.6)), false, 0),
-            (IconPhase::Audio, false, 400),
+            (IconPhase::Audio(None), false, 400),
         ];
         let (cols, cell) = (4u32, 256u32);
         let rows = (frames.len() as u32).div_ceil(cols);

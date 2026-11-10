@@ -24,6 +24,7 @@ static double SMR_DB = 0.0;     /* encoder switch -m: extra signal-to-mask offse
 static int MSFORCE = -1;        /* encoder switch -M 0/1/2: force the stereo mode (conformance vectors); -1 = per-band choice */
 static int TONAL = 1;           /* encoder switch -T 0/1: tonality-dependent offsets (0 = fixed 13 dB, the draft-1 model) */
 static const char *CKPT_OUT, *RESUME_CKPT, *RESUME_FULL; static long RESUME_NS = -1;   /* encoder switches -C / -R -F -N, see the trim mode below */
+static int PROGRESS = 0;   /* encoder switch -V 1: print `P frame total` to stderr every 64 frames, for a caller that shows a percentage */
 static int FEAT = 0;   /* TAC1 feature bits (header byte 9): 1 = the range coder's contexts start from the trained table TRAINED_INIT at every reset frame instead of 1/2; 0 = plain TAC0. Encoder switch -X. */
 static int TON_FFT = 0;     /* encoder switch -P 1: tonality from a Hann-windowed FFT power spectrum of the block instead of the MDCT coefficients (whose size swings with the signal's phase) */
 static double RND = 0.4054; /* encoder switch -D x: quantiser rounding offset (smaller = wider dead zone, fewer bits and more noise at a given step) */
@@ -411,6 +412,7 @@ static int encode(const char *in, const char *out, int kbps) {
         t_first = t0; reservoir = res;
     }
     for (long t = t_first; t < nfr; t++) {
+        if (PROGRESS && t % 64 == 0) { fprintf(stderr, "P %ld %ld\n", t, nfr); fflush(stderr); }
         if (ck && t % 16 == 0) fprintf(ck, "%ld %ld %.17g\n", t, ftell(o), reservoir);
         Frame f; memset(&f, 0, sizeof f);
         f.type = type[t]; f.reset = t % 16 == 0; f.nfill = NFILL;
@@ -521,7 +523,7 @@ int main(int argc, char **argv) {
             if (!strcmp(argv[i], "-b")) kb = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-n")) NFILL = atoi(argv[i + 1]);
             else if (!strcmp(argv[i], "-m")) SMR_DB = atof(argv[i + 1]); else if (!strcmp(argv[i], "-a")) ATT_RATIO = atof(argv[i + 1]);
             else if (!strcmp(argv[i], "-T")) TONAL = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-M")) MSFORCE = atoi(argv[i + 1]);
-            else if (!strcmp(argv[i], "-P")) TON_FFT = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-D")) RND = atof(argv[i + 1]); else if (!strcmp(argv[i], "-X")) FEAT = atoi(argv[i + 1]) & 1; else if (!strcmp(argv[i], "-L")) ALPHA_MIN = atof(argv[i + 1]); else if (!strcmp(argv[i], "-C")) CKPT_OUT = argv[i + 1]; else if (!strcmp(argv[i], "-R")) RESUME_CKPT = argv[i + 1];
+            else if (!strcmp(argv[i], "-V")) PROGRESS = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-P")) TON_FFT = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-D")) RND = atof(argv[i + 1]); else if (!strcmp(argv[i], "-X")) FEAT = atoi(argv[i + 1]) & 1; else if (!strcmp(argv[i], "-L")) ALPHA_MIN = atof(argv[i + 1]); else if (!strcmp(argv[i], "-C")) CKPT_OUT = argv[i + 1]; else if (!strcmp(argv[i], "-R")) RESUME_CKPT = argv[i + 1];
             else if (!strcmp(argv[i], "-F")) RESUME_FULL = argv[i + 1]; else if (!strcmp(argv[i], "-N")) RESUME_NS = atol(argv[i + 1]);
         }
         return encode(argv[2], argv[3], kb);

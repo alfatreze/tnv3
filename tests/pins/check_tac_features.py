@@ -36,4 +36,9 @@ with tempfile.TemporaryDirectory() as d:
     run(tac, "enc", p("s.wav"), p("e.tac"), "-b", "96", "-D", "0.28", "-P", "1")
     run(tac, "dec", p("e.tac"), p("e.wav"))
     check(open(p("e.tac"), "rb").read(4) == b"TAC0", "-D and -P are encoder-only: the stream stays plain TAC0")
+    # -V 1 prints `P frame total` progress lines to stderr and changes nothing in the output
+    r = subprocess.run([tac, "enc", p("s.wav"), p("v.tac"), "-b", "96", "-V", "1"], capture_output=True, text=True, check=True)
+    lines = [l for l in r.stderr.splitlines() if l.startswith("P ")]
+    check(len(lines) >= 2 and lines[0].split()[1] == "0" and all(len(l.split()) == 3 for l in lines), "-V 1 prints progress lines (P frame total)")
+    check(open(p("v.tac"), "rb").read() == open(p("a.tac"), "rb").read(), "-V 1 does not change the encoded bytes")
 sys.exit(1 if fails else 0)

@@ -107,8 +107,9 @@
       if (file) { dependencies = { ...dependencies, [key]: file }; saveDependencies(); }
     } catch (e) { dependencyError = String(e); }
   }
-  type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'subtitles' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null };
+  type Progress = { phase: 'probing' | 'video' | 'c-video' | 'audio' | 'subtitles' | 'saving'; frames: number; total_frames_estimate: number | null; remaining_seconds: number | null; fraction?: number | null; audio_fraction?: number | null };
   let progress: Progress = { phase: 'probing', frames: 0, total_frames_estimate: null, remaining_seconds: null };
+  const percent = (f: number) => Math.min(100, Math.floor(f * 100));
   function timeLabel(seconds: number): string {
     if (seconds < 60) return `${seconds} sec`;
     if (seconds < 3600) return `${Math.ceil(seconds / 60)} min`;
@@ -254,12 +255,19 @@
     {#if busy}
       <div class="progress-area" aria-live="polite">
         <div class="progress-heading"><strong>{checkingSource ? 'Checking source video and audio' : progress.phase === 'probing' ? 'Reading video information' : progress.phase === 'video' ? 'Decoding and encoding video' : progress.phase === 'c-video' ? 'Encoding video with C' : progress.phase === 'audio' ? 'Encoding audio' : progress.phase === 'subtitles' ? 'Drawing subtitles' : 'Saving files'}</strong>
-          {#if progress.phase === 'video' && progress.total_frames_estimate && progress.frames < progress.total_frames_estimate}<span>~{Math.min(99, Math.floor(progress.frames / progress.total_frames_estimate * 100))}%</span>{/if}
+          {#if progress.phase === 'video' && progress.total_frames_estimate && progress.frames < progress.total_frames_estimate}<span>{Math.min(99, Math.floor(progress.frames / progress.total_frames_estimate * 100))}%</span>
+          {:else if (progress.phase === 'audio' || progress.phase === 'subtitles') && progress.fraction != null}<span>{percent(progress.fraction)}%</span>{/if}
         </div>
         {#if progress.phase === 'video' && progress.total_frames_estimate && progress.frames < progress.total_frames_estimate}
           <progress aria-label="Estimated video progress" value={progress.frames} max={progress.total_frames_estimate}></progress>
+        {:else if (progress.phase === 'audio' || progress.phase === 'subtitles') && progress.fraction != null}
+          <progress aria-label={progress.phase === 'audio' ? 'Audio progress' : 'Subtitle progress'} value={progress.fraction} max={1}></progress>
         {:else}
           <progress aria-label="Encoding progress"></progress>
+        {/if}
+        {#if (progress.phase === 'video' || progress.phase === 'c-video') && progress.audio_fraction != null && !checkingSource}
+          <div class="progress-heading side"><span>Audio, encoded at the same time</span><span>{percent(progress.audio_fraction)}%</span></div>
+          <progress class="side" aria-label="Audio progress" value={progress.audio_fraction} max={1}></progress>
         {/if}
         <p class="progress-detail">{checkingSource ? 'Checking can take as long as decoding the source. Encoding starts after the check.' : progressDetail(progress)}</p>
         {#if checkingSource}<button type="button" onclick={stopChecking}>Stop source check</button>{/if}

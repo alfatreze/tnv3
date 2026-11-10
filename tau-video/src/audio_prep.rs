@@ -101,12 +101,17 @@ fn ffreport_escape(path: &Path) -> String {
     path.display().to_string().replace('\\', "\\\\").replace(':', "\\:").replace('\'', "\\'")
 }
 
-/// The first-pass command. FFmpeg's log (where `loudnorm` prints) goes to `report` through `FFREPORT`, so the caller can
+/// The first-pass command (`progress`: also report progress on stdout). FFmpeg's log (where `loudnorm` prints) goes to `report` through `FFREPORT`, so the caller can
 /// run it with whatever supervision it has and read the whole log afterwards with [`read_analysis`].
-pub fn analysis_command(ffmpeg: &Path, input: &Path, track: u32, prep: &AudioPrep, report: &Path) -> Command {
+pub fn analysis_command(ffmpeg: &Path, input: &Path, track: u32, prep: &AudioPrep, report: &Path, progress: bool) -> Command {
     let mut c = Command::new(ffmpeg);
     c.env("FFREPORT", OsString::from(format!("file={}:level=32", ffreport_escape(report))))
-        .args(["-nostdin", "-hide_banner", "-nostats", "-loglevel", "error", "-i"])
+        .args(["-nostdin", "-hide_banner", "-nostats", "-loglevel", "error"]);
+    if progress {
+        // `key=value` progress lines on stdout (out_time_us=...): only for a caller that reads stdout
+        c.args(["-progress", "pipe:1"]);
+    }
+    c.arg("-i")
         .arg(input)
         .args(["-map", &format!("0:a:{track}"), "-vn", "-af"])
         .arg(analysis_filter(prep))

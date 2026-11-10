@@ -223,7 +223,7 @@ pub fn encode_audio_with(
     let source_channels = options.ffprobe.as_deref().filter(|_| channels == 2).and_then(|p| prep::source_channels(p, input, track));
     let prefix = if prep::applies(&options.prep, source_channels) {
         let report = ws.0.join("analysis.log");
-        let analysed = run("FFmpeg loudness analysis", prep::analysis_command(&tools.ffmpeg, input, track, &options.prep, &report));
+        let analysed = run("FFmpeg loudness analysis", prep::analysis_command(&tools.ffmpeg, input, track, &options.prep, &report, false));
         let measured = if analysed.is_ok() { prep::read_analysis(&report) } else { None };   // a failed analysis falls back to the downmix alone
         Some(prep::filter_chain(&options.prep, measured.as_ref()))
     } else {

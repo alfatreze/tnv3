@@ -9,7 +9,7 @@ mod dock_icon;
 mod encode_log;
 mod player;
 use serde::{Deserialize, Serialize};
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 #[cfg(feature = "experimental-rust-encoder")]
 use std::time::{Duration, Instant};
 use std::{
@@ -19,7 +19,7 @@ use std::{
     process::{Command, Stdio},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         mpsc,
     },
 };
@@ -45,6 +45,20 @@ struct JobControl {
     stop_requested: AtomicBool,
     source_gate: Mutex<Option<Arc<SourceGate>>>,
     source_stop: Mutex<Option<mpsc::Sender<()>>>,
+    /// Progress of the audio and subtitle steps in ten-thousandths (`UNKNOWN_PPM` = not known), written by the threads
+    /// that run them and read by the progress reporter.
+    audio_ppm: Arc<AtomicU32>,
+    subs_ppm: Arc<AtomicU32>,
+}
+const UNKNOWN_PPM: u32 = u32::MAX;
+fn store_fraction(slot: &AtomicU32, f: f64) {
+    slot.store((f.clamp(0.0, 1.0) * 10000.0).round() as u32, Ordering::Relaxed);
+}
+fn load_fraction(slot: &AtomicU32) -> Option<f64> {
+    match slot.load(Ordering::Relaxed) {
+        UNKNOWN_PPM => None,
+        v => Some(f64::from(v) / 10000.0),
+    }
 }
 impl Default for JobControl {
     fn default() -> Self {
@@ -53,10 +67,31 @@ impl Default for JobControl {
             stop_requested: AtomicBool::new(false),
             source_gate: Mutex::new(None),
             source_stop: Mutex::new(None),
+            audio_ppm: Arc::new(AtomicU32::new(UNKNOWN_PPM)),
+            subs_ppm: Arc::new(AtomicU32::new(UNKNOWN_PPM)),
         }
     }
 }
 impl JobControl {
+    fn set_audio(&self, f: f64) {
+        store_fraction(&self.audio_ppm, f);
+    }
+    fn clear_audio(&self) {
+        self.audio_ppm.store(UNKNOWN_PPM, Ordering::Relaxed);
+    }
+    fn audio(&self) -> Option<f64> {
+        load_fraction(&self.audio_ppm)
+    }
+    fn set_subs(&self, f: f64) {
+        store_fraction(&self.subs_ppm, f);
+    }
+    /// A handle that outlives a borrow of the control, for callbacks that must be `'static`.
+    fn subs_handle(&self) -> Arc<AtomicU32> {
+        self.subs_ppm.clone()
+    }
+    fn subs(&self) -> Option<f64> {
+        load_fraction(&self.subs_ppm)
+    }
     fn request_stop(&self) -> Result<(), String> {
         {
             let mut phase = self.phase.lock().map_err(|_| "Encoder control unavailable.")?;
@@ -564,12 +599,12 @@ fn log_start_event(
 /// (Linux); `None` clears it. Video counts for 0..90 %, then audio 92 %, saving 98 %; probing and unknown
 /// totals show as indeterminate.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-fn show_system_progress(app: &tauri::AppHandle, progress: Option<&Progress>) {
+fn show_system_progress(app: &tauri::AppHandle, progress: Option<(&Progress, Option<f64>, Option<f64>)>) {
     use tauri::window::{ProgressBarState, ProgressBarStatus};
     let Some(window) = app.get_webview_window("main") else { return };
     let state = match progress {
         None => ProgressBarState { status: Some(ProgressBarStatus::None), progress: None },
-        Some(p) => match system_progress_percent(p) {
+        Some((p, audio, subs)) => match system_progress_percent(p, audio, subs) {
             Some(percent) => ProgressBarState { status: Some(ProgressBarStatus::Normal), progress: Some(percent) },
             None => ProgressBarState { status: Some(ProgressBarStatus::Indeterminate), progress: None },
         },
@@ -578,26 +613,55 @@ fn show_system_progress(app: &tauri::AppHandle, progress: Option<&Progress>) {
 }
 
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-fn system_progress_percent(p: &Progress) -> Option<u64> {
+fn system_progress_percent(p: &Progress, audio: Option<f64>, subs: Option<f64>) -> Option<u64> {
     match (p.phase, p.total_frames_estimate) {
         ("video" | "c-video", Some(total)) if total > 0 => {
             Some((f64::from(p.frames.min(total)) / f64::from(total) * 90.0) as u64)
         }
-        ("audio", _) => Some(92),
+        ("audio", _) => Some(90 + (audio.unwrap_or(0.4) * 5.0) as u64),
+        ("subtitles", _) => Some(95 + (subs.unwrap_or(0.3) * 3.0) as u64),
         ("saving", _) => Some(98),
         _ => None,
     }
 }
 
 /// What the animated Dock icon shows for a progress event (video fraction, audio and subtitles shimmer).
-fn icon_phase(p: &Progress) -> dock_icon::IconPhase {
+fn icon_phase(p: &Progress, audio: Option<f64>, subs: Option<f64>) -> dock_icon::IconPhase {
     use dock_icon::IconPhase;
     match p.phase {
-        "video" | "c-video" => IconPhase::Video(p.total_frames_estimate.filter(|&t| t > 0).map(|t| p.frames.min(t) as f32 / t as f32)),
-        "audio" => IconPhase::Audio,
-        "subtitles" => IconPhase::Subtitles,
+        "video" | "c-video" => {
+            let video = p.total_frames_estimate.filter(|&t| t > 0).map(|t| p.frames.min(t) as f32 / t as f32);
+            match audio {
+                Some(a) => IconPhase::VideoAudio(video, a as f32),
+                None => IconPhase::Video(video),
+            }
+        }
+        "audio" => IconPhase::Audio(audio.map(|a| a as f32)),
+        "subtitles" => IconPhase::Subtitles(subs.map(|s| s as f32)),
         "saving" => IconPhase::Saving,
         _ => IconPhase::Probing,
+    }
+}
+
+/// What the page receives: the progress of the main phase plus the fractions of the audio and subtitle steps, which run
+/// on their own threads (`fraction` is the current phase's own, `audio_fraction` is shown beside the video while the
+/// audio is encoded at the same time).
+#[derive(Clone, Serialize, Debug)]
+struct ProgressEvent {
+    #[serde(flatten)]
+    progress: Progress,
+    fraction: Option<f64>,
+    audio_fraction: Option<f64>,
+}
+fn progress_event(p: &Progress, audio: Option<f64>, subs: Option<f64>) -> ProgressEvent {
+    ProgressEvent {
+        progress: p.clone(),
+        fraction: match p.phase {
+            "audio" => audio,
+            "subtitles" => subs,
+            _ => None,
+        },
+        audio_fraction: if matches!(p.phase, "video" | "c-video" | "audio") { audio } else { None },
     }
 }
 
@@ -928,10 +992,11 @@ fn encode_pair_impl(
         None
     };
     let abort_audio = AtomicBool::new(false);
+    let total_seconds = total.map(|t| f64::from(t) / 24.0);
     let (stats, mut prefetch) = std::thread::scope(|scope| -> Result<(VideoSummary, Option<AudioPrefetch>), String> {
         let worker = prefetch_tac.as_ref().map(|tac| {
             let (abort, tac) = (&abort_audio, tac.as_path());
-            scope.spawn(move || prefetch_audio(ffmpeg, input, advanced.track(), tac, advanced, dependencies, control, abort))
+            scope.spawn(move || prefetch_audio(ffmpeg, input, advanced.track(), tac, advanced, dependencies, total_seconds, control, abort))
         });
         let _stop_audio_on_failure = AbortOnDrop(&abort_audio);
     let stats = if let Some((script, ffprobe)) = c_tools {
@@ -1272,6 +1337,10 @@ fn encode_pair_impl(
         }
     };
     // the video is done: take the audio that was encoded beside it, if it succeeded (any failure falls back to the plain path)
+    if worker.is_some() {
+        // show the audio step (with its own fraction) while any of it is still running
+        progress(Progress { phase: "audio", frames: stats.frames, total_frames_estimate: total, remaining_seconds: None });
+    }
     let pre = match worker {
         Some(handle) => handle.join().ok().and_then(|r| r.ok()),
         None => None,
@@ -1295,6 +1364,7 @@ fn encode_pair_impl(
             p.wav
         }
         None => {
+            control.clear_audio();   // this path has no per-step progress: the page shows a moving bar
             let (tmp, audio_file) = temporary_file(if tac_audio { "wav" } else { "mp3" })?;
             drop(audio_file);
             tmp
@@ -1612,13 +1682,36 @@ fn audio_prefix(
     if !prep::applies(&settings, prep::source_channels(ffprobe, input, advanced.track())) {
         return String::new();
     }
+    surround_filter(ffmpeg, input, advanced, &settings, control, abort, None)
+}
+
+/// The downmix and loudness filter chain of a surround source: runs the measuring pass (reporting its fraction of
+/// `total_seconds` through `progress`, if given) and falls back to the downmix alone when it fails.
+fn surround_filter(
+    ffmpeg: &Path,
+    input: &Path,
+    advanced: AdvancedSettings,
+    settings: &tau_video::audio_prep::AudioPrep,
+    control: &JobControl,
+    abort: Option<&AtomicBool>,
+    progress: Option<(f64, &mut dyn FnMut(f64))>,
+) -> String {
+    use tau_video::audio_prep as prep;
     let measured = temporary_file("log").ok().and_then(|(report, file)| {
         drop(file);
-        let analyse = prep::analysis_command(ffmpeg, input, advanced.track(), &settings, &report.0);
-        run_cancellable_with(analyse, "Loudness analysis", control, abort).ok()?;
+        match progress {
+            Some((seconds, on_fraction)) => {
+                let analyse = prep::analysis_command(ffmpeg, input, advanced.track(), settings, &report.0, true);
+                run_with_progress(analyse, "Loudness analysis", control, abort, &|l| ffmpeg_progress_fraction(l, seconds), on_fraction).ok()?;
+            }
+            None => {
+                let analyse = prep::analysis_command(ffmpeg, input, advanced.track(), settings, &report.0, false);
+                run_cancellable_with(analyse, "Loudness analysis", control, abort).ok()?;
+            }
+        }
         prep::read_analysis(&report.0)   // a failed analysis falls back to the downmix alone
     });
-    prep::filter_chain(&settings, measured.as_ref())
+    prep::filter_chain(settings, measured.as_ref())
 }
 
 fn prefetch_audio(
@@ -1628,19 +1721,36 @@ fn prefetch_audio(
     tac: &Path,
     advanced: AdvancedSettings,
     dependencies: &Dependencies,
+    total_seconds: Option<f64>,
     control: &JobControl,
     abort: &AtomicBool,
 ) -> Result<AudioPrefetch, String> {
+    use tau_video::audio_prep as prep;
     let ffprobe = selected_file(&dependencies.ffprobe, "FFprobe")
         .ok()
         .flatten()
         .unwrap_or_else(|| ffmpeg.with_file_name(executable_name("ffprobe")));
-    let prefix = audio_prefix(ffmpeg, &ffprobe, input, advanced, control, Some(abort));
+    let settings = prep::AudioPrep { downmix_enhance: advanced.downmix_enhance(), loudness_lufs: advanced.loudness_target() };
+    let surround = prep::applies(&settings, prep::source_channels(&ffprobe, input, track));
+    // Share of the audio bar for each step, from timings on a 28 minute 5.1 episode (analysis 43 s, extraction with the
+    // filters 45 s, encode 31 s) and, for a stereo source, a 2 s extraction and the same encode.
+    let (w_analysis, w_extract) = if surround { (0.36, 0.37) } else { (0.0, 0.06) };
+    let w_encode = 1.0 - w_analysis - w_extract;
+    control.set_audio(0.0);
+    let prefix = if surround {
+        match total_seconds {
+            Some(seconds) => surround_filter(ffmpeg, input, advanced, &settings, control, Some(abort), Some((seconds, &mut |f| control.set_audio(f * w_analysis)))),
+            None => surround_filter(ffmpeg, input, advanced, &settings, control, Some(abort), None),
+        }
+    } else {
+        String::new()
+    };
+    control.set_audio(w_analysis);
     let (wav, wav_file) = temporary_file("wav")?;
     drop(wav_file);
     let mut extract = Command::new(ffmpeg);
     extract
-        .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
+        .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y", "-i"])
         .arg(input)
         .args(["-map", &format!("0:a:{track}"), "-vn", "-map_metadata", "-1"]);
     if !prefix.is_empty() {
@@ -1650,7 +1760,11 @@ fn prefetch_audio(
         .args(["-ar", "48000", "-ac", "2"])
         .args(["-c:a", "pcm_s16le", "-f", "wav"])
         .arg(&wav.0);
-    run_cancellable_with(extract, "Audio extraction", control, Some(abort))?;
+    let seconds = total_seconds.unwrap_or(0.0);
+    run_with_progress(extract, "Audio extraction", control, Some(abort), &|l| ffmpeg_progress_fraction(l, seconds), &mut |f| {
+        control.set_audio(w_analysis + f * w_extract)
+    })?;
+    control.set_audio(w_analysis + w_extract);
     let (full_tac, f) = temporary_file("tac")?;
     drop(f);
     let (checkpoints, f) = temporary_file("ckpt")?;
@@ -1658,10 +1772,99 @@ fn prefetch_audio(
     let mut enc = Command::new(tac);
     enc.arg("enc").arg(&wav.0).arg(&full_tac.0).arg("-b").arg("96");
     enc.args(advanced.tac_options());
+    enc.args(["-V", "1"]);
     enc.arg("-C").arg(&checkpoints.0);
-    run_cancellable_with(enc, "TAC encoding", control, Some(abort))?;
+    run_with_progress(enc, "TAC encoding", control, Some(abort), &tac_progress_fraction, &mut |f| {
+        control.set_audio(w_analysis + w_extract + f * w_encode)
+    })?;
     let source_samples = wav_sample_frames(&wav.0).ok_or("Could not read the extracted audio length.")?;
+    control.set_audio(1.0);
     Ok(AudioPrefetch { wav, full_tac, checkpoints, source_samples })
+}
+
+/// Runs a tool whose output carries progress: every line (stdout and stderr) goes through `parse`, and each fraction it
+/// returns goes to `on_fraction`; stderr lines it does not understand are kept (the first 4 KB) as diagnostics.
+fn run_with_progress(
+    mut command: Command,
+    label: &str,
+    control: &JobControl,
+    abort: Option<&AtomicBool>,
+    parse: &dyn Fn(&str) -> Option<f64>,
+    on_fraction: &mut dyn FnMut(f64),
+) -> Result<String, String> {
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command.spawn().map_err(|e| format!("Could not start {label}: {e}"))?;
+    let (tx, rx) = mpsc::channel::<(bool, String)>();
+    let mut readers = Vec::new();
+    if let Some(out) = child.stdout.take() {
+        let tx = tx.clone();
+        readers.push(std::thread::spawn(move || {
+            for line in BufReader::new(out).lines().map_while(Result::ok) {
+                let _ = tx.send((false, line));
+            }
+        }));
+    }
+    if let Some(err) = child.stderr.take() {
+        let tx = tx.clone();
+        readers.push(std::thread::spawn(move || {
+            for line in BufReader::new(err).lines().map_while(Result::ok) {
+                let _ = tx.send((true, line));
+            }
+        }));
+    }
+    drop(tx);
+    let mut details = String::new();
+    let mut take = |is_err: bool, line: &str, on_fraction: &mut dyn FnMut(f64)| {
+        if let Some(f) = parse(line) {
+            on_fraction(f);
+        } else if is_err && details.len() < 4096 {
+            details.push_str(line);
+            details.push('\n');
+        }
+    };
+    let status = loop {
+        while let Ok((is_err, line)) = rx.try_recv() {
+            take(is_err, &line, on_fraction);
+        }
+        let stopped = control.checkpoint().err().or_else(|| abort.filter(|a| a.load(Ordering::SeqCst)).map(|_| "Stopped.".to_owned()));
+        if let Some(stop) = stopped {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(stop);
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(40)),
+            Err(e) => {
+                let _ = child.kill();
+                return Err(format!("Could not wait for {label}: {e}"));
+            }
+        }
+    };
+    for r in readers {
+        let _ = r.join();
+    }
+    while let Ok((is_err, line)) = rx.try_recv() {
+        take(is_err, &line, on_fraction);
+    }
+    if !status.success() {
+        return Err(with_diagnostics(process_failed(status, label), details.trim()));
+    }
+    Ok(details)
+}
+
+/// `out_time_us=` (or `out_time_ms=`, also microseconds) lines of `ffmpeg -progress` as a fraction of `total_seconds`.
+fn ffmpeg_progress_fraction(line: &str, total_seconds: f64) -> Option<f64> {
+    let value = line.strip_prefix("out_time_us=").or_else(|| line.strip_prefix("out_time_ms="))?;
+    let micros: f64 = value.trim().parse().ok()?;
+    (total_seconds > 0.0 && micros >= 0.0).then(|| (micros / 1e6 / total_seconds).clamp(0.0, 1.0))
+}
+
+/// `P frame total` lines of `tac enc -V 1`.
+fn tac_progress_fraction(line: &str) -> Option<f64> {
+    let mut it = line.strip_prefix("P ")?.split_whitespace();
+    let (done, total): (f64, f64) = (it.next()?.parse().ok()?, it.next()?.parse().ok()?);
+    (total > 0.0).then(|| (done / total).clamp(0.0, 1.0))
 }
 
 fn run_cancellable_with(
@@ -1772,6 +1975,7 @@ fn build_tnv3_with_tac(
     let (area_guard, area_file) = temporary_file("bin")?;
     drop(area_file);
     if let Some(track) = subtitle_track {
+        control.set_subs(0.0);
         on_phase("subtitles");
         // Font: the one chosen in settings, else TAU_SUBTITLE_FONT, else the built-in Roboto.
         let fonts = match selected_file(&dependencies.subtitle_font, "Subtitle font")?
@@ -1800,6 +2004,7 @@ fn build_tnv3_with_tac(
             .args(["-c:s", "ass", "-f", "ass"])
             .arg(&srt_guard.0);
         run_cancellable(extract, "Subtitle extraction (only text subtitles can be converted)", control)?;
+        control.set_subs(0.03);
         control.checkpoint()?;
         let text = std::fs::read_to_string(&srt_guard.0)
             .map_err(|e| format!("Could not read the extracted subtitles: {e}"))?;
@@ -1816,8 +2021,11 @@ fn build_tnv3_with_tac(
             (picture_w, picture_h),
         );
         options.fps = Some((fps_n, fps_d));
+        let slot = control.subs_handle();
+        options.progress = Some(Arc::new(move |f| store_fraction(&slot, 0.03 + 0.97 * f)));
         let (area, info) = tau_video::subtitle::build_area(&options)
             .map_err(|e| format!("Subtitle authoring failed: {e}"))?;
+        control.set_subs(1.0);
         std::fs::write(&area_guard.0, &area).map_err(|e| format!("Could not write the subtitle area: {e}"))?;
         warnings.extend(info.warnings.iter().map(|w| format!("Subtitles: {w}")));
     }
@@ -2617,6 +2825,32 @@ async fn encode(
     let has_subtitles = advanced.subtitle_track.is_some();
     let dock = std::sync::Arc::new(dock_icon::DockIcon::start(&app, has_subtitles));
     let progress_dock = dock.clone();
+    // The audio and subtitle steps run on their own threads and only write their fractions to the job control; this
+    // thread re-sends the latest event whenever one of them moved, so the page and the Dock bar follow them smoothly.
+    let last_event: Arc<Mutex<Option<Progress>>> = Arc::new(Mutex::new(None));
+    let pulse_stop = Arc::new(AtomicBool::new(false));
+    let pulse = {
+        let (app, dock, control, last, stop) = (app.clone(), dock.clone(), control.clone(), last_event.clone(), pulse_stop.clone());
+        std::thread::spawn(move || {
+            let mut shown = (None::<f64>, None::<f64>);
+            while !stop.load(Ordering::Acquire) {
+                std::thread::sleep(std::time::Duration::from_millis(250));
+                let now = (control.audio(), control.subs());
+                if now == shown {
+                    continue;
+                }
+                let Some(p) = last.lock().ok().and_then(|g| g.clone()) else { continue };
+                shown = now;
+                if cfg!(target_os = "macos") {
+                    dock.set(icon_phase(&p, now.0, now.1));
+                } else {
+                    show_system_progress(&app, Some((&p, now.0, now.1)));
+                }
+                let _ = app.emit("encode-progress", progress_event(&p, now.0, now.1));
+            }
+        })
+    };
+    let (progress_last, progress_control) = (last_event.clone(), control.clone());
     let result = tauri::async_runtime::spawn_blocking(move || {
         let reporter = app.clone();
         let decision_app = app.clone();
@@ -2656,12 +2890,16 @@ async fn encode(
                 if let Some(l) = &progress_log {
                     l.progress(event.phase, event.frames, event.total_frames_estimate, event.remaining_seconds);
                 }
-                if cfg!(target_os = "macos") {
-                    progress_dock.set(icon_phase(&event));
-                } else {
-                    show_system_progress(&reporter, Some(&event));
+                let (audio, subs) = (progress_control.audio(), progress_control.subs());
+                if let Ok(mut last) = progress_last.lock() {
+                    *last = Some(event.clone());
                 }
-                let _ = reporter.emit("encode-progress", event);
+                if cfg!(target_os = "macos") {
+                    progress_dock.set(icon_phase(&event, audio, subs));
+                } else {
+                    show_system_progress(&reporter, Some((&event, audio, subs)));
+                }
+                let _ = reporter.emit("encode-progress", progress_event(&event, audio, subs));
             },
         );
         if encoded.is_err() {
@@ -2670,6 +2908,8 @@ async fn encode(
         encoded
     })
     .await;
+    pulse_stop.store(true, Ordering::Release);
+    let _ = pulse.join();
     if cfg!(target_os = "macos") {
         dock.finish(matches!(&result, Ok(Ok(_))));
     } else {
@@ -4202,16 +4442,19 @@ mod tests {
     #[test]
     fn system_progress_maps_phases_to_percent_or_indeterminate() {
         let p = |phase, frames, total| Progress { phase, frames, total_frames_estimate: total, remaining_seconds: None };
-        assert_eq!(system_progress_percent(&p("video", 0, Some(100))), Some(0));
-        assert_eq!(system_progress_percent(&p("video", 50, Some(100))), Some(45));
-        assert_eq!(system_progress_percent(&p("video", 100, Some(100))), Some(90));
-        assert_eq!(system_progress_percent(&p("video", 250, Some(100))), Some(90), "estimate overshoot is clamped");
-        assert_eq!(system_progress_percent(&p("c-video", 3, Some(6))), Some(45));
-        assert_eq!(system_progress_percent(&p("video", 10, None)), None, "unknown total: indeterminate");
-        assert_eq!(system_progress_percent(&p("video", 10, Some(0))), None);
-        assert_eq!(system_progress_percent(&p("probing", 0, None)), None);
-        assert_eq!(system_progress_percent(&p("audio", 0, None)), Some(92));
-        assert_eq!(system_progress_percent(&p("saving", 0, None)), Some(98));
+        assert_eq!(system_progress_percent(&p("video", 0, Some(100)), None, None), Some(0));
+        assert_eq!(system_progress_percent(&p("video", 50, Some(100)), None, None), Some(45));
+        assert_eq!(system_progress_percent(&p("video", 100, Some(100)), None, None), Some(90));
+        assert_eq!(system_progress_percent(&p("video", 250, Some(100)), None, None), Some(90), "estimate overshoot is clamped");
+        assert_eq!(system_progress_percent(&p("c-video", 3, Some(6)), None, None), Some(45));
+        assert_eq!(system_progress_percent(&p("video", 10, None), None, None), None, "unknown total: indeterminate");
+        assert_eq!(system_progress_percent(&p("video", 10, Some(0)), None, None), None);
+        assert_eq!(system_progress_percent(&p("probing", 0, None), None, None), None);
+        assert_eq!(system_progress_percent(&p("audio", 0, None), None, None), Some(92));
+        assert_eq!(system_progress_percent(&p("saving", 0, None), None, None), Some(98));
+        assert_eq!(system_progress_percent(&p("audio", 0, None), Some(1.0), None), Some(95), "audio fills 90..95");
+        assert_eq!(system_progress_percent(&p("subtitles", 0, None), None, Some(0.5)), Some(96));
+        assert_eq!(system_progress_percent(&p("subtitles", 0, None), None, Some(1.0)), Some(98));
     }
     #[test]
     fn audio_track_list_numbers_only_audio_streams_and_reads_tags() {
@@ -4402,6 +4645,62 @@ mod tests {
                 AdvancedSettings::default(), &dependencies, |_| {})
             .is_err()
         );
+    }
+    #[test]
+    fn progress_lines_become_fractions() {
+        assert_eq!(ffmpeg_progress_fraction("out_time_us=30000000", 120.0), Some(0.25));
+        assert_eq!(ffmpeg_progress_fraction("out_time_ms=60000000", 120.0), Some(0.5));
+        assert_eq!(ffmpeg_progress_fraction("out_time_us=999999999999", 120.0), Some(1.0), "clamped");
+        assert_eq!(ffmpeg_progress_fraction("out_time_us=N/A", 120.0), None);
+        assert_eq!(ffmpeg_progress_fraction("frame=10", 120.0), None);
+        assert_eq!(ffmpeg_progress_fraction("out_time_us=5", 0.0), None, "no duration: no fraction");
+        assert_eq!(tac_progress_fraction("P 64 640"), Some(0.1));
+        assert_eq!(tac_progress_fraction("2814 frames (103 short), 726036 bytes"), None);
+        assert_eq!(tac_progress_fraction("P 1 0"), None);
+    }
+    #[test]
+    fn job_fractions_round_trip_and_start_unknown() {
+        let c = JobControl::default();
+        assert_eq!((c.audio(), c.subs()), (None, None));
+        c.set_audio(0.256);
+        c.set_subs(2.0);
+        assert_eq!((c.audio(), c.subs()), (Some(0.256), Some(1.0)), "clamped to 1");
+        c.clear_audio();
+        assert_eq!(c.audio(), None);
+        let p = Progress { phase: "audio", frames: 5, total_frames_estimate: Some(10), remaining_seconds: None };
+        let e = progress_event(&p, Some(0.4), Some(0.9));
+        assert_eq!((e.fraction, e.audio_fraction), (Some(0.4), Some(0.4)));
+        let v = Progress { phase: "video", ..p.clone() };
+        let e = progress_event(&v, Some(0.4), Some(0.9));
+        assert_eq!((e.fraction, e.audio_fraction), (None, Some(0.4)), "audio shown beside the video, no phase fraction");
+        let s = Progress { phase: "subtitles", ..p };
+        let e = progress_event(&s, Some(1.0), Some(0.9));
+        assert_eq!((e.fraction, e.audio_fraction), (Some(0.9), None));
+        let json = serde_json::to_value(&e).unwrap();
+        assert_eq!(json["phase"], "subtitles");
+        assert!(json.get("fraction").is_some() && json.get("audio_fraction").is_some() && json.get("frames").is_some(), "flattened: {json}");
+    }
+    #[cfg(unix)]
+    #[test]
+    fn run_with_progress_reports_fractions_and_stops_on_abort() {
+        let control = JobControl::default();
+        let mut sh = Command::new("sh");
+        sh.args(["-c", "echo out_time_us=1000000; echo 'P 1 4' >&2; echo noise >&2; echo out_time_us=4000000; echo 'P 4 4' >&2"]);
+        let mut seen = Vec::new();
+        let details = run_with_progress(sh, "test tool", &control, None, &|l| ffmpeg_progress_fraction(l, 4.0).or_else(|| tac_progress_fraction(l)), &mut |f| seen.push(f)).unwrap();
+        assert_eq!(seen.len(), 4, "{seen:?}");
+        assert!(seen.contains(&0.25) && seen.contains(&1.0), "{seen:?}");
+        assert_eq!(details.trim(), "noise", "lines that are not progress are kept as diagnostics");
+        let mut failing = Command::new("sh");
+        failing.args(["-c", "echo boom >&2; exit 3"]);
+        let err = run_with_progress(failing, "bad tool", &control, None, &|_| None, &mut |_| {}).unwrap_err();
+        assert!(err.contains("boom"), "{err}");
+        let abort = AtomicBool::new(true);
+        let mut slow = Command::new("sh");
+        slow.args(["-c", "sleep 30"]);
+        let started = std::time::Instant::now();
+        assert!(run_with_progress(slow, "slow tool", &control, Some(&abort), &|_| None, &mut |_| {}).is_err());
+        assert!(started.elapsed() < std::time::Duration::from_secs(5), "an abort kills the tool at once");
     }
     #[test]
     fn audio_settings_have_safe_defaults() {
