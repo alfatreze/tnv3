@@ -38,7 +38,7 @@ fn usage_error_is_one_json_line_and_keeps_stdout_machine_readable() {
             "encode",
             "input.mp4",
             "output.tnv3",
-            "--json-events",
+            "--python-c", "--json-events",
             "--unknown",
             "x",
         ])
@@ -312,7 +312,7 @@ fn encode_args(
         .arg("encode")
         .arg(input)
         .arg(output)
-        .args(["--json-events", "--video-only", "--python"])
+        .args(["--python-c", "--json-events", "--video-only", "--python"])
         .arg(python)
         .arg("--script")
         .arg(script)

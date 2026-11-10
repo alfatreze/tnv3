@@ -1,4 +1,4 @@
-//! Opt-in experimental C-reference workflow from an already decoded Y4M stream.
+//! C-reference workflow from an already decoded Y4M stream (the default encoder workflow of the app and the CLI).
 //!
 //! This vertical slice groups Y4M frames, runs bounded concurrent `tvc_enc` segment jobs,
 //! repairs cross-segment rate windows with `-P`, merges TVC1 chunks, then muxes and checks a
@@ -67,7 +67,7 @@ impl<W: Write> Write for BoundedWriter<W> {
     }
 }
 
-/// Executables used by this experimental workflow.
+/// Executables used by this workflow.
 #[derive(Clone, Debug)]
 pub struct Tools {
     pub tvc_encoder: PathBuf,
@@ -218,7 +218,7 @@ pub fn encode_y4m_video_with_progress_and_quiet_children<R: BufRead, W: Write>(
     )
 }
 
-/// Experimental cooperative cancellation. On Stop, termination of a running
+/// Cooperative cancellation. On Stop, termination of a running
 /// direct C/mux child is attempted and reaping is polled for a bounded time.
 /// Unverified cleanup retains the workspace; eventual reaping is not guaranteed.
 /// Segment workers are joined, so unrelated blocked I/O can still delay return.
@@ -281,7 +281,7 @@ pub fn encode_y4m_video_with_control_and_quiet_children<R: BufRead, W: Write>(
     }
 }
 
-/// Experimental live-decision entry point. The caller must run a separate
+/// Live-decision entry point. The caller must run a separate
 /// diagnostic drainer and supervise the source decoder process.
 pub fn encode_y4m_video_with_gate<R: BufRead, W: Write>(
     tools: &Tools,

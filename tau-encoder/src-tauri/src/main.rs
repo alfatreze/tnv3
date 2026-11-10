@@ -1163,14 +1163,14 @@ fn encode_pair_impl(
                 dependencies.workspace_limit_bytes
             };
             let video_started = std::time::Instant::now();
-            let encoded = tau_video::experimental_c_orchestrator::encode_y4m_video_with_gate(
-                &tau_video::experimental_c_orchestrator::Tools {
+            let encoded = tau_video::c_orchestrator::encode_y4m_video_with_gate(
+                &tau_video::c_orchestrator::Tools {
                     tvc_encoder,
                     tnv3: tnv3_tool,
                 },
                 BufReader::new(stdout),
                 &mut tvc,
-                tau_video::experimental_c_orchestrator::Options {
+                tau_video::c_orchestrator::Options {
                     qp,
                     jobs,
                     frames_per_segment: (480u32 * 400 * 360 / (width * height)).clamp(1, 480)
@@ -1961,6 +1961,7 @@ fn discover_tools(
     dependencies: Dependencies,
     workflow: String,
 ) -> Vec<ToolDiscovery> {
+    let workflow = if workflow == "python" && !python_workflow_enabled() { "native".to_owned() } else { workflow };
     let resources = app.path().resource_dir().ok();
     let bundled = |path: &str| resources.as_ref().map(|dir| dir.join(path));
     let ffmpeg_auto = ffmpeg_path(&app);
@@ -2178,6 +2179,16 @@ async fn list_audio_tracks(
     .map_err(|e| format!("Track listing stopped: {e}"))?
 }
 
+/// The Python + C workflow (Tau V's reference script) is hidden unless the app is started with `--python-workflow`
+/// (or with TAU_ENCODER_PYTHON_WORKFLOW=1 in the environment). Rust + C is the encoder workflow otherwise.
+fn python_workflow_enabled() -> bool {
+    std::env::args().any(|a| a == "--python-workflow")
+        || std::env::var_os("TAU_ENCODER_PYTHON_WORKFLOW").is_some_and(|v| !v.is_empty() && v != "0")
+}
+#[tauri::command]
+fn python_workflow_available() -> bool {
+    python_workflow_enabled()
+}
 #[tauri::command]
 fn experimental_rust_encoder_available() -> bool {
     cfg!(feature = "experimental-rust-encoder")
@@ -2402,7 +2413,7 @@ fn inspect_output_impl(ffmpeg: &Path, input: &Path, width: u32) -> Result<Output
     let height = dimension('H').ok_or("Video header has no height.")?;
     let minimum_level = (1..=3)
         .find(|&level| {
-            tau_video::experimental_c_orchestrator::check_level_fit(header, level).is_ok()
+            tau_video::c_orchestrator::check_level_fit(header, level).is_ok()
         })
         .ok_or("The output dimensions and frame rate do not fit levels 1–3.")?;
     Ok(OutputPreview {
@@ -2462,6 +2473,9 @@ async fn encode(
     if let Some(value) = workflow.as_deref() {
         if value != "python" && value != "native" {
             return Err("Unknown encoder workflow.".into());
+        }
+        if value == "python" && !python_workflow_enabled() {
+            return Err("The Python + C workflow is off. Start the app with --python-workflow to use it.".into());
         }
     }
     let workflow = workflow.unwrap_or_else(|| "python".into());
@@ -2940,6 +2954,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             experimental_rust_encoder_available,
+            python_workflow_available,
             list_audio_tracks,
             list_subtitle_tracks,
             check_source,
@@ -3993,6 +4008,13 @@ mod tests {
         assert!(workspace_bytes(16_385).is_err());
     }
 
+    #[test]
+    fn python_workflow_is_off_unless_asked_for() {
+        // (the test binary is not started with the flag; the environment switch is read the same way)
+        let on = std::env::var_os("TAU_ENCODER_PYTHON_WORKFLOW").is_some_and(|v| !v.is_empty() && v != "0");
+        assert_eq!(python_workflow_enabled(), on || std::env::args().any(|a| a == "--python-workflow"));
+        assert_eq!(python_workflow_available(), python_workflow_enabled());
+    }
     #[test]
     fn experimental_pure_rust_availability_matches_build_feature() {
         assert_eq!(

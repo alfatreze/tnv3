@@ -64,7 +64,7 @@
     catch (e) { if (request === previewRequest) previewError = String(e); }
     finally { if (request === previewRequest) previewLoading = false; }
   }
-  let workflow: 'python' | 'native' = 'native', workspaceMib = 512;
+  let workflow: 'python' | 'native' = 'native', workspaceMib = 512, pythonWorkflow = false;   // the Python + C menu appears only when the app was started with --python-workflow
   let page: 'encoder' | 'decoder' | 'settings' = 'encoder';
   let player: { pausePlayback: () => void } | undefined;
   let roundDown = false, eofPass = false;
@@ -137,7 +137,7 @@
     return explanations;
   }
   type ResultInfo = { frames: number; level: number; reencoded: number; video: string; audio: string; warnings: string[]; log: string | null };
-  onMount(() => { void invoke<boolean>('experimental_rust_encoder_available').then(value => { rustAvailable = value; }).catch(() => { rustAvailable = false; }); try {
+  onMount(() => { void invoke<boolean>('python_workflow_available').then(value => { pythonWorkflow = value; if (!value) workflow = 'native'; }).catch(() => { pythonWorkflow = false; workflow = 'native'; }); void invoke<boolean>('experimental_rust_encoder_available').then(value => { rustAvailable = value; }).catch(() => { rustAvailable = false; }); try {
     folder = localStorage.getItem('tau-encoder-output-folder') || '';
     alwaysContinue = localStorage.getItem('tau-encoder-always-continue-source-errors') === 'true';
     keepLog = localStorage.getItem('tau-encoder-keep-log') !== 'false';
@@ -240,7 +240,7 @@
     <div class="field"><label for="name">File name <small>Creates one .tnv3 file with audio inside</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
     {#if mode === 'c'}
-      <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (reference)</option><option value="native">Rust + C (no Python, default)</option></select>
+      <div class="field">{#if pythonWorkflow}<label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (reference)</option><option value="native">Rust + C (no Python, default)</option></select>{:else}<p class="field-title">C encoder workflow</p>{/if}
         {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{:else}<p class="workflow-note">Rust handles orchestration; the same C video encoder still performs compression. Python is not required. This workflow tracks a projected temporary workspace budget; long films may need a higher value. Encoding stops when the projected workspace exceeds this budget, though actual disk use can vary. Video progress updates as segments finish. Custom tools must not launch other processes, because Stop cannot guarantee cleanup of their descendants.</p>
           <label class="workspace-label" for="workspace-mib">Projected workspace budget <small>MiB</small></label><input class="workspace-input" id="workspace-mib" type="number" min="1" max="16384" step="1" bind:value={workspaceMib} disabled={busy} />
         {/if}
@@ -270,7 +270,7 @@
     {#if warning}<div class="status warning-summary" role="alert"><strong>Output created with source warnings</strong>{#each warningExplanations(warning) as explanation}<p>{explanation}</p>{/each}<details><summary>Show original decoder messages</summary><pre class="warning">{warning}</pre></details></div>{/if}
     {#if error}<p class="status error" role="alert">{error}</p>{/if}
   </section>
-  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo TAC audio stored inside the .tnv3 file. Some videos may fail or require lower quality. Time estimates cover video processing only. The Python workflow stops after the current phase; the native workflow requests that its running tools stop.</p></aside>
+  <aside><strong>Early preview</strong><p>Output is 24 fps with 48 kHz stereo TAC audio stored inside the .tnv3 file. Some videos may fail or require lower quality. Time estimates cover video processing only. {#if pythonWorkflow}The Python workflow stops after the current phase; the Rust + C workflow requests that its running tools stop.{:else}Stop asks the running tools to stop.{/if}</p></aside>
   {:else if page === 'decoder'}
     <header><div><p class="eyebrow">LOCAL PREVIEW</p><h1>Decoder</h1></div></header>
     <p class="intro">Test player for local TNV3 video and matching audio files.</p>
@@ -278,11 +278,11 @@
     <header><div><p class="eyebrow">APP CONFIGURATION</p><h1>Settings</h1></div></header>
     <p class="intro">Choose installed tools to override automatic discovery. Paths are remembered on this computer.</p>
     <section aria-label="Dependency settings">
-      <p class="settings-copy">Leave a path empty to use the bundled or default tool. The Python path is used only by the Python + C workflow.</p>
+      <p class="settings-copy">Leave a path empty to use the bundled or default tool.{#if pythonWorkflow} The Python path is used only by the Python + C workflow.{/if}</p>
       <p class="settings-copy">Detected paths depend on the app's environment and the selected workflow. File detection does not verify that a tool works or supports your source.</p>
       <button type="button" onclick={() => void refreshTools()} disabled={busy || discovering}>{discovering ? 'Scanning…' : 'Refresh detected tools'}</button>
       {#if discoveryError}<p class="status error" role="alert">{discoveryError}</p>{/if}
-      {#each dependencyFields as field}
+      {#each dependencyFields.filter(f => pythonWorkflow || (f.key !== 'python' && f.key !== 'script')) as field}
           {@const tool = discovered.find(item => item.key === field.key)}
           <div class="field"><label for={'dependency-' + field.key}>{field.label} <small>{field.help}</small></label>
             <div class="pick"><input id={'dependency-' + field.key} bind:value={dependencies[field.key]} onchange={saveDependencies} disabled={busy} placeholder="Automatic" /><button type="button" onclick={() => chooseDependency(field.key)} disabled={busy}>Browse</button></div>

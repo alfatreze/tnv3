@@ -1372,10 +1372,10 @@ pub mod subtitle_read;
 #[cfg(feature = "subtitle-builder")]
 pub mod subtitle;
 
-/// Experimental Y4M-to-C segment orchestration, disabled by default.
-#[cfg(feature = "experimental-c-orchestrator")]
-pub mod experimental_c_orchestrator;
-#[cfg(feature = "experimental-c-orchestrator")]
+/// Rust orchestration of the C reference video encoder (Y4M in, segmented C encode, joint check). Feature `c-orchestrator`.
+#[cfg(feature = "c-orchestrator")]
+pub mod c_orchestrator;
+#[cfg(feature = "c-orchestrator")]
 pub mod source_gate;
 
 /// Optional streaming reader for grouping exact 8-bit 4:2:0 Y4M frames.

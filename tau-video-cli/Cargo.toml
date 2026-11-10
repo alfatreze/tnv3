@@ -5,7 +5,7 @@ edition = "2024"
 license = "Apache-2.0"
 
 [dependencies]
-tau-video = { path = "../tau-video", features = ["c-encoder", "experimental-c-orchestrator", "c-audio-decoder", "c-mux", "c-subtitles", "subtitle-builder"] }
+tau-video = { path = "../tau-video", features = ["c-encoder", "c-orchestrator", "c-audio-decoder", "c-mux", "c-subtitles", "subtitle-builder"] }
 serde_json = "1"
 sha2 = "0.10"
 

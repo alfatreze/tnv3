@@ -392,7 +392,7 @@ fn parse_y4m_sample(bytes: &[u8], profile: Profile) -> Result<((u32, u32), u8, u
     let (geometry, _) = parse_y4m_output(bytes, profile)?;
     let level = (1..=3)
         .find(|&candidate| {
-            tau_video::experimental_c_orchestrator::check_level_fit(&header, candidate).is_ok()
+            tau_video::c_orchestrator::check_level_fit(&header, candidate).is_ok()
         })
         .ok_or_else(|| {
             ProbeError::InvalidShapeWithContext("sample geometry does not fit a TVC level".into())
@@ -473,7 +473,7 @@ fn parse_y4m_output(bytes: &[u8], profile: Profile) -> Result<((u32, u32), u8), 
         ));
     }
     let level = (1..=3)
-        .find(|&l| tau_video::experimental_c_orchestrator::check_level_fit(&header, l).is_ok())
+        .find(|&l| tau_video::c_orchestrator::check_level_fit(&header, l).is_ok())
         .ok_or_else(|| {
             ProbeError::InvalidShapeWithContext("Y4M output does not fit TVC levels 1-3".into())
         })?;

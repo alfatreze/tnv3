@@ -9,7 +9,7 @@ requirements are not yet implemented.
 For example, the first event of a native pair job can be:
 
 ```json
-{"schema":1,"event":"plan","profile":{"id":"pocket-sidecar","version":1},"input":"input.mp4","files":2,"qp":30,"jobs":1,"backend":"experimental-rust-c-orchestrator","resume":false,"cancellation":"sigint-direct-leaf"}
+{"schema":1,"event":"plan","profile":{"id":"pocket-sidecar","version":1},"input":"input.mp4","files":2,"qp":30,"jobs":1,"backend":"rust-c","resume":false,"cancellation":"sigint-direct-leaf"}
 ```
 
 - `plan` gives a profile object with `id` and `version`, input, output count,

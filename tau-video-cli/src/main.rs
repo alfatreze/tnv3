@@ -25,7 +25,7 @@ use std::{
     time::Duration,
 };
 use tau_video::c_encoder::{self, Options, Tools};
-use tau_video::experimental_c_orchestrator::{self, Options as RustCOptions, Tools as RustCTools};
+use tau_video::c_orchestrator::{self, Options as RustCOptions, Tools as RustCTools};
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
 /// Convert SIGINT (terminal), SIGTERM (`kill`, a quitting parent) and SIGHUP (closed terminal) into the same
@@ -1257,7 +1257,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME] [--no-downmix-enhance] [--audio-loudness -40..-5] [--audio-floor -30..12] [--audio-tuned] [--subtitle-file FILE[:lang[:default][:forced]]]... [--subtitle-track N[:lang[:default][:forced]]]... [--subtitle-font FILE.ttf]... [--subtitle-sizes WxH,...] [--subtitle-outline W[,W...]] [--subtitle-styles FILE.json] [--subtitle-builder-arg ARG]... [--subtitle-builder PATH]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--width 16..800] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--no-downmix-enhance] [--audio-loudness -40..-5] [--audio-floor -30..12] [--audio-tuned] [--json]\n       tau-codecs-cli subtitles FILE.tnv3|AREA.bin [--json] [--events] [--render SECONDS OUT.ppm [--layers OUT.bin]] [--track N] [--variant N]\n       tau-codecs-cli build-subtitles OUTPUT.bin --video WxH (--track FILE[:lang[:default][:forced]] | --from-source INPUT --source-track N[:lang[:default][:forced]])... [--font FILE.ttf]... [--sizes WxH,...] [--fps N/D] [--styles FILE.json] [--outline-width W[,W...]] [--builder-arg ARG]... [--builder PATH] [--python PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT, SIGTERM and SIGHUP cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--python-c] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME] [--no-downmix-enhance] [--audio-loudness -40..-5] [--audio-floor -30..12] [--audio-tuned] [--subtitle-file FILE[:lang[:default][:forced]]]... [--subtitle-track N[:lang[:default][:forced]]]... [--subtitle-font FILE.ttf]... [--subtitle-sizes WxH,...] [--subtitle-outline W[,W...]] [--subtitle-styles FILE.json] [--subtitle-builder-arg ARG]... [--subtitle-builder PATH]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--width 16..800] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--no-downmix-enhance] [--audio-loudness -40..-5] [--audio-floor -30..12] [--audio-tuned] [--json]\n       tau-codecs-cli subtitles FILE.tnv3|AREA.bin [--json] [--events] [--render SECONDS OUT.ppm [--layers OUT.bin]] [--track N] [--variant N]\n       tau-codecs-cli build-subtitles OUTPUT.bin --video WxH (--track FILE[:lang[:default][:forced]] | --from-source INPUT --source-track N[:lang[:default][:forced]])... [--font FILE.ttf]... [--sizes WxH,...] [--fps N/D] [--styles FILE.json] [--outline-width W[,W...]] [--builder-arg ARG]... [--builder PATH] [--python PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. The default workflow is Rust orchestration of the C encoder (--rust-c-orchestrator is accepted for compatibility); --python-c selects Tau V's Python reference script instead, which has no cancellation. On Unix the default workflow handles SIGINT, SIGTERM and SIGHUP cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1753,7 +1753,7 @@ where
     let mut subs = subtitles::Request::default();
     let mut tac_tool = None;
     let mut legacy_audio_flag = false;
-    let mut rust_c_orchestrator = false;
+    let mut rust_c_orchestrator = true;   // the Rust + C workflow is the default; --python-c selects the Python reference script
     let mut json_events = false;
     let mut control_stdin = false;
     let mut allow_nonatomic_copy = false;
@@ -1794,7 +1794,11 @@ where
             audio_options_used = true;
             continue;
         }
-        if key_text == "--rust-c-orchestrator" {
+        if key_text == "--python-c" {
+            rust_c_orchestrator = false;
+            continue;
+        }
+        if key_text == "--rust-c-orchestrator" {   // the default; still accepted
             rust_c_orchestrator = true;
             continue;
         }
@@ -1955,10 +1959,10 @@ where
         return Err("workspace size in MiB exceeds the supported byte range".into());
     }
     if workspace_mib_explicit && !rust_c_orchestrator {
-        return Err("--workspace-mib requires --rust-c-orchestrator".into());
+        return Err("--workspace-mib applies to the Rust + C workflow and cannot be used with --python-c".into());
     }
     if control_stdin && !rust_c_orchestrator {
-        return Err("--control-stdin requires --rust-c-orchestrator".into());
+        return Err("--control-stdin applies to the Rust + C workflow and cannot be used with --python-c".into());
     }
     if pocket_sidecar && output.extension() != Some(OsStr::new("tnv3")) {
         return Err("The pocket-sidecar profile requires an OUTPUT path ending in .tnv3".into());
@@ -2382,7 +2386,7 @@ fn run(args: Args) -> Result<(), RunError> {
             "input": args.input.display().to_string(), "files": if args.pocket_sidecar {2} else {1},
             "qp": args.qp, "jobs": args.jobs,
             "effective_settings": effective_settings(&args),
-            "backend": if args.rust_c_orchestrator {"experimental-rust-c-orchestrator"} else {"python-c"},
+            "backend": if args.rust_c_orchestrator {"rust-c"} else {"python-c"},
             "resume": false, "cancellation": cancellation_plan(&args),
             "publication": if args.allow_nonatomic_copy {"atomic-preferred-nonatomic-copy-opt-in"} else {"atomic-no-replace-required"},
             "publication_warning": if args.allow_nonatomic_copy {Some("If no-replace rename and hard-link publication fail, exclusive-create copy may expose a partial output on write failure or interruption; the output pair is not atomic.")} else {None}
@@ -2411,11 +2415,11 @@ fn run(args: Args) -> Result<(), RunError> {
         let tvc_encoder = tools
             .tvc_encoder
             .as_ref()
-            .ok_or("--rust-c-orchestrator requires --tvc-encoder or --codec-root")?;
+            .ok_or("the Rust + C workflow requires --tvc-encoder or --codec-root")?;
         let tnv3_tool = tools
             .tnv3_tool
             .as_ref()
-            .ok_or("--rust-c-orchestrator requires --tnv3-tool or --codec-root")?;
+            .ok_or("the Rust + C workflow requires --tnv3-tool or --codec-root")?;
         let mut ffmpeg = Command::new(&tools.ffmpeg);
         ffmpeg
             .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
@@ -2520,7 +2524,7 @@ fn run(args: Args) -> Result<(), RunError> {
             tnv3: tnv3_tool.clone(),
         };
         let progress_error_slot = std::sync::Arc::clone(&progress_error);
-        let encoded = experimental_c_orchestrator::encode_y4m_video_with_control_and_quiet_children(
+        let encoded = c_orchestrator::encode_y4m_video_with_control_and_quiet_children(
             &tools,
             std::io::BufReader::new(stdout),
             staged.writer(),

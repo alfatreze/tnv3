@@ -21,3 +21,5 @@ select{width:100%;background:#111923;border:1px solid #435267;color:#e9edf5;bord
 .mark.logo{background:none;border-radius:0;display:block;object-fit:contain}
 
 .cropbox{position:relative;overflow:hidden;background:#000}.stage{position:absolute;background:#000}.stage canvas{position:absolute;image-rendering:auto;background:transparent;border-radius:0;margin:0}.stage.crisp canvas{image-rendering:pixelated}.app-shell main.wide{max-width:none}.preview-viewport.fit{max-height:none;overflow:hidden}.stage .overlay{left:0;top:0;pointer-events:none}.subtitle-controls{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;margin:8px 0}.subtitle-controls label{display:flex;gap:6px;align-items:center;margin:0;font-weight:500}
+
+.field-title{font-weight:650;font-size:14px;margin:0 0 9px}

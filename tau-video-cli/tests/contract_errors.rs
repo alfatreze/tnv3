@@ -60,7 +60,7 @@ fn usage_error_has_stable_status_and_json_error_event() {
             "encode",
             "input.mp4",
             "output.tnv3",
-            "--json-events",
+            "--python-c", "--json-events",
             "--unknown-option",
             "x",
         ])
@@ -77,7 +77,7 @@ fn invalid_argument_value_is_classified_as_usage() {
             "encode",
             "input.mp4",
             "output.tnv3",
-            "--json-events",
+            "--python-c", "--json-events",
             "--qp",
             "not-a-number",
         ])
@@ -96,7 +96,7 @@ fn syntax_error_stays_usage_when_path_has_no_dependencies() {
             "encode",
             "input.mp4",
             "output.tnv3",
-            "--json-events",
+            "--python-c", "--json-events",
             "--unknown-option",
             "value",
         ])
@@ -120,7 +120,7 @@ fn missing_input_is_io_status_with_json_error_event() {
             "encode",
             dir.join("absent.mp4").to_str().unwrap(),
             output_path.to_str().unwrap(),
-            "--json-events",
+            "--python-c", "--json-events",
             "--video-only",
         ])
         .output()
@@ -147,7 +147,7 @@ fn missing_encoder_dependency_is_classified_without_changing_exit_code() {
         .arg("encode")
         .arg(&input)
         .arg(&output_path)
-        .args(["--json-events", "--video-only", "--ffmpeg"])
+        .args(["--python-c", "--json-events", "--video-only", "--ffmpeg"])
         .arg(&missing_ffmpeg)
         .output()
         .expect("CLI process should start");
@@ -172,7 +172,7 @@ fn automatically_discovered_tools_absent_from_isolated_path_are_dependency_error
         .arg("encode")
         .arg(&input)
         .arg(&output_path)
-        .args(["--json-events", "--video-only"])
+        .args(["--python-c", "--json-events", "--video-only"])
         .env("PATH", &dir)
         .env_remove("TAU_CODECS_ROOT")
         .current_dir(&dir)
@@ -205,7 +205,7 @@ fn automatically_missing_ffmpeg_is_dependency_error_after_explicit_python() {
         .arg("encode")
         .arg(&input)
         .arg(&output_path)
-        .args(["--json-events", "--video-only", "--python"])
+        .args(["--python-c", "--json-events", "--video-only", "--python"])
         .arg(&python)
         .arg("--script")
         .arg(&script)
@@ -242,7 +242,7 @@ fn automatically_missing_ffprobe_is_dependency_error_after_explicit_tools() {
         .arg("encode")
         .arg(&input)
         .arg(&output_path)
-        .args(["--json-events", "--video-only", "--python"])
+        .args(["--python-c", "--json-events", "--video-only", "--python"])
         .arg(&python)
         .arg("--script")
         .arg(&script)
@@ -281,7 +281,7 @@ fn missing_automatically_discovered_checkout_is_a_dependency_error() {
         .arg("encode")
         .arg(&input)
         .arg(&output_path)
-        .args(["--json-events", "--video-only", "--python"])
+        .args(["--python-c", "--json-events", "--video-only", "--python"])
         .arg(&python)
         .arg("--ffmpeg")
         .arg(&ffmpeg)
@@ -330,7 +330,7 @@ fn child_failure_is_unclassified_status_with_json_error_event() {
         .arg("encode")
         .arg(&input)
         .arg(&output_path)
-        .args(["--json-events", "--video-only", "--python"])
+        .args(["--python-c", "--json-events", "--video-only", "--python"])
         .arg(&python)
         .arg("--script")
         .arg(&script)
