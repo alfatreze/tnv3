@@ -15,8 +15,8 @@
   // Encode log: one detailed JSON-lines file per encode, kept in the app's log folder (default on).
   let keepLog = true, logDir = '', logError = '';
   // Audio: quality floor for the TAC encoder ('off' uses the whole bit budget) and the downmix option for sources with more than two channels.
-  let audioFloor = 'off', downmixEnhance = true, loudnessTarget = '-18';
-  function saveAudioOptions() { try { localStorage.setItem('tau-encoder-audio-options', JSON.stringify({ audioFloor, downmixEnhance, loudnessTarget })); } catch { /* Keep this session's choice. */ } }
+  let audioFloor = 'off', downmixEnhance = true, loudnessTarget = '-18', audioTuned = false;
+  function saveAudioOptions() { try { localStorage.setItem('tau-encoder-audio-options', JSON.stringify({ audioFloor, downmixEnhance, loudnessTarget, audioTuned })); } catch { /* Keep this session's choice. */ } }
   function saveKeepLog() { try { localStorage.setItem('tau-encoder-keep-log', String(keepLog)); } catch { /* Keep this session's choice. */ } }
   async function openLogFolder() { logError = ''; try { await invoke('open_log_folder'); } catch (e) { logError = String(e); } }
   function saveRecoveryPreference() { try { localStorage.setItem('tau-encoder-always-continue-source-errors', String(alwaysContinue)); } catch { /* Keep this session's preference. */ } }
@@ -146,6 +146,7 @@
       if (typeof a.audioFloor === 'string') audioFloor = a.audioFloor;
       if (typeof a.downmixEnhance === 'boolean') downmixEnhance = a.downmixEnhance;
       if (typeof a.loudnessTarget === 'string') loudnessTarget = a.loudnessTarget;
+      if (typeof a.audioTuned === 'boolean') audioTuned = a.audioTuned;
     } catch { /* Defaults. */ }
     const saved = JSON.parse(localStorage.getItem('tau-encoder-dependencies') || '{}');
     for (const field of dependencyFields) if (typeof saved?.[field.key] === 'string') dependencies[field.key] = saved[field.key];
@@ -209,7 +210,7 @@
       });
       const width = outputWidth(), height = 720;
       encodeRunning = true;
-      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { keepLog, audioFloorDb: audioFloor === 'off' ? null : Number(audioFloor), downmixEnhance, loudnessLufs: Number(loudnessTarget), roundDown, eofPass, audioTrack: Number(audioTrack), subtitleTrack: Number(subtitleTrack) >= 0 ? Number(subtitleTrack) : null, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
+      const result = await invoke<ResultInfo>('encode', { jobId, input, folder, name: name + suffix, qp: Number(qp), mode, workflow: mode === 'rust' ? null : workflow, workspaceMib: Number(workspaceMib), continueSourceErrors: acceptedSourceErrors, advanced: { keepLog, audioFloorDb: audioFloor === 'off' ? null : Number(audioFloor), downmixEnhance, loudnessLufs: Number(loudnessTarget), audioTuned, roundDown, eofPass, audioTrack: Number(audioTrack), subtitleTrack: Number(subtitleTrack) >= 0 ? Number(subtitleTrack) : null, width, height, level: mode === 'rust' ? 0 : Number(selectedLevel) }, dependencies });
       warning = result.warnings.join('\n\n');
       message = `Finished: ${result.frames} frames · level ${result.level}. Created ${result.video}${result.audio ? ' and ' + result.audio : ' (audio is inside the file)'}. Level limits may cause automatic quality reductions.${result.log ? ' Log: ' + result.log : ''}`;
     } catch (e) { const text = String(e); if (text.startsWith('Encoding stopped')) message = text; else error = text; } finally { unlisten?.(); unlistenSource?.(); unlistenSourceCancelled?.(); encodeRunning = false; encodeRegistered = false; stopRequested = false; busy = false; }
@@ -311,6 +312,8 @@
       <p class="help">Applies only to sources with more than two audio channels (5.1, 7.1): they are mixed to stereo with the centre channel (dialogue) 3 dB up, the surrounds 6 dB down and no bass channel, then brought to the loudness below. Stereo and mono sources are not touched.</p>
       <label for="loudness">Loudness target <select id="loudness" bind:value={loudnessTarget} onchange={saveAudioOptions} disabled={busy || !downmixEnhance}><option value="-23">−23 LUFS (broadcast, quiet)</option><option value="-20">−20 LUFS</option><option value="-18">−18 LUFS (default)</option><option value="-16">−16 LUFS (loud)</option><option value="-14">−14 LUFS (very loud)</option></select></label>
       <label for="floor">Audio size <select id="floor" bind:value={audioFloor} onchange={saveAudioOptions} disabled={busy}><option value="off">Whole 96 kbit/s budget (default)</option><option value="-6">Slightly smaller (floor −6 dB)</option><option value="0">Smaller (floor 0 dB, about 20% less)</option><option value="3">Much smaller (floor +3 dB, about 40% less)</option></select></label>
+      <label><input type="checkbox" bind:checked={audioTuned} onchange={saveAudioOptions} disabled={busy} /> Tuned audio quantiser (wider dead zone)</label>
+      <p class="help">An encoder-only change (the file format is the same): on one test episode it measured about 0.4 dB higher SNR at the same size, or about 3% smaller with a floor. Not compared by ear yet.</p>
       <p class="help">The audio encoder normally spends its whole budget even on easy passages. A floor makes it stop once the coding noise is at that level against what the ear can hear, so simple passages take fewer bits. Savings are from a test on one episode; listen on the Pocket before relying on a setting.</p></section>
     <section class="recovery-settings" aria-label="Encode log"><h2>Encode log</h2><label><input type="checkbox" bind:checked={keepLog} onchange={saveKeepLog} /> Keep a detailed log of every encode</label><p class="help">One file per encode (JSON lines: settings, tools, source, progress every second, phase times, warnings, result or error) for analysing speed and problems. Logs are never deleted automatically.</p><div class="player-actions"><button type="button" onclick={openLogFolder}>Open log folder</button></div>{#if logDir}<p class="help detected-path">{logDir}</p>{/if}{#if logError}<p class="status error" role="alert">{logError}</p>{/if}</section>
     <section class="recovery-settings" aria-label="Source error handling"><h2>Source error handling</h2><label><input type="checkbox" checked={alwaysContinue} onchange={(event) => { alwaysContinue = (event.currentTarget as HTMLInputElement).checked; saveRecoveryPreference(); }} disabled={busy} /> Always continue when source errors are found</label><p class="help">When off, the native C workflow asks when it finds a source problem. The Python workflow checks the source before encoding, which can take as long as decoding. When on, the app continues without asking and reports errors with the result.</p></section>

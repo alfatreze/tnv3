@@ -150,8 +150,11 @@ static int16_t fx_sample(int64_t acc) {            /* round half away from zero,
 static double *unrounded;   /* last run's output before rounding (samples, interleaved) */
 static int16_t *run(const char *in, int fixed, int *nch_out, uint32_t *ns_out) {
     FILE *f = fopen(in, "rb"); char m[4];
-    if (!f || fread(m, 1, 4, f) != 4 || memcmp(m, "TAC0", 4)) { fprintf(stderr, "not a TAC0 file\n"); exit(1); }
-    int rate = (int)get32(f), nch = fgetc(f); fgetc(f); fgetc(f); fgetc(f);
+    if (!f || fread(m, 1, 4, f) != 4 || (memcmp(m, "TAC0", 4) && memcmp(m, "TAC1", 4))) { fprintf(stderr, "not a TAC0 or TAC1 file\n"); exit(1); }
+    int rate = (int)get32(f), nch = fgetc(f), feat = fgetc(f); fgetc(f); fgetc(f);
+    if (memcmp(m, "TAC1", 4)) feat = 0;
+    if (feat & ~1) { fprintf(stderr, "unsupported TAC1 feature bits\n"); exit(1); }
+    FEAT = feat;
     uint32_t nfr = get32(f), nsamp = get32(f);
     if (rate != 48000 || nch < 1 || nch > 2) { fprintf(stderr, "unsupported stream\n"); exit(1); }
     size_t len_acc = (size_t)(nfr + 2) * N;

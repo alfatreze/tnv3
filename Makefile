@@ -84,6 +84,7 @@ rust-conformance: all
 	python3 -I tests/pins/check_pins.py --root "$(TAU_V_ROOT)" --skip-films
 	python3 -I tests/pins/check_tac_vectors.py
 	python3 -I tests/pins/check_tac_trim.py
+	python3 -I tests/pins/check_tac_features.py
 	$(TEST_ENV) cargo test --manifest-path tau-video/Cargo.toml --all-features
 	$(TEST_ENV) cargo test --manifest-path tau-video-cli/Cargo.toml
 	$(TEST_ENV) cargo test --manifest-path tau-encoder/src-tauri/Cargo.toml

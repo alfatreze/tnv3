@@ -18,7 +18,8 @@ fails = 0
 with tempfile.TemporaryDirectory() as d:
     p = lambda n: os.path.join(d, n)
     for ch, kbps, total, cuts, extra in ((2, 96, 150000, (149999, 120001, 70000, 33333, 4096, 1500), []), (1, 64, 100000, (99000, 50001, 20000), []),
-                                         (2, 96, 150000, (120001, 33333), ["-L", "0"])):   # -L: the quality floor changes the reservoir path
+                                         (2, 96, 150000, (120001, 33333), ["-L", "0"]),
+                                         (2, 96, 150000, (120001, 4097), ["-D", "0.28", "-P", "1", "-X", "1"])):   # -L: the quality floor changes the reservoir path
         wav(p("src.wav"), total, ch)
         run("enc", p("src.wav"), p("full.tac"), "-b", str(kbps), *extra, "-C", p("full.ck"))
         for ns in cuts:

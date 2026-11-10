@@ -24,6 +24,9 @@ static double SMR_DB = 0.0;     /* encoder switch -m: extra signal-to-mask offse
 static int MSFORCE = -1;        /* encoder switch -M 0/1/2: force the stereo mode (conformance vectors); -1 = per-band choice */
 static int TONAL = 1;           /* encoder switch -T 0/1: tonality-dependent offsets (0 = fixed 13 dB, the draft-1 model) */
 static const char *CKPT_OUT, *RESUME_CKPT, *RESUME_FULL; static long RESUME_NS = -1;   /* encoder switches -C / -R -F -N, see the trim mode below */
+static int FEAT = 0;   /* TAC1 feature bits (header byte 9): 1 = the range coder's contexts start from the trained table TRAINED_INIT at every reset frame instead of 1/2; 0 = plain TAC0. Encoder switch -X. */
+static int TON_FFT = 0;     /* encoder switch -P 1: tonality from a Hann-windowed FFT power spectrum of the block instead of the MDCT coefficients (whose size swings with the signal's phase) */
+static double RND = 0.4054; /* encoder switch -D x: quantiser rounding offset (smaller = wider dead zone, fewer bits and more noise at a given step) */
 static double ALPHA_MIN = -30.0; /* encoder switch -L dB: quality floor, the rate loop never spends bits to put the noise more than this many dB under the masking threshold (default -30: effectively always use the whole budget) */
 static double ATT_RATIO = 8.0;  /* encoder switch -a: attack = segment high-pass energy above this multiple of the recent average */
 
@@ -104,7 +107,10 @@ static void imdct_frame(const double *coef, int type, double *out) {
 typedef struct {
     uint16_t sfz[2], sfm[6], ms[2], bz[3][2], m0[3][5], m1[3][5], m2[3][3], esc[6];
 } ACtx;
-static void actx_init(ACtx *c) { uint16_t *p = (uint16_t *)c; for (size_t i = 0; i < sizeof *c / 2; i++) p[i] = PROB_INIT; }
+#define NPROB (sizeof(ACtx) / 2)
+/*TRAINED_BEGIN*/static const uint16_t TRAINED_INIT[NPROB] = {8809,5132,10008,18455,25156,24910,14256,16465,8777,1445,27159,14531,29837,14028,28663,9334,15124,15558,12778,10552,10619,20321,17026,13298,9948,8829,24208,19875,15082,9891,8561,27961,25691,23808,20847,17391,28985,26797,24169,21314,17507,30543,28871,26169,22119,17466,20446,23883,23598,23632,26964,25210,26486,28564,26178,24965,24435,19062,16979,16524,16396};   /* mean context state at the end of 16-frame groups over four 60 s clips of one episode (loudness-normalised 5.1 downmix), see docs/TAC_BITSTREAM_V0.md notes */
+/*TRAINED_END*/
+static void actx_init(ACtx *c) { uint16_t *p = (uint16_t *)c; for (size_t i = 0; i < NPROB; i++) p[i] = (FEAT & 1) ? TRAINED_INIT[i] : PROB_INIT; }
 static int rc_bits(RC *r, int nbits, int v) { int o = 0; for (int b = nbits - 1; b >= 0; b--) o = (o << 1) | rc_bypass(r, (v >> b) & 1); return o; }
 
 typedef struct {
@@ -234,8 +240,11 @@ static void wav_write(const char *path, const int16_t *d, int nch, int rate, lon
 /* ------------------------------------------------------------------ decoder */
 static int decode(const char *in, const char *out) {
     FILE *f = fopen(in, "rb"); char m[4];
-    if (!f || fread(m, 1, 4, f) != 4 || memcmp(m, "TAC0", 4)) { fprintf(stderr, "not a TAC0 file\n"); return 1; }
-    int rate = (int)get32(f), nch = fgetc(f); fgetc(f); fgetc(f); fgetc(f);
+    if (!f || fread(m, 1, 4, f) != 4 || (memcmp(m, "TAC0", 4) && memcmp(m, "TAC1", 4))) { fprintf(stderr, "not a TAC0 or TAC1 file\n"); return 1; }
+    int rate = (int)get32(f), nch = fgetc(f), feat = fgetc(f); fgetc(f); fgetc(f);
+    if (memcmp(m, "TAC1", 4)) feat = 0;
+    if (feat & ~1) { fprintf(stderr, "unsupported TAC1 feature bits\n"); return 1; }
+    FEAT = feat;
     uint32_t nfr = get32(f), nsamp = get32(f);
     if (rate != 48000 || nch < 1 || nch > 2) { fprintf(stderr, "unsupported stream\n"); return 1; }
     double *acc = calloc((size_t)(nfr + 2) * N, sizeof *acc * 2);    /* interleaved per channel: acc[ch][...] */
@@ -269,11 +278,38 @@ static double bark(double f) { return 13 * atan(0.00076 * f) + 3.5 * atan((f / 7
 
 /* Tonality of each band from the spectral flatness of its line energies (geometric over arithmetic mean): about -5 dB
  * for noise-like bands in an MDCT, -30 to -60 dB for a few dominant lines.  tonality = min(-SFM_dB / 60, 1). */
-static void tonality(int type, const double *coef, double *ton) {
+/* power per line from a Hann-windowed complex FFT: long frames use the 2048-sample block (bin k stands for MDCT line k), short frames the
+ * eight 256-sample windows (line w*NS + k); scaled like the squared MDCT coefficients (their window sum of squares is about N) */
+static void fft_inplace(double *re, double *im, int n) {
+    for (int i = 1, j = 0; i < n; i++) { int bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { double t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+    for (int len = 2; len <= n; len <<= 1) {
+        double a = -2 * M_PI / len;
+        for (int i = 0; i < n; i += len) for (int j = 0; j < len / 2; j++) {
+            double wr = cos(a * j), wi = sin(a * j), tr = re[i + j + len / 2] * wr - im[i + j + len / 2] * wi, ti = re[i + j + len / 2] * wi + im[i + j + len / 2] * wr;
+            re[i + j + len / 2] = re[i + j] - tr; im[i + j + len / 2] = im[i + j] - ti; re[i + j] += tr; im[i + j] += ti;
+        }
+    }
+}
+static void power_spectrum(const double *x, int type, double *pw) {
+    double re[2 * N], im[2 * N];
+    if (type != W_SHORT) {
+        for (int n = 0; n < 2 * N; n++) { re[n] = x[n] * (0.5 - 0.5 * cos(2 * M_PI * (n + 0.5) / (2 * N))); im[n] = 0; }
+        fft_inplace(re, im, 2 * N);
+        for (int k = 0; k < N; k++) pw[k] = (re[k] * re[k] + im[k] * im[k]) * (2.0 / 3.0);   /* Hann: sum of squares is 3/8 of 2N, MDCT sine window 1/2 of 2N */
+        return;
+    }
+    for (int w = 0; w < 8; w++) {
+        const double *xs = x + 448 + NS * w;
+        for (int n = 0; n < 2 * NS; n++) { re[n] = xs[n] * (0.5 - 0.5 * cos(2 * M_PI * (n + 0.5) / (2 * NS))); im[n] = 0; }
+        fft_inplace(re, im, 2 * NS);
+        for (int k = 0; k < NS; k++) pw[w * NS + k] = (re[k] * re[k] + im[k] * im[k]) * (2.0 / 3.0);
+    }
+}
+static void tonality(int type, const double *coef, const double *pwr, double *ton) {
     int nb = nbands(type), idx[N];
     for (int b = 0; b < nb; b++) {
         int n = band_lines(type, b, idx); double lg = 0, ar = 0;
-        for (int i = 0; i < n; i++) { double p = coef[idx[i]] * coef[idx[i]] + 1.0; lg += log(p); ar += p; }
+        for (int i = 0; i < n; i++) { double p = (pwr ? pwr[idx[i]] : coef[idx[i]] * coef[idx[i]]) + 1.0; lg += log(p); ar += p; }
         double sfm_db = 10.0 / log(10.0) * (lg / n - log(ar / n));
         ton[b] = fmin(fmax(-sfm_db / 60.0, 0.0), 1.0);
     }
@@ -282,11 +318,11 @@ static void tonality(int type, const double *coef, double *ton) {
 /* masking threshold (energy) per band: each band j masks with its energy spread in Bark and lowered by a
  * tonality-dependent offset (tonal maskers mask less: 14.5 + z_j dB; noise-like maskers 5.5 dB, interpolated),
  * then the absolute threshold */
-static void psy(int type, const double *coef, const double *E, double *T) {
+static void psy(int type, const double *coef, const double *pwr, const double *E, double *T) {
     int nb = nbands(type); const int *e = edges(type);
     double lw = type == W_SHORT ? 48000.0 / 2 / NS : 48000.0 / 2 / N, z[NBL], ton[NBL], off[NBL];
     for (int b = 0; b < nb; b++) z[b] = bark(lw * (e[b] + e[b + 1]) / 2.0);
-    tonality(type, coef, ton);
+    tonality(type, coef, pwr, ton);
     for (int j = 0; j < nb; j++)
         off[j] = TONAL ? pow(10.0, -(ton[j] * (14.5 + z[j]) + (1.0 - ton[j]) * 5.5 + SMR_DB) / 10.0) : pow(10.0, -(13.0 + SMR_DB) / 10.0);
     for (int b = 0; b < nb; b++) {
@@ -308,8 +344,8 @@ static void psy(int type, const double *coef, const double *E, double *T) {
 }
 
 /* same quantiser from the precomputed |x|^0.75: |x|^0.75 / step^0.75 (equal up to the last bit of the double, so a rare coefficient at an exact rounding boundary may differ from quant1) */
-static int quant1p(double a75, int neg, int sf) { int q = (int)floor(a75 * SFINV75[sf] + 0.4054); return neg ? -q : q; }
-static int quant1(double x, int sf) { double st = sfstep(sf); int q = (int)floor(pow(fabs(x) / st, 0.75) + 0.4054); return x < 0 ? -q : q; }
+static int quant1p(double a75, int neg, int sf) { int q = (int)floor(a75 * SFINV75[sf] + RND); return neg ? -q : q; }
+static int quant1(double x, int sf) { double st = sfstep(sf); int q = (int)floor(pow(fabs(x) / st, 0.75) + RND); return x < 0 ? -q : q; }
 
 
 static int encode(const char *in, const char *out, int kbps) {
@@ -346,7 +382,7 @@ static int encode(const char *in, const char *out, int kbps) {
     }
     FILE *o = fopen(out, "wb");
     FILE *ck = CKPT_OUT ? fopen(CKPT_OUT, "w") : NULL;
-    fwrite("TAC0", 1, 4, o); put32(o, 48000); fputc(nch, o); fputc(0, o); fputc(0, o); fputc(0, o); put32(o, (uint32_t)nfr); put32(o, (uint32_t)ns);
+    fwrite(FEAT ? "TAC1" : "TAC0", 1, 4, o); put32(o, 48000); fputc(nch, o); fputc(FEAT, o); fputc(0, o); fputc(0, o); put32(o, (uint32_t)nfr); put32(o, (uint32_t)ns);
     double mean_bits = kbps * 1000.0 * N / 48000.0, reservoir = 0, rmax = 6 * mean_bits;
     /* encoder bandwidth, rounded to band edges: 128 kbit/s up to 18.6 kHz, 96 kbit/s up to 15.05 kHz */
     double cut = kbps >= 128 ? 18700 : kbps >= 96 ? 15100 : 12900;
@@ -384,6 +420,8 @@ static int encode(const char *in, const char *out, int kbps) {
         if (maxb < 1) maxb = 1;
         double coef[2][N], E[2][NBL], T[2][NBL];
         for (int ch = 0; ch < nch; ch++) mdct_frame(x[ch] + t * N, f.type, coef[ch]);
+        double pw[2][N];
+        if (TON_FFT) for (int ch = 0; ch < nch; ch++) power_spectrum(x[ch] + t * N, f.type, pw[ch]);
         /* mid/side per band */
         if (nch == 2) {
             f.msmode = 2;
@@ -397,7 +435,7 @@ static int encode(const char *in, const char *out, int kbps) {
         double cc[2][N]; memcpy(cc, coef, sizeof cc);
         for (int ch = 0; ch < nch; ch++) {
             for (int b = 0; b < nb; b++) { int n = band_lines(f.type, b, idx); double s = 0; for (int i = 0; i < n; i++) s += coef[ch][idx[i]] * coef[ch][idx[i]]; E[ch][b] = s + 1e-9; }
-            psy(f.type, coef[ch], E[ch], T[ch]);
+            psy(f.type, coef[ch], TON_FFT ? pw[ch] : NULL, E[ch], T[ch]);
         }
         if (nch == 2) for (int b = 0; b < maxb; b++) if (f.ms[b]) {
             int n = band_lines(f.type, b, idx); double tm = fmin(T[0][b], T[1][b]);
@@ -483,7 +521,7 @@ int main(int argc, char **argv) {
             if (!strcmp(argv[i], "-b")) kb = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-n")) NFILL = atoi(argv[i + 1]);
             else if (!strcmp(argv[i], "-m")) SMR_DB = atof(argv[i + 1]); else if (!strcmp(argv[i], "-a")) ATT_RATIO = atof(argv[i + 1]);
             else if (!strcmp(argv[i], "-T")) TONAL = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-M")) MSFORCE = atoi(argv[i + 1]);
-            else if (!strcmp(argv[i], "-L")) ALPHA_MIN = atof(argv[i + 1]); else if (!strcmp(argv[i], "-C")) CKPT_OUT = argv[i + 1]; else if (!strcmp(argv[i], "-R")) RESUME_CKPT = argv[i + 1];
+            else if (!strcmp(argv[i], "-P")) TON_FFT = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-D")) RND = atof(argv[i + 1]); else if (!strcmp(argv[i], "-X")) FEAT = atoi(argv[i + 1]) & 1; else if (!strcmp(argv[i], "-L")) ALPHA_MIN = atof(argv[i + 1]); else if (!strcmp(argv[i], "-C")) CKPT_OUT = argv[i + 1]; else if (!strcmp(argv[i], "-R")) RESUME_CKPT = argv[i + 1];
             else if (!strcmp(argv[i], "-F")) RESUME_FULL = argv[i + 1]; else if (!strcmp(argv[i], "-N")) RESUME_NS = atol(argv[i + 1]);
         }
         return encode(argv[2], argv[3], kb);

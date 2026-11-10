@@ -550,7 +550,7 @@ fn log_start_event(
             "subtitle_track": advanced.subtitle_track, "width": advanced.dimensions().0, "height": advanced.dimensions().1,
             "level": if advanced.level() == 0 {serde_json::json!("automatic")} else {serde_json::json!(advanced.level())},
             "round_down": advanced.round_down, "eof_pass": advanced.eof_pass,
-            "audio_floor_db": advanced.tac_floor(), "downmix_enhance": advanced.downmix_enhance(), "loudness_lufs": advanced.loudness_target(),
+            "audio_floor_db": advanced.tac_floor(), "audio_tuned": advanced.audio_tuned.unwrap_or(false), "downmix_enhance": advanced.downmix_enhance(), "loudness_lufs": advanced.loudness_target(),
         },
         "tools": {
             "ffmpeg": ffmpeg.display().to_string(), "ffmpeg_version": ffmpeg_version_line(ffmpeg),
@@ -724,6 +724,9 @@ struct AdvancedSettings {
     downmix_enhance: Option<bool>,
     /// Loudness target in LUFS for the downmix option (default -18).
     loudness_lufs: Option<f64>,
+    /// TAC encoder dead zone 0.28 (`tac -D`) instead of the reference rounding 0.4054: at the same rate a test episode
+    /// measured about 0.4 dB more SNR, or about 3% fewer bytes with a quality floor. Encoder-only, no format change.
+    audio_tuned: Option<bool>,
 }
 impl AdvancedSettings {
     fn downmix_enhance(self) -> bool {
@@ -731,6 +734,17 @@ impl AdvancedSettings {
     }
     fn loudness_target(self) -> f64 {
         self.loudness_lufs.filter(|v| (-40.0..=-5.0).contains(v)).unwrap_or(-18.0)
+    }
+    /// Extra `tac enc` arguments chosen by the settings (used identically for the whole-source and the trimmed encode).
+    fn tac_options(self) -> Vec<String> {
+        let mut args = Vec::new();
+        if let Some(floor) = self.tac_floor() {
+            args.extend(["-L".to_string(), floor.to_string()]);
+        }
+        if self.audio_tuned.unwrap_or(false) {
+            args.extend(["-D".to_string(), "0.28".to_string()]);
+        }
+        args
     }
     fn tac_floor(self) -> Option<f64> {
         self.audio_floor_db.filter(|v| (-30.0..=12.0).contains(v))
@@ -1421,7 +1435,7 @@ fn encode_pair_impl(
             ffmpeg,
             advanced.subtitle_track,
             prefetch_parts.as_ref().map(|(full, ck)| (full.0.as_path(), ck.0.as_path(), trim_samples)),
-            advanced.tac_floor(),
+            advanced.tac_options(),
             &mut |phase| {
                 progress(Progress { phase, frames: stats.frames, total_frames_estimate: total, remaining_seconds: None })
             },
@@ -1681,9 +1695,7 @@ fn prefetch_audio(
     drop(f);
     let mut enc = Command::new(tac);
     enc.arg("enc").arg(&wav.0).arg(&full_tac.0).arg("-b").arg("96");
-    if let Some(floor) = advanced.tac_floor() {
-        enc.arg("-L").arg(floor.to_string());
-    }
+    enc.args(advanced.tac_options());
     enc.arg("-C").arg(&checkpoints.0);
     run_cancellable_with(enc, "TAC encoding", control, Some(abort))?;
     let source_samples = wav_sample_frames(&wav.0).ok_or("Could not read the extracted audio length.")?;
@@ -1756,7 +1768,7 @@ fn build_tnv3_with_tac(
     ffmpeg: &Path,
     subtitle_track: Option<u32>,
     trim: Option<(&Path, &Path, u64)>,
-    tac_floor: Option<f64>,
+    tac_options: Vec<String>,
     on_phase: &mut dyn FnMut(&'static str),
 ) -> Result<(Temporary, File, Vec<String>), String> {
     let tac = resolve_tool(&dependencies.tac_tool, "TAC encoder", fallbacks)?;
@@ -1788,9 +1800,7 @@ fn build_tnv3_with_tac(
     control.checkpoint()?;
     let mut enc = Command::new(&tac);
     enc.arg("enc").arg(wav_path).arg(&tac_guard.0).arg("-b").arg("96");
-    if let Some(floor) = tac_floor {
-        enc.arg("-L").arg(floor.to_string());
-    }
+    enc.args(&tac_options);
     if let Some((full, checkpoints, samples)) = trim {
         // the whole-source encode already exists: re-encode only the last frames, cut at the video's end
         enc.arg("-R").arg(checkpoints).arg("-F").arg(full).arg("-N").arg(samples.to_string());

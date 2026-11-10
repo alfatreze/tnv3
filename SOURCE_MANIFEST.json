@@ -27,7 +27,7 @@
       "note": "Apache-2.0 text; the upstream MIT original is LICENSES/MIT-HarpMudd.txt"
     },
     "Makefile": {
-      "sha256": "f290e4de4148844c26b88896206077837fd0ed11d017e3fa0bf0fb15899498a5",
+      "sha256": "efb62838baacd97bcd7314c86a7890e7b9ee08fa470e1a608b0820ffe0332208",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
@@ -1279,14 +1279,14 @@
       "sha256": "a4b8ee90562d3385bc960dc4141693f66735149c08dedf132309cb2b08c701f2"
     },
     "tools/tac_ref/tac.c": {
-      "sha256": "d2687e920d4f30f25bf15dcb422bb790d2bff1948ba09aedc7540fb44d4ac6fa",
+      "sha256": "7b15534dad36d2a0b2006b20f0ad79ddd85121d941ac8ebabe7bc42714f87d1e",
       "status": "modified_after_snapshot",
       "upstream_path": "tools/tac_ref/tac.c",
       "upstream_sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
       "repinned": "2026-11-10 (encoder speed: FFT-based MDCT and cached pow tables; output byte-identical to the snapshot on the test set; hash re-recorded, not an upstream claim)"
     },
     "tools/tac_ref/tac_fx.c": {
-      "sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e",
+      "sha256": "c1716e9208d244051f5eb59f2f33115d4908203b67fde66b19d4c50b6f83064a",
       "status": "unchanged",
       "upstream_path": "tools/tac_ref/tac_fx.c",
       "upstream_sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e"
@@ -1471,7 +1471,7 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "f72cdc4c346ab07c8a471a9af415e70ac60cdba934f94dbf312d1df88f117549",
+      "sha256": "4175c4ad5a7d689c7deca1c238c35c6033fbd08e7fc59c809bd5ed5631cdce46",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/main.ts": {
@@ -1510,7 +1510,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "6a3e99f57ceb97a098ed67663d4b7afa94f9377ef7874f7987a76b658a28d9cf",
+      "sha256": "2e89f31f86319c9d374da48c6eb597202d4532256ac98af4b6c7d13b890812cd",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
