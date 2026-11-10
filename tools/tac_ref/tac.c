@@ -25,8 +25,45 @@ static int MSFORCE = -1;        /* encoder switch -M 0/1/2: force the stereo mod
 static int TONAL = 1;           /* encoder switch -T 0/1: tonality-dependent offsets (0 = fixed 13 dB, the draft-1 model) */
 static double ATT_RATIO = 8.0;  /* encoder switch -a: attack = segment high-pass energy above this multiple of the recent average */
 
+/* fast MDCT: fold 2n windowed samples to n, DCT-IV through an n/2-point complex FFT */
+typedef struct { int n; double *tw_re, *tw_im, *rot_re, *rot_im; int *rev; } FastMdct;
+static void fm_init(FastMdct *f, int n) {
+    int h = n / 2; f->n = n;
+    f->tw_re = malloc(h * sizeof(double)); f->tw_im = malloc(h * sizeof(double));
+    f->rot_re = malloc(h * sizeof(double)); f->rot_im = malloc(h * sizeof(double)); f->rev = malloc(h * sizeof(int));
+    for (int k = 0; k < h; k++) { f->tw_re[k] = cos(-2 * M_PI * k / h); f->tw_im[k] = sin(-2 * M_PI * k / h); }
+    for (int k = 0; k < h; k++) { double a = -M_PI * (8 * k + 1) / (8.0 * n); f->rot_re[k] = cos(a); f->rot_im[k] = sin(a); }
+    int bits = 0; while ((1 << bits) < h) bits++;
+    for (int i = 0; i < h; i++) { int r = 0; for (int b = 0; b < bits; b++) if (i >> b & 1) r |= 1 << (bits - 1 - b); f->rev[i] = r; }
+}
+static void fm_run(const FastMdct *f, const double *x /* 2n windowed */, double *coef /* n */) {
+    int n = f->n, h = n / 2; double u[2048];
+    for (int m = 0; m < h; m++) { u[m] = -x[3 * h - 1 - m] - x[3 * h + m]; u[h + m] = x[m] - x[n - 1 - m]; }
+    double re[1024], im[1024];
+    for (int k = 0; k < h; k++) {   /* pre-twiddle and bit-reversed load */
+        double a = u[2 * k], b = u[n - 1 - 2 * k]; int j = f->rev[k];
+        re[j] = a * f->rot_re[k] - b * f->rot_im[k]; im[j] = a * f->rot_im[k] + b * f->rot_re[k];
+    }
+    for (int len = 2; len <= h; len <<= 1) {
+        int half = len / 2, step = h / len;
+        for (int i = 0; i < h; i += len) for (int j = 0; j < half; j++) {
+            double wr = f->tw_re[j * step], wi = f->tw_im[j * step];
+            int p = i + j, q = p + half;
+            double tr = re[q] * wr - im[q] * wi, ti = re[q] * wi + im[q] * wr;
+            re[q] = re[p] - tr; im[q] = im[p] - ti; re[p] += tr; im[p] += ti;
+        }
+    }
+    for (int k = 0; k < h; k++) {
+        double yr = re[k] * f->rot_re[k] - im[k] * f->rot_im[k], yi = re[k] * f->rot_im[k] + im[k] * f->rot_re[k];
+        coef[2 * k] = yr; coef[n - 1 - 2 * k] = -yi;
+    }
+}
+static FastMdct FM_L, FM_S;
+static void pow_tables(void);
 static double WL[2 * N], WS[2 * NS], CL[2 * N][N], CS[2 * NS][NS];
 static void tables(void) {
+    pow_tables();
+    fm_init(&FM_L, N); fm_init(&FM_S, NS);
     for (int n = 0; n < 2 * N; n++) WL[n] = sin(M_PI * (n + 0.5) / (2 * N));
     for (int n = 0; n < 2 * NS; n++) WS[n] = sin(M_PI * (n + 0.5) / (2 * NS));
     for (int n = 0; n < 2 * N; n++) for (int k = 0; k < N; k++) CL[n][k] = cos(M_PI / N * (n + 0.5 + N / 2.0) * (k + 0.5));
@@ -42,12 +79,13 @@ static double win_long(int type, int n) {
 static void mdct_frame(const double *x, int type, double *coef) {
     if (type != W_SHORT) {
         double xw[2 * N]; for (int n = 0; n < 2 * N; n++) xw[n] = x[n] * win_long(type, n);
-        for (int k = 0; k < N; k++) { double s = 0; for (int n = 0; n < 2 * N; n++) s += xw[n] * CL[n][k]; coef[k] = s; }
+        fm_run(&FM_L, xw, coef);
         return;
     }
     for (int w = 0; w < 8; w++) {
         const double *xs = x + 448 + NS * w;
-        for (int k = 0; k < NS; k++) { double s = 0; for (int n = 0; n < 2 * NS; n++) s += xs[n] * WS[n] * CS[n][k]; coef[w * NS + k] = s; }
+        double xw[2 * NS]; for (int n = 0; n < 2 * NS; n++) xw[n] = xs[n] * WS[n];
+        fm_run(&FM_S, xw, coef + w * NS);
     }
 }
 /* inverse: adds the windowed 2048-sample output of one frame into out[] */
@@ -131,7 +169,16 @@ static void code_frame(RC *r, ACtx *c, Frame *f, int nch) {
 }
 
 /* ------------------------------------------------------------------ reconstruction (decoder side) */
-static double dq(int q, int sf) { return q == 0 ? 0.0 : (q < 0 ? -1 : 1) * pow(fabs((double)q), 4.0 / 3.0) * pow(2.0, (sf - SF_OFF) / 4.0); }
+/* the same pow() values as before, computed once: 2^((sf-SF_OFF)/4) for sf 0..255 and |q|^(4/3) for |q| <= QMAX */
+static double SFSTEP[256], QP43[QMAX + 1]; static int pow_tables_ready;
+static void pow_tables(void) {
+    if (pow_tables_ready) return;
+    for (int i = 0; i < 256; i++) SFSTEP[i] = pow(2.0, (i - SF_OFF) / 4.0);
+    for (int i = 0; i <= QMAX; i++) QP43[i] = pow((double)i, 4.0 / 3.0);
+    pow_tables_ready = 1;
+}
+static double sfstep(int sf) { return sf >= 0 && sf < 256 ? SFSTEP[sf] : pow(2.0, (sf - SF_OFF) / 4.0); }
+static double dq(int q, int sf) { if (q == 0) return 0.0; int a = q < 0 ? -q : q; return (q < 0 ? -1 : 1) * (a <= QMAX ? QP43[a] : pow((double)a, 4.0 / 3.0)) * sfstep(sf); }
 static uint32_t lcg(uint32_t *s) { *s = *s * 1664525u + 1013904223u; return *s; }
 #define XCLAMP 67108864.0   /* draft 1.2: dequantised and mid/side values are limited to +-2^26 (section 6) */
 static double xclamp(double v) { return v > XCLAMP ? XCLAMP : v < -XCLAMP ? -XCLAMP : v; }
@@ -145,7 +192,7 @@ static void reconstruct(const Frame *f, int nch, uint32_t frame_index, double co
             int n = band_lines(f->type, b, idx), any = 0;
             for (int i = 0; i < n; i++) any |= f->q[ch][idx[i]] != 0;
             if (any || !f->nfill || b < nfs) { for (int i = 0; i < n; i++) coef[ch][idx[i]] = xclamp(dq(f->q[ch][idx[i]], f->sf[ch][b])); continue; }
-            double amp = pow(2.0, (f->sf[ch][b] - SF_OFF) / 4.0);
+            double amp = sfstep(f->sf[ch][b]);
             for (int i = 0; i < n; i++) coef[ch][idx[i]] = xclamp(amp * ((double)((lcg(&seed) >> 8) & 0xFFFF) / 32768.0 - 1.0));
         }
     }
@@ -258,7 +305,7 @@ static void psy(int type, const double *coef, const double *E, double *T) {
     }
 }
 
-static int quant1(double x, int sf) { double st = pow(2.0, (sf - SF_OFF) / 4.0); int q = (int)floor(pow(fabs(x) / st, 0.75) + 0.4054); return x < 0 ? -q : q; }
+static int quant1(double x, int sf) { double st = sfstep(sf); int q = (int)floor(pow(fabs(x) / st, 0.75) + 0.4054); return x < 0 ? -q : q; }
 
 
 static int encode(const char *in, const char *out, int kbps) {

@@ -1279,10 +1279,11 @@
       "sha256": "a4b8ee90562d3385bc960dc4141693f66735149c08dedf132309cb2b08c701f2"
     },
     "tools/tac_ref/tac.c": {
-      "sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
-      "status": "unchanged",
+      "sha256": "3c9ce60f4b55eb9d4d50e1f8ff98c54a9283739f1409949ba3d7a8ed55242fcb",
+      "status": "modified_after_snapshot",
       "upstream_path": "tools/tac_ref/tac.c",
-      "upstream_sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449"
+      "upstream_sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
+      "repinned": "2026-11-10 (encoder speed: FFT-based MDCT and cached pow tables; output byte-identical to the snapshot on the test set; hash re-recorded, not an upstream claim)"
     },
     "tools/tac_ref/tac_fx.c": {
       "sha256": "fd233931c866afed0dd09abc709f5a311f1df35566eec021e1617c4b87b6343e",
