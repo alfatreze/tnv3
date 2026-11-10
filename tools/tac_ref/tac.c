@@ -172,10 +172,10 @@ static void code_frame(RC *r, ACtx *c, Frame *f, int nch) {
 
 /* ------------------------------------------------------------------ reconstruction (decoder side) */
 /* the same pow() values as before, computed once: 2^((sf-SF_OFF)/4) for sf 0..255 and |q|^(4/3) for |q| <= QMAX */
-static double SFSTEP[256], QP43[QMAX + 1]; static int pow_tables_ready;
+static double SFSTEP[256], SFINV75[256], QP43[QMAX + 1]; static int pow_tables_ready;
 static void pow_tables(void) {
     if (pow_tables_ready) return;
-    for (int i = 0; i < 256; i++) SFSTEP[i] = pow(2.0, (i - SF_OFF) / 4.0);
+    for (int i = 0; i < 256; i++) { SFSTEP[i] = pow(2.0, (i - SF_OFF) / 4.0); SFINV75[i] = pow(SFSTEP[i], -0.75); }
     for (int i = 0; i <= QMAX; i++) QP43[i] = pow((double)i, 4.0 / 3.0);
     pow_tables_ready = 1;
 }
@@ -307,6 +307,8 @@ static void psy(int type, const double *coef, const double *E, double *T) {
     }
 }
 
+/* same quantiser from the precomputed |x|^0.75: |x|^0.75 / step^0.75 (equal up to the last bit of the double, so a rare coefficient at an exact rounding boundary may differ from quant1) */
+static int quant1p(double a75, int neg, int sf) { int q = (int)floor(a75 * SFINV75[sf] + 0.4054); return neg ? -q : q; }
 static int quant1(double x, int sf) { double st = sfstep(sf); int q = (int)floor(pow(fabs(x) / st, 0.75) + 0.4054); return x < 0 ? -q : q; }
 
 
@@ -402,7 +404,9 @@ static int encode(const char *in, const char *out, int kbps) {
             for (int i = 0; i < n; i++) { double l = coef[0][idx[i]], rr = coef[1][idx[i]]; cc[0][idx[i]] = (l + rr) / 2; cc[1][idx[i]] = (l - rr) / 2; }
             T[0][b] = T[1][b] = tm / 2;      /* conservative: the stricter threshold, halved for the M/S split */
         }
-        double allowed = mean_bits + (f.type == W_SHORT ? 0.6 : 0.15) * reservoir;
+        double a75[2][N];   /* |coefficient|^0.75 of what is quantised, computed once for the whole rate loop */
+        for (int ch = 0; ch < nch; ch++) for (int i = 0; i < N; i++) a75[ch][i] = pow(fabs(cc[ch][i]), 0.75);
+        double allowed = fmax(mean_bits + (f.type == W_SHORT ? 0.6 : 0.15) * reservoir, 0.5 * mean_bits);   /* never starve a frame after an overspend */
         /* rate loop: bisection on a global noise offset (dB) applied to every band's masking threshold */
         double lo = ALPHA_MIN, hi = 40, best_bits = 0; Frame best = f; int have = 0;
         for (int it = 0; it < 12; it++) {
@@ -421,11 +425,11 @@ static int encode(const char *in, const char *out, int kbps) {
                     int sfl = sfmin, sfh = 255;
                     while (sfl < sfh) {
                         int mid = (sfl + sfh + 1) / 2; double err = 0;
-                        for (int i = 0; i < n; i++) { double v = cc[ch][idx[i]]; double d = v - dq(quant1(v, mid), mid); err += d * d; }
+                        for (int i = 0; i < n; i++) { double v = cc[ch][idx[i]]; double d = v - dq(quant1p(a75[ch][idx[i]], v < 0, mid), mid); err += d * d; }
                         if (err <= allow) sfl = mid; else sfh = mid - 1;
                     }
                     int any = 0;
-                    for (int i = 0; i < n; i++) { g.q[ch][idx[i]] = quant1(cc[ch][idx[i]], sfl); any |= g.q[ch][idx[i]] != 0; }
+                    for (int i = 0; i < n; i++) { g.q[ch][idx[i]] = quant1p(a75[ch][idx[i]], cc[ch][idx[i]] < 0, sfl); any |= g.q[ch][idx[i]] != 0; }
                     if (!any && f.nfill && b >= (f.type == W_SHORT ? NF_START_S : NF_START_L)) {
                         double rms = sqrt(en / n), amp = rms * sqrt(3.0);   /* uniform noise of the band's energy */
                         sfl = tvc_clip((int)lround(4 * log2(fmax(amp, 1e-9)) + SF_OFF), 0, 255);
@@ -440,13 +444,15 @@ static int encode(const char *in, const char *out, int kbps) {
             }
             g.maxband = maxb;
             RC r; rc_cnt_init(&r); ACtx tc = c; code_frame(&r, &tc, &g, nch);
-            if (r.bits <= allowed || !have) { best = g; best_bits = r.bits; have = 1; }
+            /* keep the best setting that fits; when none fits, the cheapest one tried (not the first trial) */
+            if (r.bits <= allowed) { best = g; best_bits = r.bits; have = 2; }
+            else if (have != 2 && (!have || r.bits < best_bits)) { best = g; best_bits = r.bits; have = 1; }
             if (r.bits > allowed) lo = alpha; else hi = alpha;
         }
         if (best_bits > allowed) { /* even the coarsest tried setting is over budget: accept, the reservoir absorbs it */ }
         RC r; rc_enc_init(&r); code_frame(&r, &c, &best, nch); rc_enc_flush(&r);
         put16(o, (int)r.outlen); fwrite(r.out, 1, r.outlen, o); total += r.outlen + 2; free(r.out);
-        reservoir += mean_bits - 8.0 * r.outlen; if (reservoir > rmax) reservoir = rmax;
+        reservoir += mean_bits - 8.0 * r.outlen; if (reservoir > rmax) reservoir = rmax; if (reservoir < -2 * mean_bits) reservoir = -2 * mean_bits;
     }
     fclose(o);
     if (ck) fclose(ck);

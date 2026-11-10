@@ -1279,7 +1279,7 @@
       "sha256": "a4b8ee90562d3385bc960dc4141693f66735149c08dedf132309cb2b08c701f2"
     },
     "tools/tac_ref/tac.c": {
-      "sha256": "047715573d67db45f53248113185577615e9c63b1a4ead78fca280cabe3792b4",
+      "sha256": "d2687e920d4f30f25bf15dcb422bb790d2bff1948ba09aedc7540fb44d4ac6fa",
       "status": "modified_after_snapshot",
       "upstream_path": "tools/tac_ref/tac.c",
       "upstream_sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
