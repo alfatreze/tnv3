@@ -1595,22 +1595,10 @@ fn wav_sample_frames(path: &Path) -> Option<u64> {
     }
 }
 
-/// Channel count of the chosen audio stream, or `None` when FFprobe cannot say.
-fn source_audio_channels(ffprobe: &Path, input: &Path, track: u32) -> Option<u32> {
-    let out = Command::new(ffprobe)
-        .args(["-v", "error", "-select_streams", &format!("a:{track}"), "-show_entries", "stream=channels", "-of", "csv=p=0", "-i"])
-        .arg(input)
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .ok()?;
-    String::from_utf8_lossy(&out.stdout).lines().next()?.trim().parse().ok()
-}
-
-/// FFmpeg audio filters to run before the usual padding: for a source with more than two channels, a stereo downmix
-/// with the centre (dialogue) 3 dB up and the surrounds 6 dB down, no LFE, scaled so the sum cannot clip, then loudness
-/// normalisation measured in a first pass over the whole audio (about 40 s for a 28 minute episode). Stereo and mono
-/// sources, or the option off, give an empty string and the audio is processed exactly as before.
+/// FFmpeg audio filters to run before the usual padding (see `tau_video::audio_prep`): for a source with more than two
+/// channels a stereo downmix with the centre up and a measured loudness normalisation (the first pass takes about 40 s
+/// for a 28 minute episode); an empty string for stereo and mono sources or with the option off, which are then
+/// processed exactly as before.
 fn audio_prefix(
     ffmpeg: &Path,
     ffprobe: &Path,
@@ -1619,44 +1607,18 @@ fn audio_prefix(
     control: &JobControl,
     abort: Option<&AtomicBool>,
 ) -> String {
-    if !advanced.downmix_enhance() {
+    use tau_video::audio_prep as prep;
+    let settings = prep::AudioPrep { downmix_enhance: advanced.downmix_enhance(), loudness_lufs: advanced.loudness_target() };
+    if !prep::applies(&settings, prep::source_channels(ffprobe, input, advanced.track())) {
         return String::new();
     }
-    match source_audio_channels(ffprobe, input, advanced.track()) {
-        Some(channels) if channels > 2 => {}
-        _ => return String::new(),
-    }
-    let down = "aresample=ochl=stereo:center_mix_level=1:surround_mix_level=0.5:lfe_mix_level=0:rematrix_maxval=1";
-    let target = advanced.loudness_target();
-    let mut analyse = Command::new(ffmpeg);
-    analyse
-        .args(["-nostdin", "-hide_banner", "-nostats", "-loglevel", "info", "-i"])
-        .arg(input)
-        .args(["-map", &format!("0:a:{}", advanced.track()), "-vn", "-af"])
-        .arg(format!("{down},loudnorm=I={target}:TP=-1.5:LRA=15:print_format=json"))
-        .args(["-f", "null", "-"]);
-    let measured = run_cancellable_limit(analyse, "Loudness analysis", control, abort, 1 << 20)
-        .ok()
-        .and_then(|log| parse_loudnorm(&log));
-    match measured {
-        Some((i, tp, lra, thresh, offset)) => format!(
-            "{down},loudnorm=I={target}:TP=-1.5:LRA=15:measured_I={i}:measured_TP={tp}:measured_LRA={lra}:measured_thresh={thresh}:offset={offset}:linear=true"
-        ),
-        None => down.to_string(),   // the analysis failed (for example silent audio): downmix only
-    }
-}
-
-/// Reads the JSON block `loudnorm` prints after its first pass.
-fn parse_loudnorm(log: &str) -> Option<(String, String, String, String, String)> {
-    let start = log.rfind('{')?;
-    let end = log.rfind('}')?;
-    let v: serde_json::Value = serde_json::from_str(log.get(start..=end)?).ok()?;
-    let field = |k: &str| -> Option<String> {
-        let t = v.get(k)?.as_str()?.trim().to_owned();
-        t.parse::<f64>().ok().filter(|x| x.is_finite())?;
-        Some(t)
-    };
-    Some((field("input_i")?, field("input_tp")?, field("input_lra")?, field("input_thresh")?, field("target_offset")?))
+    let measured = temporary_file("log").ok().and_then(|(report, file)| {
+        drop(file);
+        let analyse = prep::analysis_command(ffmpeg, input, advanced.track(), &settings, &report.0);
+        run_cancellable_with(analyse, "Loudness analysis", control, abort).ok()?;
+        prep::read_analysis(&report.0)   // a failed analysis falls back to the downmix alone
+    });
+    prep::filter_chain(&settings, measured.as_ref())
 }
 
 fn prefetch_audio(
@@ -4420,15 +4382,11 @@ mod tests {
         );
     }
     #[test]
-    fn loudnorm_report_is_parsed_and_bad_reports_are_refused() {
-        let log = "noise {not json}\n[Parsed_loudnorm_0 @ 0x1]\n{\n\t\"input_i\" : \"-31.42\",\n\t\"input_tp\" : \"-10.89\",\n\t\"input_lra\" : \"12.00\",\n\t\"input_thresh\" : \"-42.29\",\n\t\"target_offset\" : \"0.58\"\n}\n";
-        let (i, tp, lra, thresh, offset) = parse_loudnorm(log).unwrap();
-        assert_eq!((i.as_str(), tp.as_str(), lra.as_str(), thresh.as_str(), offset.as_str()), ("-31.42", "-10.89", "12.00", "-42.29", "0.58"));
-        assert!(parse_loudnorm("{\"input_i\":\"-inf\",\"input_tp\":\"-inf\",\"input_lra\":\"0\",\"input_thresh\":\"-70\",\"target_offset\":\"0\"}").is_none(), "silence");
-        assert!(parse_loudnorm("no report here").is_none());
+    fn audio_settings_have_safe_defaults() {
         let a = AdvancedSettings::default();
-        assert!(a.downmix_enhance() && a.tac_floor().is_none() && (a.loudness_target() + 18.0).abs() < 1e-9);
+        assert!(a.downmix_enhance() && a.tac_floor().is_none() && (a.loudness_target() + 18.0).abs() < 1e-9 && a.tac_options().is_empty());
         assert_eq!(AdvancedSettings { audio_floor_db: Some(99.0), ..Default::default() }.tac_floor(), None, "out-of-range floors are ignored");
+        assert_eq!(AdvancedSettings { audio_floor_db: Some(0.0), audio_tuned: Some(true), ..Default::default() }.tac_options(), ["-L", "0", "-D", "0.28"]);
     }
     #[test]
     fn surround_source_is_downmixed_and_encoded_with_a_floor() {

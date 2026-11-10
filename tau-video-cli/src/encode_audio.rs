@@ -3,7 +3,7 @@
 use super::*;
 use tau_video::c_audio::{self, DecodeError, EncodeTools};
 
-const USAGE: &str = "Usage: tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]";
+const USAGE: &str = "Usage: tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--no-downmix-enhance] [--audio-loudness -40..-5] [--audio-floor -30..12] [--audio-tuned] [--json]";
 
 fn fail(code: u8, message: &str, json: bool) -> ExitCode {
     if json {
@@ -21,14 +21,28 @@ pub fn run(argv: &[OsString]) -> ExitCode {
     let mut positional = Vec::new();
     let (mut kbps, mut channels) = (96u32, 2u8);
     let mut track = 0u32;
-    let (mut root, mut tac, mut ffmpeg) = (None, None, None);
+    let (mut root, mut tac, mut ffmpeg, mut ffprobe) = (None, None, None, None);
+    let mut options = c_audio::EncodeOptions::default();
     let mut i = 1;
     while i < argv.len() {
         let a = &argv[i];
         let key = a.to_str().unwrap_or("");
         match key {
             "--json" => {}
-            "--bitrate" | "--channels" | "--track" | "--codec-root" | "--tac-tool" | "--ffmpeg" => {
+            "--no-downmix-enhance" => options.prep.downmix_enhance = false,
+            "--audio-tuned" => options.tuning.tuned = true,
+            "--audio-loudness" | "--audio-floor" => {
+                let Some(n) = argv.get(i + 1).and_then(|v| v.to_str()).and_then(|s| s.parse::<f64>().ok()).filter(|n| n.is_finite()) else { return fail(2, USAGE, json) };
+                i += 1;
+                if key == "--audio-loudness" && (-40.0..=-5.0).contains(&n) {
+                    options.prep.loudness_lufs = n;
+                } else if key == "--audio-floor" && (-30.0..=12.0).contains(&n) {
+                    options.tuning.floor_db = Some(n);
+                } else {
+                    return fail(2, USAGE, json);
+                }
+            }
+            "--bitrate" | "--channels" | "--track" | "--codec-root" | "--tac-tool" | "--ffmpeg" | "--ffprobe" => {
                 let Some(v) = argv.get(i + 1) else { return fail(2, USAGE, json) };
                 i += 1;
                 match key {
@@ -47,6 +61,7 @@ pub fn run(argv: &[OsString]) -> ExitCode {
                     },
                     "--codec-root" => root = Some(PathBuf::from(v)),
                     "--tac-tool" => tac = Some(PathBuf::from(v)),
+                    "--ffprobe" => ffprobe = Some(PathBuf::from(v)),
                     _ => ffmpeg = Some(PathBuf::from(v)),
                 }
             }
@@ -65,10 +80,15 @@ pub fn run(argv: &[OsString]) -> ExitCode {
         .map(resolve_executable_arg)
         .or_else(|| adjacent_executable("ffmpeg"))
         .or_else(|| on_path("ffmpeg"));
+    options.ffprobe = ffprobe
+        .map(resolve_executable_arg)
+        .or_else(|| ffmpeg.as_ref().map(|f| f.with_file_name(if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" })).filter(|p| p.is_file()))
+        .or_else(|| adjacent_executable("ffprobe"))
+        .or_else(|| on_path("ffprobe"));
     let (Some(tac), Some(ffmpeg)) = (tac, ffmpeg) else {
         return fail(3, "Could not find the tac tool and FFmpeg; use --codec-root, --tac-tool and --ffmpeg.", json);
     };
-    match c_audio::encode_audio(&EncodeTools { ffmpeg, tac }, input, output, kbps, channels, None, track) {
+    match c_audio::encode_audio_with(&EncodeTools { ffmpeg, tac }, input, output, kbps, channels, None, track, &options) {
         Ok(r) => {
             let line = if json {
                 serde_json::json!({"command":"encode-audio","schema":1,"status":"ok","bitrate_kbps":kbps,"audio_track":track,

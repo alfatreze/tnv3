@@ -172,6 +172,33 @@ pub fn encode_audio(
     fit_seconds: Option<f64>,
     track: u32,
 ) -> Result<EncodeReport, DecodeError> {
+    let plain = EncodeOptions { prep: crate::audio_prep::AudioPrep { downmix_enhance: false, ..Default::default() }, ..Default::default() };
+    encode_audio_with(tools, input, output, kbps, channels, fit_seconds, track, &plain)
+}
+
+/// Optional audio preparation and `tac enc` tuning for [`encode_audio_with`].
+#[derive(Clone, Debug, Default)]
+pub struct EncodeOptions {
+    /// Downmix with a stronger centre and loudness normalisation for sources with more than two channels.
+    pub prep: crate::audio_prep::AudioPrep,
+    /// `tac enc` quality floor and dead zone.
+    pub tuning: crate::audio_prep::TacTuning,
+    /// FFprobe, needed to find out whether the source has more than two channels; without it no downmix filter is used.
+    pub ffprobe: Option<PathBuf>,
+}
+
+/// [`encode_audio`] with the options above. With the default options a source of more than two channels is mixed down
+/// with the centre up and brought to -18 LUFS (a first pass measures it); stereo and mono sources are unchanged.
+pub fn encode_audio_with(
+    tools: &EncodeTools,
+    input: &Path,
+    output: &Path,
+    kbps: u32,
+    channels: u8,
+    fit_seconds: Option<f64>,
+    track: u32,
+    options: &EncodeOptions,
+) -> Result<EncodeReport, DecodeError> {
     if output.exists() {
         return Err(DecodeError::InvalidInput(format!("Output already exists: {}", output.display())));
     }
@@ -187,13 +214,34 @@ pub fn encode_audio(
     let ws = Workspace(dir);
     let wav = ws.0.join("audio.wav");
     let tac = ws.0.join("audio.tac");
-    let mut ff = Command::new(&tools.ffmpeg);
-    ff.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"]).arg(input);
+    use crate::audio_prep as prep;
     if let Some(t) = fit_seconds {
         if !(t.is_finite() && t > 0.0) {
             return Err(DecodeError::InvalidInput("The fitted duration must be positive.".into()));
         }
-        ff.args(["-af", "apad", "-t"]).arg(format!("{t:.9}"));
+    }
+    let source_channels = options.ffprobe.as_deref().filter(|_| channels == 2).and_then(|p| prep::source_channels(p, input, track));
+    let prefix = if prep::applies(&options.prep, source_channels) {
+        let report = ws.0.join("analysis.log");
+        let analysed = run("FFmpeg loudness analysis", prep::analysis_command(&tools.ffmpeg, input, track, &options.prep, &report));
+        let measured = if analysed.is_ok() { prep::read_analysis(&report) } else { None };   // a failed analysis falls back to the downmix alone
+        Some(prep::filter_chain(&options.prep, measured.as_ref()))
+    } else {
+        None
+    };
+    let mut ff = Command::new(&tools.ffmpeg);
+    ff.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"]).arg(input);
+    let filter = match (prefix, fit_seconds) {
+        (Some(p), Some(_)) => Some(format!("{p},apad")),
+        (Some(p), None) => Some(p),
+        (None, Some(_)) => Some("apad".to_owned()),
+        (None, None) => None,
+    };
+    if let Some(f) = filter {
+        ff.args(["-af", &f]);
+    }
+    if let Some(t) = fit_seconds {
+        ff.args(["-t"]).arg(format!("{t:.9}"));
     }
     ff.args(["-map"]).arg(format!("0:a:{track}")).args(["-vn", "-ar", "48000", "-ac"])
         .arg(channels.to_string())
@@ -202,6 +250,7 @@ pub fn encode_audio(
     run("FFmpeg", ff)?;
     let mut enc = Command::new(&tools.tac);
     enc.arg("enc").arg(&wav).arg(&tac).arg("-b").arg(kbps.to_string());
+    enc.args(options.tuning.args());
     run("TAC encoder", enc)?;
     let b = fs::read(&tac).map_err(|source| DecodeError::Io { operation: "read encoded TAC", source })?;
     let u32at = |o: usize| u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);

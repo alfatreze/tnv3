@@ -1357,6 +1357,7 @@ pub mod tvc;
 
 /// TNV3 container tools.
 pub mod container;
+pub mod audio_prep;
 
 /// Optional safe adapter to the external reference C encoder workflow.
 #[cfg(feature = "c-encoder")]

@@ -1114,7 +1114,7 @@ mod publication {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 struct Args {
     input: PathBuf,
     output: PathBuf,
@@ -1144,10 +1144,14 @@ struct Args {
     allow_nonatomic_copy: bool,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 struct TacAudio {
     bitrate_kbps: u32,
     tac_tool: Option<PathBuf>,
+    /// Downmix and loudness for sources with more than two channels (default on; stereo and mono are untouched).
+    prep: tau_video::audio_prep::AudioPrep,
+    /// `tac enc` quality floor and dead zone.
+    tuning: tau_video::audio_prep::TacTuning,
 }
 
 fn on_path(name: &str) -> Option<PathBuf> {
@@ -1253,7 +1257,7 @@ fn discover_codec_root() -> Option<PathBuf> {
 }
 
 fn usage() -> &'static str {
-    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME] [--subtitle-file FILE[:lang[:default][:forced]]]... [--subtitle-track N[:lang[:default][:forced]]]... [--subtitle-font FILE.ttf]... [--subtitle-sizes WxH,...] [--subtitle-outline W[,W...]] [--subtitle-styles FILE.json] [--subtitle-builder-arg ARG]... [--subtitle-builder PATH]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--width 16..800] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli subtitles FILE.tnv3|AREA.bin [--json] [--events] [--render SECONDS OUT.ppm [--layers OUT.bin]] [--track N] [--variant N]\n       tau-codecs-cli build-subtitles OUTPUT.bin --video WxH (--track FILE[:lang[:default][:forced]] | --from-source INPUT --source-track N[:lang[:default][:forced]])... [--font FILE.ttf]... [--sizes WxH,...] [--fps N/D] [--styles FILE.json] [--outline-width W[,W...]] [--builder-arg ARG]... [--builder PATH] [--python PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT, SIGTERM and SIGHUP cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
+    "Usage: tau-codecs-cli encode INPUT OUTPUT.tnv3 [--codec-root PATH] [--script PATH] [--profile pocket-sidecar@1] [--video-only] [--json-events] [--rust-c-orchestrator] [--control-stdin] [--allow-nonatomic-copy] [--workspace-mib N] [--qp 0..51] [--width 16..800] [--level 0..3] [--jobs N] [--python PATH|NAME] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--tvc-encoder PATH|NAME] [--tnv3-tool PATH|NAME] [--audio tac|mp3-sidecar|none] [--audio-bitrate 16..512] [--audio-track N] [--tac-tool PATH|NAME] [--no-downmix-enhance] [--audio-loudness -40..-5] [--audio-floor -30..12] [--audio-tuned] [--subtitle-file FILE[:lang[:default][:forced]]]... [--subtitle-track N[:lang[:default][:forced]]]... [--subtitle-font FILE.ttf]... [--subtitle-sizes WxH,...] [--subtitle-outline W[,W...]] [--subtitle-styles FILE.json] [--subtitle-builder-arg ARG]... [--subtitle-builder PATH]\n       tau-codecs-cli --version [--json]\n       tau-codecs-cli handshake --json [--probe-versions] [explicit tool paths]\n       tau-codecs-cli tool-identity --json [explicit tool paths]\n       tau-codecs-cli info FILE [--json]\n       tau-codecs-cli probe INPUT [--ffmpeg PATH] [--ffprobe PATH] [--sample-estimate [--tvc-encoder PATH]] [--width 16..800] [--json]\n       tau-codecs-cli decode-audio INPUT.tnv3 OUTPUT.wav [--model integer|reference] [--codec-root PATH] [--tnv3-tool PATH] [--tac-tool PATH] [--json]\n       tau-codecs-cli encode-audio INPUT OUTPUT.tac [--bitrate 16..512] [--channels 1|2] [--track N] [--codec-root PATH] [--tac-tool PATH] [--ffmpeg PATH|NAME] [--ffprobe PATH|NAME] [--no-downmix-enhance] [--audio-loudness -40..-5] [--audio-floor -30..12] [--audio-tuned] [--json]\n       tau-codecs-cli subtitles FILE.tnv3|AREA.bin [--json] [--events] [--render SECONDS OUT.ppm [--layers OUT.bin]] [--track N] [--variant N]\n       tau-codecs-cli build-subtitles OUTPUT.bin --video WxH (--track FILE[:lang[:default][:forced]] | --from-source INPUT --source-track N[:lang[:default][:forced]])... [--font FILE.ttf]... [--sizes WxH,...] [--fps N/D] [--styles FILE.json] [--outline-width W[,W...]] [--builder-arg ARG]... [--builder PATH] [--python PATH] [--ffmpeg PATH|NAME] [--json]\n       tau-codecs-cli mux VIDEO.tvc OUTPUT.tnv3 [--audio FILE.tac] [--subtitles AREA.bin] [--crc] [--level 1..3] [--rate N/D] [--trim-audio] [--audio-shift N] [--codec-root PATH] [--tnv3-tool PATH] [--json]\n       tau-codecs-cli check FILE (--quick | --scope chunk-structure|cross-frame|subtitle-structure|container-preview) [--json]\n\nDefault publication requires atomic no-replace rename or hard-link support. --allow-nonatomic-copy explicitly permits create-new copying when both are unavailable; final names may expose partial output. Pair publication is not atomic. The default audio is TAC embedded in the .tnv3 (--audio tac, 96 kbit/s); --audio mp3-sidecar or --profile pocket-sidecar@1 write the legacy .tnv3 + .mp3 pair and --video-only or --audio none write no audio. pocket-sidecar@1 selects the current TNV3+MP3 pairing contract (legacy alias: pocket-sidecar). --json-events writes schema-1 JSON Lines progress on stdout; diagnostics go to stderr. On Unix, --rust-c-orchestrator handles SIGINT, SIGTERM and SIGHUP cooperatively; --control-stdin also enables cancellation on stdin EOF. Windows supports stdin EOF cancellation only. Only supervised directly owned tools are stopped; descendants may outlive them. Resume and whole-process-tree cancellation are not provided. --workspace-mib sets its projected temporary-workspace budget (default 512 MiB). Windows is unverified."
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1743,6 +1747,9 @@ where
     let mut audio_mode: Option<String> = None;
     let mut audio_bitrate = 96u32;
     let mut audio_track = 0u32;
+    let mut audio_prep = tau_video::audio_prep::AudioPrep::default();
+    let mut audio_tuning = tau_video::audio_prep::TacTuning::default();
+    let mut audio_options_used = false;
     let mut subs = subtitles::Request::default();
     let mut tac_tool = None;
     let mut legacy_audio_flag = false;
@@ -1758,6 +1765,33 @@ where
         if key_text == "--video-only" {
             pocket_sidecar = false;
             legacy_audio_flag = true;
+            continue;
+        }
+        if key_text == "--no-downmix-enhance" {
+            audio_prep.downmix_enhance = false;
+            audio_options_used = true;
+            continue;
+        }
+        if key_text == "--audio-tuned" {
+            audio_tuning.tuned = true;
+            audio_options_used = true;
+            continue;
+        }
+        if key_text == "--audio-loudness" || key_text == "--audio-floor" {
+            let text = it.next().ok_or_else(|| format!("missing value for {key_text}"))?;
+            let n: f64 = text.to_str().and_then(|t| t.parse().ok()).filter(|v: &f64| v.is_finite()).ok_or_else(|| format!("{key_text} needs a number"))?;
+            if key_text == "--audio-loudness" {
+                if !(-40.0..=-5.0).contains(&n) {
+                    return Err("--audio-loudness must be a target from -40 to -5 LUFS".into());
+                }
+                audio_prep.loudness_lufs = n;
+            } else {
+                if !(-30.0..=12.0).contains(&n) {
+                    return Err("--audio-floor must be from -30 to 12 dB under the masking threshold".into());
+                }
+                audio_tuning.floor_db = Some(n);
+            }
+            audio_options_used = true;
             continue;
         }
         if key_text == "--rust-c-orchestrator" {
@@ -1905,6 +1939,9 @@ where
     if !tac_requested && (tac_tool.is_some() || audio_bitrate != 96) {
         return Err("--audio-bitrate and --tac-tool require --audio tac".into());
     }
+    if !tac_requested && audio_options_used {
+        return Err("--no-downmix-enhance, --audio-loudness, --audio-floor and --audio-tuned require --audio tac".into());
+    }
     if tac_requested && output.extension() != Some(OsStr::new("tnv3")) {
         return Err("--audio tac requires an OUTPUT path ending in .tnv3".into());
     }
@@ -2017,6 +2054,8 @@ where
         tac_audio: if tac_requested {
             Some(TacAudio {
                 bitrate_kbps: audio_bitrate,
+                prep: audio_prep,
+                tuning: audio_tuning,
                 tac_tool: tac_tool.map(resolve_executable_arg).or_else(|| {
                     select_codec_tool(root.as_deref(), explicit_root, "tac", "tools/tac_ref/tac")
                 }),
@@ -2122,11 +2161,30 @@ fn add_audio_and_subtitles(
         // FFmpeg converts to 48 kHz stereo PCM padded or cut to the video length, then `tac enc`. Both run under
         // the same supervision as the MP3 sidecar encode, so a stop request (SIGINT, stdin EOF) ends them.
         let wav = dir.join("audio.wav");
+        // More than two channels: downmix with a stronger centre and normalise the loudness (first pass measures, about
+        // 40 s for a 28 minute episode); anything else keeps the plain padding filter.
+        let audio_filter = {
+            use tau_video::audio_prep as prep;
+            let channels = (!tools.ffprobe.as_os_str().is_empty()).then(|| prep::source_channels(&tools.ffprobe, input, track)).flatten();
+            if prep::applies(&tac.prep, channels) {
+                let report = dir.join("audio-analysis.log");
+                let mut analyse = prep::analysis_command(&tools.ffmpeg, input, track, &tac.prep, &report);
+                let measured = match run_audio_step(&mut analyse, "FFmpeg loudness analysis", controlled) {
+                    Ok(()) => prep::read_analysis(&report),
+                    Err(e) if matches!(e.kind, RunErrorKind::Cancelled) => return Err(e),
+                    Err(_) => None,   // a failed analysis falls back to the downmix alone
+                };
+                let _ = fs::remove_file(&report);
+                format!("{},apad", prep::filter_chain(&tac.prep, measured.as_ref()))
+            } else {
+                "apad".to_owned()
+            }
+        };
         let mut ffmpeg = Command::new(&tools.ffmpeg);
         ffmpeg
             .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
             .arg(input)
-            .args(["-af", "apad", "-t"])
+            .args(["-af", &audio_filter, "-t"])
             .arg(format!("{seconds:.9}"))
             .arg("-map")
             .arg(format!("0:a:{track}"))
@@ -2135,6 +2193,7 @@ fn add_audio_and_subtitles(
         run_audio_step(&mut ffmpeg, "FFmpeg audio conversion", controlled)?;
         let mut enc = Command::new(tac_tool);
         enc.arg("enc").arg(&wav).arg(&wav_tac).arg("-b").arg(tac.bitrate_kbps.to_string());
+        enc.args(tac.tuning.args());
         run_audio_step(&mut enc, "TAC encoding", controlled)?;
         let _ = fs::remove_file(&wav);
     }
