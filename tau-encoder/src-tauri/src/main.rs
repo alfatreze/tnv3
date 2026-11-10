@@ -550,6 +550,7 @@ fn log_start_event(
             "subtitle_track": advanced.subtitle_track, "width": advanced.dimensions().0, "height": advanced.dimensions().1,
             "level": if advanced.level() == 0 {serde_json::json!("automatic")} else {serde_json::json!(advanced.level())},
             "round_down": advanced.round_down, "eof_pass": advanced.eof_pass,
+            "audio_floor_db": advanced.tac_floor(), "downmix_enhance": advanced.downmix_enhance(), "loudness_lufs": advanced.loudness_target(),
         },
         "tools": {
             "ffmpeg": ffmpeg.display().to_string(), "ffmpeg_version": ffmpeg_version_line(ffmpeg),
@@ -715,8 +716,25 @@ struct AdvancedSettings {
     keep_log: Option<bool>,
     /// Zero-based index among the source's text subtitle streams to author into the file; `None` = none.
     subtitle_track: Option<u32>,
+    /// TAC quality floor in dB under the masking threshold (`tac -L`): the encoder stops spending bits once the noise is
+    /// this far under it. `None` = use the whole bit budget (the previous behaviour).
+    audio_floor_db: Option<f64>,
+    /// Sources with more than two channels only: mix to stereo with a stronger centre (dialogue) and normalise the
+    /// loudness. Default on; stereo and mono sources are never touched.
+    downmix_enhance: Option<bool>,
+    /// Loudness target in LUFS for the downmix option (default -18).
+    loudness_lufs: Option<f64>,
 }
 impl AdvancedSettings {
+    fn downmix_enhance(self) -> bool {
+        self.downmix_enhance.unwrap_or(true)
+    }
+    fn loudness_target(self) -> f64 {
+        self.loudness_lufs.filter(|v| (-40.0..=-5.0).contains(v)).unwrap_or(-18.0)
+    }
+    fn tac_floor(self) -> Option<f64> {
+        self.audio_floor_db.filter(|v| (-30.0..=12.0).contains(v))
+    }
     fn keep_log(self) -> bool {
         self.keep_log.unwrap_or(true)
     }
@@ -899,7 +917,7 @@ fn encode_pair_impl(
     let (stats, mut prefetch) = std::thread::scope(|scope| -> Result<(VideoSummary, Option<AudioPrefetch>), String> {
         let worker = prefetch_tac.as_ref().map(|tac| {
             let (abort, tac) = (&abort_audio, tac.as_path());
-            scope.spawn(move || prefetch_audio(ffmpeg, input, advanced.track(), tac, control, abort))
+            scope.spawn(move || prefetch_audio(ffmpeg, input, advanced.track(), tac, advanced, dependencies, control, abort))
         });
         let _stop_audio_on_failure = AbortOnDrop(&abort_audio);
     let stats = if let Some((script, ffprobe)) = c_tools {
@@ -1270,6 +1288,14 @@ fn encode_pair_impl(
     };
     if !use_prefetch {
     let duration = format!("{:.9}", f64::from(stats.frames) / 24.0);
+    let fallback_filter = {
+        let ffprobe = selected_file(&dependencies.ffprobe, "FFprobe")
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| ffmpeg.with_file_name(executable_name("ffprobe")));
+        let prefix = audio_prefix(ffmpeg, &ffprobe, input, advanced, control, None);
+        if prefix.is_empty() { advanced.audio_filter().to_owned() } else { format!("{prefix},{}", advanced.audio_filter()) }
+    };
     let mut audio_command = Command::new(ffmpeg);
     audio_command
         .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
@@ -1281,7 +1307,7 @@ fn encode_pair_impl(
             "-map_metadata",
             "-1",
             "-af",
-            advanced.audio_filter(),
+            &fallback_filter,
             "-t",
             &duration,
             "-ar",
@@ -1395,6 +1421,7 @@ fn encode_pair_impl(
             ffmpeg,
             advanced.subtitle_track,
             prefetch_parts.as_ref().map(|(full, ck)| (full.0.as_path(), ck.0.as_path(), trim_samples)),
+            advanced.tac_floor(),
             &mut |phase| {
                 progress(Progress { phase, frames: stats.frames, total_frames_estimate: total, remaining_seconds: None })
             },
@@ -1554,21 +1581,97 @@ fn wav_sample_frames(path: &Path) -> Option<u64> {
     }
 }
 
+/// Channel count of the chosen audio stream, or `None` when FFprobe cannot say.
+fn source_audio_channels(ffprobe: &Path, input: &Path, track: u32) -> Option<u32> {
+    let out = Command::new(ffprobe)
+        .args(["-v", "error", "-select_streams", &format!("a:{track}"), "-show_entries", "stream=channels", "-of", "csv=p=0", "-i"])
+        .arg(input)
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout).lines().next()?.trim().parse().ok()
+}
+
+/// FFmpeg audio filters to run before the usual padding: for a source with more than two channels, a stereo downmix
+/// with the centre (dialogue) 3 dB up and the surrounds 6 dB down, no LFE, scaled so the sum cannot clip, then loudness
+/// normalisation measured in a first pass over the whole audio (about 40 s for a 28 minute episode). Stereo and mono
+/// sources, or the option off, give an empty string and the audio is processed exactly as before.
+fn audio_prefix(
+    ffmpeg: &Path,
+    ffprobe: &Path,
+    input: &Path,
+    advanced: AdvancedSettings,
+    control: &JobControl,
+    abort: Option<&AtomicBool>,
+) -> String {
+    if !advanced.downmix_enhance() {
+        return String::new();
+    }
+    match source_audio_channels(ffprobe, input, advanced.track()) {
+        Some(channels) if channels > 2 => {}
+        _ => return String::new(),
+    }
+    let down = "aresample=ochl=stereo:center_mix_level=1:surround_mix_level=0.5:lfe_mix_level=0:rematrix_maxval=1";
+    let target = advanced.loudness_target();
+    let mut analyse = Command::new(ffmpeg);
+    analyse
+        .args(["-nostdin", "-hide_banner", "-nostats", "-loglevel", "info", "-i"])
+        .arg(input)
+        .args(["-map", &format!("0:a:{}", advanced.track()), "-vn", "-af"])
+        .arg(format!("{down},loudnorm=I={target}:TP=-1.5:LRA=15:print_format=json"))
+        .args(["-f", "null", "-"]);
+    let measured = run_cancellable_limit(analyse, "Loudness analysis", control, abort, 1 << 20)
+        .ok()
+        .and_then(|log| parse_loudnorm(&log));
+    match measured {
+        Some((i, tp, lra, thresh, offset)) => format!(
+            "{down},loudnorm=I={target}:TP=-1.5:LRA=15:measured_I={i}:measured_TP={tp}:measured_LRA={lra}:measured_thresh={thresh}:offset={offset}:linear=true"
+        ),
+        None => down.to_string(),   // the analysis failed (for example silent audio): downmix only
+    }
+}
+
+/// Reads the JSON block `loudnorm` prints after its first pass.
+fn parse_loudnorm(log: &str) -> Option<(String, String, String, String, String)> {
+    let start = log.rfind('{')?;
+    let end = log.rfind('}')?;
+    let v: serde_json::Value = serde_json::from_str(log.get(start..=end)?).ok()?;
+    let field = |k: &str| -> Option<String> {
+        let t = v.get(k)?.as_str()?.trim().to_owned();
+        t.parse::<f64>().ok().filter(|x| x.is_finite())?;
+        Some(t)
+    };
+    Some((field("input_i")?, field("input_tp")?, field("input_lra")?, field("input_thresh")?, field("target_offset")?))
+}
+
 fn prefetch_audio(
     ffmpeg: &Path,
     input: &Path,
     track: u32,
     tac: &Path,
+    advanced: AdvancedSettings,
+    dependencies: &Dependencies,
     control: &JobControl,
     abort: &AtomicBool,
 ) -> Result<AudioPrefetch, String> {
+    let ffprobe = selected_file(&dependencies.ffprobe, "FFprobe")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| ffmpeg.with_file_name(executable_name("ffprobe")));
+    let prefix = audio_prefix(ffmpeg, &ffprobe, input, advanced, control, Some(abort));
     let (wav, wav_file) = temporary_file("wav")?;
     drop(wav_file);
     let mut extract = Command::new(ffmpeg);
     extract
         .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
         .arg(input)
-        .args(["-map", &format!("0:a:{track}"), "-vn", "-map_metadata", "-1", "-ar", "48000", "-ac", "2"])
+        .args(["-map", &format!("0:a:{track}"), "-vn", "-map_metadata", "-1"]);
+    if !prefix.is_empty() {
+        extract.args(["-af", &prefix]);
+    }
+    extract
+        .args(["-ar", "48000", "-ac", "2"])
         .args(["-c:a", "pcm_s16le", "-f", "wav"])
         .arg(&wav.0);
     run_cancellable_with(extract, "Audio extraction", control, Some(abort))?;
@@ -1577,22 +1680,38 @@ fn prefetch_audio(
     let (checkpoints, f) = temporary_file("ckpt")?;
     drop(f);
     let mut enc = Command::new(tac);
-    enc.arg("enc").arg(&wav.0).arg(&full_tac.0).arg("-b").arg("96").arg("-C").arg(&checkpoints.0);
+    enc.arg("enc").arg(&wav.0).arg(&full_tac.0).arg("-b").arg("96");
+    if let Some(floor) = advanced.tac_floor() {
+        enc.arg("-L").arg(floor.to_string());
+    }
+    enc.arg("-C").arg(&checkpoints.0);
     run_cancellable_with(enc, "TAC encoding", control, Some(abort))?;
     let source_samples = wav_sample_frames(&wav.0).ok_or("Could not read the extracted audio length.")?;
     Ok(AudioPrefetch { wav, full_tac, checkpoints, source_samples })
 }
 
 fn run_cancellable_with(
-    mut command: Command,
+    command: Command,
     label: &str,
     control: &JobControl,
     abort: Option<&AtomicBool>,
 ) -> Result<String, String> {
+    run_cancellable_limit(command, label, control, abort, 4096)
+}
+
+/// Like `run_cancellable_with`, keeping up to `limit` bytes of the tool's diagnostics (a loudness analysis prints its
+/// result at the end of a long log).
+fn run_cancellable_limit(
+    mut command: Command,
+    label: &str,
+    control: &JobControl,
+    abort: Option<&AtomicBool>,
+    limit: usize,
+) -> Result<String, String> {
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|e| format!("Could not start {label}: {e}"))?;
     let stderr = child.stderr.take().ok_or("Could not capture tool diagnostics.")?;
-    let log = capture_diagnostics(stderr);
+    let log = capture_diagnostics_with_limit(stderr, limit);
     let status = loop {
         if let Err(stop) = control.checkpoint() {
             let _ = child.kill();
@@ -1637,6 +1756,7 @@ fn build_tnv3_with_tac(
     ffmpeg: &Path,
     subtitle_track: Option<u32>,
     trim: Option<(&Path, &Path, u64)>,
+    tac_floor: Option<f64>,
     on_phase: &mut dyn FnMut(&'static str),
 ) -> Result<(Temporary, File, Vec<String>), String> {
     let tac = resolve_tool(&dependencies.tac_tool, "TAC encoder", fallbacks)?;
@@ -1668,6 +1788,9 @@ fn build_tnv3_with_tac(
     control.checkpoint()?;
     let mut enc = Command::new(&tac);
     enc.arg("enc").arg(wav_path).arg(&tac_guard.0).arg("-b").arg("96");
+    if let Some(floor) = tac_floor {
+        enc.arg("-L").arg(floor.to_string());
+    }
     if let Some((full, checkpoints, samples)) = trim {
         // the whole-source encode already exists: re-encode only the last frames, cut at the video's end
         enc.arg("-R").arg(checkpoints).arg("-F").arg(full).arg("-N").arg(samples.to_string());
@@ -4285,6 +4408,56 @@ mod tests {
                 AdvancedSettings::default(), &dependencies, |_| {})
             .is_err()
         );
+    }
+    #[test]
+    fn loudnorm_report_is_parsed_and_bad_reports_are_refused() {
+        let log = "noise {not json}\n[Parsed_loudnorm_0 @ 0x1]\n{\n\t\"input_i\" : \"-31.42\",\n\t\"input_tp\" : \"-10.89\",\n\t\"input_lra\" : \"12.00\",\n\t\"input_thresh\" : \"-42.29\",\n\t\"target_offset\" : \"0.58\"\n}\n";
+        let (i, tp, lra, thresh, offset) = parse_loudnorm(log).unwrap();
+        assert_eq!((i.as_str(), tp.as_str(), lra.as_str(), thresh.as_str(), offset.as_str()), ("-31.42", "-10.89", "12.00", "-42.29", "0.58"));
+        assert!(parse_loudnorm("{\"input_i\":\"-inf\",\"input_tp\":\"-inf\",\"input_lra\":\"0\",\"input_thresh\":\"-70\",\"target_offset\":\"0\"}").is_none(), "silence");
+        assert!(parse_loudnorm("no report here").is_none());
+        let a = AdvancedSettings::default();
+        assert!(a.downmix_enhance() && a.tac_floor().is_none() && (a.loudness_target() + 18.0).abs() < 1e-9);
+        assert_eq!(AdvancedSettings { audio_floor_db: Some(99.0), ..Default::default() }.tac_floor(), None, "out-of-range floors are ignored");
+    }
+    #[test]
+    fn surround_source_is_downmixed_and_encoded_with_a_floor() {
+        let (Some(ffmpeg), Some(tvc), Some(tnv3), Some(tac)) = (
+            std::env::var_os("TAU_TEST_FFMPEG"),
+            std::env::var_os("TAU_TEST_TVC_ENC"),
+            std::env::var_os("TAU_TEST_TNV3"),
+            std::env::var_os("TAU_TEST_TAC"),
+        ) else {
+            return;
+        };
+        let dependencies = Dependencies {
+            tvc_encoder: PathBuf::from(tvc).display().to_string(),
+            tnv3_tool: PathBuf::from(&tnv3).display().to_string(),
+            tac_tool: PathBuf::from(tac).display().to_string(),
+            workspace_limit_bytes: 512u64 * 1024 * 1024,
+            ..Default::default()
+        };
+        let (src, f) = temporary_file("mkv").unwrap();
+        drop(f);
+        assert!(Command::new(&ffmpeg).args([
+            "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24:duration=2",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2",
+            "-map", "0", "-map", "1", "-ac", "6", "-c:v", "mpeg4", "-c:a", "aac",
+        ]).arg(&src.0).status().unwrap().success());
+        for (enhance, floor) in [(true, Some(0.0)), (false, None)] {
+            let (reserve, f) = temporary_file("tnv3").unwrap();
+            drop(f);
+            std::fs::remove_file(&reserve.0).unwrap();
+            let name = reserve.0.file_stem().unwrap().to_str().unwrap();
+            let folder = reserve.0.parent().unwrap();
+            let settings = AdvancedSettings { downmix_enhance: Some(enhance), audio_floor_db: floor, ..Default::default() };
+            let result = encode_pair(Path::new(&ffmpeg), &src.0, folder, name, 30, None, settings, &dependencies, |_| {}).unwrap();
+            let video = Temporary(PathBuf::from(&result.video));
+            let info = tau_video::Tnv3Reader::open(File::open(&video.0).unwrap()).unwrap().info().clone();
+            assert_eq!((info.audio_channels, info.audio_samples), (2, 96_000), "stereo, fitted to the video (enhance={enhance})");
+            let check = Command::new(&tnv3).arg("check").arg(&video.0).output().unwrap();
+            assert!(String::from_utf8_lossy(&check.stdout).contains("valid"), "{check:?}");
+        }
     }
     #[test]
     fn tac_audio_without_configured_tools_fails_before_publication() {

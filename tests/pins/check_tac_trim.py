@@ -17,14 +17,15 @@ def run(*a): subprocess.run([tac, *a], check=True, stderr=subprocess.DEVNULL)
 fails = 0
 with tempfile.TemporaryDirectory() as d:
     p = lambda n: os.path.join(d, n)
-    for ch, kbps, total, cuts in ((2, 96, 150000, (149999, 120001, 70000, 33333, 4096, 1500)), (1, 64, 100000, (99000, 50001, 20000))):
+    for ch, kbps, total, cuts, extra in ((2, 96, 150000, (149999, 120001, 70000, 33333, 4096, 1500), []), (1, 64, 100000, (99000, 50001, 20000), []),
+                                         (2, 96, 150000, (120001, 33333), ["-L", "0"])):   # -L: the quality floor changes the reservoir path
         wav(p("src.wav"), total, ch)
-        run("enc", p("src.wav"), p("full.tac"), "-b", str(kbps), "-C", p("full.ck"))
+        run("enc", p("src.wav"), p("full.tac"), "-b", str(kbps), *extra, "-C", p("full.ck"))
         for ns in cuts:
             src = wave.open(p("src.wav")); cut = wave.open(p("cut.wav"), "wb"); cut.setparams(src.getparams()); cut.writeframes(src.readframes(ns)); cut.close()
-            run("enc", p("cut.wav"), p("direct.tac"), "-b", str(kbps))
-            run("enc", p("src.wav"), p("trim.tac"), "-b", str(kbps), "-R", p("full.ck"), "-F", p("full.tac"), "-N", str(ns))
+            run("enc", p("cut.wav"), p("direct.tac"), "-b", str(kbps), *extra)
+            run("enc", p("src.wav"), p("trim.tac"), "-b", str(kbps), *extra, "-R", p("full.ck"), "-F", p("full.tac"), "-N", str(ns))
             ok = open(p("direct.tac"), "rb").read() == open(p("trim.tac"), "rb").read()
-            print("ok  " if ok else "FAIL", f"{ch}ch {kbps} kbps cut at {ns} of {total}")
+            print("ok  " if ok else "FAIL", f"{ch}ch {kbps} kbps {' '.join(extra)} cut at {ns} of {total}")
             fails += not ok
 sys.exit(1 if fails else 0)

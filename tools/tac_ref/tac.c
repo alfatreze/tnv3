@@ -1,5 +1,5 @@
 /* TAC v0 reference (TNV3 audio): MDCT transform codec, 48 kHz, mono or stereo, 16-bit PCM.
- *   tac enc IN.wav OUT.tac [-b KBPS]     (default 96; encoder: psychoacoustic allocation, block switching, M/S, noise filling)
+ *   tac enc IN.wav OUT.tac [-b KBPS] [-L DB]   (default 96, -L -30 = use the whole bit budget; -L 0 stops at the masking threshold, saving bits on easy material; encoder: psychoacoustic allocation, block switching, M/S, noise filling)
  *   tac dec IN.tac OUT.wav               (reference decoder)
  * Normative description: docs/TAC_BITSTREAM_V0.md.  Frame = 1024 new samples; long MDCT of 2048, or 8 short MDCTs of
  * 256 (block switching with START/STOP transition windows); scale-factor bands; power-law quantiser (|x|^(3/4));
@@ -24,6 +24,7 @@ static double SMR_DB = 0.0;     /* encoder switch -m: extra signal-to-mask offse
 static int MSFORCE = -1;        /* encoder switch -M 0/1/2: force the stereo mode (conformance vectors); -1 = per-band choice */
 static int TONAL = 1;           /* encoder switch -T 0/1: tonality-dependent offsets (0 = fixed 13 dB, the draft-1 model) */
 static const char *CKPT_OUT, *RESUME_CKPT, *RESUME_FULL; static long RESUME_NS = -1;   /* encoder switches -C / -R -F -N, see the trim mode below */
+static double ALPHA_MIN = -30.0; /* encoder switch -L dB: quality floor, the rate loop never spends bits to put the noise more than this many dB under the masking threshold (default -30: effectively always use the whole budget) */
 static double ATT_RATIO = 8.0;  /* encoder switch -a: attack = segment high-pass energy above this multiple of the recent average */
 
 /* fast MDCT: fold 2n windowed samples to n, DCT-IV through an n/2-point complex FFT */
@@ -403,7 +404,7 @@ static int encode(const char *in, const char *out, int kbps) {
         }
         double allowed = mean_bits + (f.type == W_SHORT ? 0.6 : 0.15) * reservoir;
         /* rate loop: bisection on a global noise offset (dB) applied to every band's masking threshold */
-        double lo = -30, hi = 40, best_bits = 0; Frame best = f; int have = 0;
+        double lo = ALPHA_MIN, hi = 40, best_bits = 0; Frame best = f; int have = 0;
         for (int it = 0; it < 12; it++) {
             double alpha = (lo + hi) / 2;
             Frame g = f;
@@ -476,7 +477,7 @@ int main(int argc, char **argv) {
             if (!strcmp(argv[i], "-b")) kb = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-n")) NFILL = atoi(argv[i + 1]);
             else if (!strcmp(argv[i], "-m")) SMR_DB = atof(argv[i + 1]); else if (!strcmp(argv[i], "-a")) ATT_RATIO = atof(argv[i + 1]);
             else if (!strcmp(argv[i], "-T")) TONAL = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-M")) MSFORCE = atoi(argv[i + 1]);
-            else if (!strcmp(argv[i], "-C")) CKPT_OUT = argv[i + 1]; else if (!strcmp(argv[i], "-R")) RESUME_CKPT = argv[i + 1];
+            else if (!strcmp(argv[i], "-L")) ALPHA_MIN = atof(argv[i + 1]); else if (!strcmp(argv[i], "-C")) CKPT_OUT = argv[i + 1]; else if (!strcmp(argv[i], "-R")) RESUME_CKPT = argv[i + 1];
             else if (!strcmp(argv[i], "-F")) RESUME_FULL = argv[i + 1]; else if (!strcmp(argv[i], "-N")) RESUME_NS = atol(argv[i + 1]);
         }
         return encode(argv[2], argv[3], kb);

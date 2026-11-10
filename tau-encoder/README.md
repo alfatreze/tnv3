@@ -12,6 +12,11 @@ The preview shows the file's subtitles when it has any: the output window is 800
 
 The app currently requires a source audio track. Output is 24 fps and 48 kHz stereo TAC audio inside the `.tnv3`; the Rust encoder uses conservative rate control and may fail or reduce quality. The Python workflow reports segment progress; the native C workflow reports completed segments and updates its video-time estimate. Audio and saving are separate. Pocket A/V synchronisation remains to be validated.
 
+## Audio options (Settings, Audio)
+
+- **Surround sources** (more than two channels): by default mixed to stereo with the centre channel (dialogue) 3 dB up, the surrounds 6 dB down and no bass channel, then loudness-normalised (two-pass FFmpeg `loudnorm`, target −18 LUFS by default, adjustable). Stereo and mono sources are never changed. The loudness analysis adds about 40 s for a 28 minute episode but runs beside the video encode.
+- **Audio size:** the TAC encoder normally uses its whole 96 kbit/s budget. A quality floor (−6, 0 or +3 dB against the masking threshold) lets simple passages take fewer bits: about 2%, 22% and 40% smaller on one test episode. These sizes are measured; the sound has not been compared on the Pocket, so the default is Off.
+
 ## Platform status
 
 The macOS Apple Silicon archive includes FFmpeg 9.0.2, FFprobe and the C tools. Python 3 remains separate for the default workflow. The macOS app is ad-hoc signed and not notarized.

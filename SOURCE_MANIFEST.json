@@ -1279,7 +1279,7 @@
       "sha256": "a4b8ee90562d3385bc960dc4141693f66735149c08dedf132309cb2b08c701f2"
     },
     "tools/tac_ref/tac.c": {
-      "sha256": "ded2b8dd8c4d02c68f12bc27891b751c7a45f3b819f1768620adcf41f0639ba6",
+      "sha256": "047715573d67db45f53248113185577615e9c63b1a4ead78fca280cabe3792b4",
       "status": "modified_after_snapshot",
       "upstream_path": "tools/tac_ref/tac.c",
       "upstream_sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
@@ -1456,7 +1456,7 @@
       "sha256": "0ad3e221a94b26f44e3197e39fdf3bd0b363c1d9c65fe11f4df6c0f6fb9c3965"
     },
     "tau-encoder/README.md": {
-      "sha256": "b39353f47bb002041a317b617f42bae55e2621e314904bb23700059606ff2830",
+      "sha256": "d7cc1c05acc6919c117b8efd19ca6c8bcf469309eb092f528af9c4b8e0355451",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/index.html": {
@@ -1471,7 +1471,7 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "8986f8a643c280ee04b83fc0cc62645b14445e6bb3ffca7292a98f40a99fb7f3",
+      "sha256": "f72cdc4c346ab07c8a471a9af415e70ac60cdba934f94dbf312d1df88f117549",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/main.ts": {
@@ -1510,7 +1510,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "0e5307ad5b1f33d72324be62d7579daf960265607f02382fde3a6d416316d548",
+      "sha256": "6a3e99f57ceb97a098ed67663d4b7afa94f9377ef7874f7987a76b658a28d9cf",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
