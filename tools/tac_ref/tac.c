@@ -23,6 +23,7 @@ static int NFILL = 1;           /* encoder switch -n 0/1 */
 static double SMR_DB = 0.0;     /* encoder switch -m: extra signal-to-mask offset (dB) on top of the tonality offsets */
 static int MSFORCE = -1;        /* encoder switch -M 0/1/2: force the stereo mode (conformance vectors); -1 = per-band choice */
 static int TONAL = 1;           /* encoder switch -T 0/1: tonality-dependent offsets (0 = fixed 13 dB, the draft-1 model) */
+static const char *CKPT_OUT, *RESUME_CKPT, *RESUME_FULL; static long RESUME_NS = -1;   /* encoder switches -C / -R -F -N, see the trim mode below */
 static double ATT_RATIO = 8.0;  /* encoder switch -a: attack = segment high-pass energy above this multiple of the recent average */
 
 /* fast MDCT: fold 2n windowed samples to n, DCT-IV through an n/2-point complex FFT */
@@ -311,6 +312,8 @@ static int quant1(double x, int sf) { double st = sfstep(sf); int q = (int)floor
 static int encode(const char *in, const char *out, int kbps) {
     int nch, rate; long ns; int16_t *pcm = wav_read(in, &nch, &rate, &ns);
     if (!pcm || rate != 48000) { fprintf(stderr, "need 16-bit 48 kHz mono/stereo WAV\n"); return 1; }
+    long src_ns = ns;
+    if (RESUME_NS >= 0 && RESUME_NS < ns) ns = RESUME_NS;   /* trim mode: only the first RESUME_NS samples count */
     long nfr = (ns + N - 1) / N + 1;
     double *x[2];
     for (int ch = 0; ch < nch; ch++) {   /* x[ch][i] = sample i - N (N zeros of lead-in), padded after the end */
@@ -339,13 +342,37 @@ static int encode(const char *in, const char *out, int kbps) {
         nshort += type[t] == W_SHORT;
     }
     FILE *o = fopen(out, "wb");
+    FILE *ck = CKPT_OUT ? fopen(CKPT_OUT, "w") : NULL;
     fwrite("TAC0", 1, 4, o); put32(o, 48000); fputc(nch, o); fputc(0, o); fputc(0, o); fputc(0, o); put32(o, (uint32_t)nfr); put32(o, (uint32_t)ns);
     double mean_bits = kbps * 1000.0 * N / 48000.0, reservoir = 0, rmax = 6 * mean_bits;
     /* encoder bandwidth, rounded to band edges: 128 kbit/s up to 18.6 kHz, 96 kbit/s up to 15.05 kHz */
     double cut = kbps >= 128 ? 18700 : kbps >= 96 ? 15100 : 12900;
     ACtx c; actx_init(&c);
-    long total = 0;
-    for (long t = 0; t < nfr; t++) {
+    long total = 0, t_first = 0;
+    if (RESUME_CKPT) {
+        /* Trim mode: frames before t_first are identical to those of the encode of the whole source (same window types,
+         * same samples), the contexts reset at every reset frame, and the only state carried across frames is the bit
+         * reservoir, which the checkpoint file of that encode recorded at each reset frame. */
+        long t_ok = RESUME_NS >= src_ns ? nfr - 1 : RESUME_NS / N - 2;   /* last frame whose window and attack lookahead lie inside the kept samples */
+        long t0 = t_ok + 1 > 0 ? (t_ok + 1) / 16 * 16 : 0;
+        if (t0 > nfr - 1) t0 = (nfr - 1) / 16 * 16;
+        FILE *cf = fopen(RESUME_CKPT, "r"), *ff = fopen(RESUME_FULL, "rb");
+        if (!cf || !ff) { fprintf(stderr, "cannot open the checkpoint or the full TAC file\n"); return 1; }
+        long ct, off = -1; double res = 0; int found = 0;
+        while (fscanf(cf, "%ld %ld %lf", &ct, &off, &res) == 3) if (ct == t0) { found = 1; break; }
+        fclose(cf);
+        if (!found) { fprintf(stderr, "no checkpoint for frame %ld\n", t0); return 1; }
+        if (fseek(ff, 20, SEEK_SET)) return 1;
+        for (long left = off - 20; left > 0;) {
+            unsigned char buf[65536]; size_t want = left < (long)sizeof buf ? (size_t)left : sizeof buf, got = fread(buf, 1, want, ff);
+            if (got == 0) { fprintf(stderr, "full TAC file is shorter than its checkpoint\n"); return 1; }
+            fwrite(buf, 1, got, o); left -= (long)got; total += (long)got;
+        }
+        fclose(ff);
+        t_first = t0; reservoir = res;
+    }
+    for (long t = t_first; t < nfr; t++) {
+        if (ck && t % 16 == 0) fprintf(ck, "%ld %ld %.17g\n", t, ftell(o), reservoir);
         Frame f; memset(&f, 0, sizeof f);
         f.type = type[t]; f.reset = t % 16 == 0; f.nfill = NFILL;
         int nb = nbands(f.type); const int *e = edges(f.type); int idx[N];
@@ -421,6 +448,7 @@ static int encode(const char *in, const char *out, int kbps) {
         reservoir += mean_bits - 8.0 * r.outlen; if (reservoir > rmax) reservoir = rmax;
     }
     fclose(o);
+    if (ck) fclose(ck);
     fprintf(stderr, "%ld frames (%d short), %ld bytes, %.1f kbit/s\n", nfr, nshort, total, total * 8.0 / (ns / 48000.0) / 1000.0);
     return 0;
 }
@@ -448,6 +476,8 @@ int main(int argc, char **argv) {
             if (!strcmp(argv[i], "-b")) kb = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-n")) NFILL = atoi(argv[i + 1]);
             else if (!strcmp(argv[i], "-m")) SMR_DB = atof(argv[i + 1]); else if (!strcmp(argv[i], "-a")) ATT_RATIO = atof(argv[i + 1]);
             else if (!strcmp(argv[i], "-T")) TONAL = atoi(argv[i + 1]); else if (!strcmp(argv[i], "-M")) MSFORCE = atoi(argv[i + 1]);
+            else if (!strcmp(argv[i], "-C")) CKPT_OUT = argv[i + 1]; else if (!strcmp(argv[i], "-R")) RESUME_CKPT = argv[i + 1];
+            else if (!strcmp(argv[i], "-F")) RESUME_FULL = argv[i + 1]; else if (!strcmp(argv[i], "-N")) RESUME_NS = atol(argv[i + 1]);
         }
         return encode(argv[2], argv[3], kb);
     }

@@ -883,6 +883,25 @@ fn encode_pair_impl(
     });
     let mut warnings = Vec::new();
     let (video_tmp, mut tvc) = temporary_file("tnv3")?;
+    // Audio runs beside the video (TAC output only); see AudioPrefetch.
+    let prefetch_tac = if tac_audio {
+        let mut fallbacks = Vec::new();
+        if let Some((script, _)) = c_tools {
+            if let Some(dir) = script.parent() {
+                fallbacks.push(dir.join("..").join("tac_ref").join(executable_name("tac")));
+            }
+        }
+        resolve_tool(&dependencies.tac_tool, "TAC encoder", &fallbacks).ok()
+    } else {
+        None
+    };
+    let abort_audio = AtomicBool::new(false);
+    let (stats, mut prefetch) = std::thread::scope(|scope| -> Result<(VideoSummary, Option<AudioPrefetch>), String> {
+        let worker = prefetch_tac.as_ref().map(|tac| {
+            let (abort, tac) = (&abort_audio, tac.as_path());
+            scope.spawn(move || prefetch_audio(ffmpeg, input, advanced.track(), tac, control, abort))
+        });
+        let _stop_audio_on_failure = AbortOnDrop(&abort_audio);
     let stats = if let Some((script, ffprobe)) = c_tools {
         progress(Progress {
             phase: "c-video",
@@ -1220,6 +1239,13 @@ fn encode_pair_impl(
             }
         }
     };
+    // the video is done: take the audio that was encoded beside it, if it succeeded (any failure falls back to the plain path)
+    let pre = match worker {
+        Some(handle) => handle.join().ok().and_then(|r| r.ok()),
+        None => None,
+    };
+    Ok((stats, pre))
+    })?;
     control.checkpoint()?;
     progress(Progress {
         phase: "audio",
@@ -1228,8 +1254,21 @@ fn encode_pair_impl(
         remaining_seconds: None,
     });
     control.checkpoint()?;
-    let (audio_tmp, audio_file) = temporary_file(if tac_audio { "wav" } else { "mp3" })?;
-    drop(audio_file);
+    let trim_samples = u64::from(stats.frames) * 2000;   // 48000 / 24 samples per frame
+    let use_prefetch = prefetch.as_ref().is_some_and(|p| p.source_samples >= trim_samples);
+    let mut prefetch_parts = None;
+    let audio_tmp = match prefetch.take().filter(|_| use_prefetch) {
+        Some(p) => {
+            prefetch_parts = Some((p.full_tac, p.checkpoints));
+            p.wav
+        }
+        None => {
+            let (tmp, audio_file) = temporary_file(if tac_audio { "wav" } else { "mp3" })?;
+            drop(audio_file);
+            tmp
+        }
+    };
+    if !use_prefetch {
     let duration = format!("{:.9}", f64::from(stats.frames) / 24.0);
     let mut audio_command = Command::new(ffmpeg);
     audio_command
@@ -1335,6 +1374,7 @@ fn encode_pair_impl(
             &details,
         ));
     }
+    }
     let tac_result = if tac_audio {
         let mut fallbacks = Vec::new();
         if let Some((script, _)) = c_tools {
@@ -1354,6 +1394,7 @@ fn encode_pair_impl(
             input,
             ffmpeg,
             advanced.subtitle_track,
+            prefetch_parts.as_ref().map(|(full, ck)| (full.0.as_path(), ck.0.as_path(), trim_samples)),
             &mut |phase| {
                 progress(Progress { phase, frames: stats.frames, total_frames_estimate: total, remaining_seconds: None })
             },
@@ -1471,7 +1512,83 @@ fn resolve_tool(configured: &str, label: &str, fallbacks: &[PathBuf]) -> Result<
 }
 
 /// Runs a short-lived child, polling so Stop can kill it. Returns its captured stderr.
-fn run_cancellable(mut command: Command, label: &str, control: &JobControl) -> Result<String, String> {
+fn run_cancellable(command: Command, label: &str, control: &JobControl) -> Result<String, String> {
+    run_cancellable_with(command, label, control, None)
+}
+
+/// Sets a flag when dropped: ends a helper thread that runs beside the video encode when that encode fails.
+struct AbortOnDrop<'a>(&'a AtomicBool);
+impl Drop for AbortOnDrop<'_> {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Audio encoded while the video is still encoding. The audio must end where the video ends, which is only known
+/// afterwards, so this encodes the whole source audio and saves the bit reservoir at every reset frame; once the
+/// frame count is known, `tac enc -R -F -N` re-encodes only the last frames (checked byte-identical to encoding
+/// the trimmed WAV directly).
+struct AudioPrefetch {
+    wav: Temporary,
+    full_tac: Temporary,
+    checkpoints: Temporary,
+    source_samples: u64,
+}
+
+/// Number of 16-bit stereo sample frames in a WAV file written by FFmpeg to a file (data chunk size known).
+fn wav_sample_frames(path: &Path) -> Option<u64> {
+    let mut f = File::open(path).ok()?;
+    let mut head = [0u8; 12];
+    f.read_exact(&mut head).ok()?;
+    if &head[..4] != b"RIFF" || &head[8..12] != b"WAVE" {
+        return None;
+    }
+    loop {
+        let mut chunk = [0u8; 8];
+        f.read_exact(&mut chunk).ok()?;
+        let size = u64::from(u32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]));
+        if &chunk[..4] == b"data" {
+            return Some(size / 4);
+        }
+        f.seek(SeekFrom::Current(((size + 1) & !1) as i64)).ok()?;
+    }
+}
+
+fn prefetch_audio(
+    ffmpeg: &Path,
+    input: &Path,
+    track: u32,
+    tac: &Path,
+    control: &JobControl,
+    abort: &AtomicBool,
+) -> Result<AudioPrefetch, String> {
+    let (wav, wav_file) = temporary_file("wav")?;
+    drop(wav_file);
+    let mut extract = Command::new(ffmpeg);
+    extract
+        .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
+        .arg(input)
+        .args(["-map", &format!("0:a:{track}"), "-vn", "-map_metadata", "-1", "-ar", "48000", "-ac", "2"])
+        .args(["-c:a", "pcm_s16le", "-f", "wav"])
+        .arg(&wav.0);
+    run_cancellable_with(extract, "Audio extraction", control, Some(abort))?;
+    let (full_tac, f) = temporary_file("tac")?;
+    drop(f);
+    let (checkpoints, f) = temporary_file("ckpt")?;
+    drop(f);
+    let mut enc = Command::new(tac);
+    enc.arg("enc").arg(&wav.0).arg(&full_tac.0).arg("-b").arg("96").arg("-C").arg(&checkpoints.0);
+    run_cancellable_with(enc, "TAC encoding", control, Some(abort))?;
+    let source_samples = wav_sample_frames(&wav.0).ok_or("Could not read the extracted audio length.")?;
+    Ok(AudioPrefetch { wav, full_tac, checkpoints, source_samples })
+}
+
+fn run_cancellable_with(
+    mut command: Command,
+    label: &str,
+    control: &JobControl,
+    abort: Option<&AtomicBool>,
+) -> Result<String, String> {
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|e| format!("Could not start {label}: {e}"))?;
     let stderr = child.stderr.take().ok_or("Could not capture tool diagnostics.")?;
@@ -1482,6 +1599,12 @@ fn run_cancellable(mut command: Command, label: &str, control: &JobControl) -> R
             let _ = child.wait();
             let _ = finish_diagnostics(log);
             return Err(stop);
+        }
+        if abort.is_some_and(|a| a.load(Ordering::SeqCst)) {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = finish_diagnostics(log);
+            return Err("Stopped.".into());
         }
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -1513,6 +1636,7 @@ fn build_tnv3_with_tac(
     input: &Path,
     ffmpeg: &Path,
     subtitle_track: Option<u32>,
+    trim: Option<(&Path, &Path, u64)>,
     on_phase: &mut dyn FnMut(&'static str),
 ) -> Result<(Temporary, File, Vec<String>), String> {
     let tac = resolve_tool(&dependencies.tac_tool, "TAC encoder", fallbacks)?;
@@ -1544,6 +1668,10 @@ fn build_tnv3_with_tac(
     control.checkpoint()?;
     let mut enc = Command::new(&tac);
     enc.arg("enc").arg(wav_path).arg(&tac_guard.0).arg("-b").arg("96");
+    if let Some((full, checkpoints, samples)) = trim {
+        // the whole-source encode already exists: re-encode only the last frames, cut at the video's end
+        enc.arg("-R").arg(checkpoints).arg("-F").arg(full).arg("-N").arg(samples.to_string());
+    }
     run_cancellable(enc, "TAC encoding", control)?;
     let mut warnings = Vec::new();
     let (area_guard, area_file) = temporary_file("bin")?;

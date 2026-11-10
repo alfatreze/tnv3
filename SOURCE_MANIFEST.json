@@ -27,7 +27,7 @@
       "note": "Apache-2.0 text; the upstream MIT original is LICENSES/MIT-HarpMudd.txt"
     },
     "Makefile": {
-      "sha256": "71e44bad5947447519fa381c1ed4f8a11b7cc779c7e8bfdbd8caaa7818f9b4f4",
+      "sha256": "f290e4de4148844c26b88896206077837fd0ed11d017e3fa0bf0fb15899498a5",
       "status": "modified_for_release",
       "upstream_path": "Makefile",
       "upstream_sha256": "8a7f0a0a93aed8a72f899560a7341778406ce1721dcb7c70d3113fb27ad2d442"
@@ -1279,7 +1279,7 @@
       "sha256": "a4b8ee90562d3385bc960dc4141693f66735149c08dedf132309cb2b08c701f2"
     },
     "tools/tac_ref/tac.c": {
-      "sha256": "3c9ce60f4b55eb9d4d50e1f8ff98c54a9283739f1409949ba3d7a8ed55242fcb",
+      "sha256": "ded2b8dd8c4d02c68f12bc27891b751c7a45f3b819f1768620adcf41f0639ba6",
       "status": "modified_after_snapshot",
       "upstream_path": "tools/tac_ref/tac.c",
       "upstream_sha256": "3dca661c9409ca7b63a98a405fc70629dc5e1e6ae41075b3a76002b041b96449",
@@ -1510,7 +1510,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "d58951f0c41eb91d805ca8f814df1ed40d57066e8f1d5b23c41bd8f00bf5ea29",
+      "sha256": "0e5307ad5b1f33d72324be62d7579daf960265607f02382fde3a6d416316d548",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
