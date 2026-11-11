@@ -1,9 +1,9 @@
 name: Tau Encoder
 on:
   push:
-    paths: ['tau-encoder/**', 'tau-video/**', '.github/workflows/tau-encoder.yml']
+    paths: ['tau-encoder/**', 'tau-video/**', 'tools/**', '.github/workflows/tau-encoder.yml', '.github/actions/**']
   pull_request:
-    paths: ['tau-encoder/**', 'tau-video/**', '.github/workflows/tau-encoder.yml']
+    paths: ['tau-encoder/**', 'tau-video/**', 'tools/**', '.github/workflows/tau-encoder.yml', '.github/actions/**']
   workflow_dispatch:
 jobs:
   build:
@@ -20,6 +20,8 @@ jobs:
           cache: npm
           cache-dependency-path: tau-encoder/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
+      - name: Reference tools for the tests
+        uses: ./.github/actions/reference-tools
       - name: Install Linux prerequisites
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev

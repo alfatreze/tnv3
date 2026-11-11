@@ -1,0 +1,47 @@
+name: Reference tools for the tests
+description: Installs FFmpeg and Python, builds the C reference tools from this repository and exports the TAU_TEST_* variables, so the reference tests really run.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+    - name: Install FFmpeg
+      shell: bash
+      run: |
+        case "$RUNNER_OS" in
+          Linux) sudo apt-get update && sudo apt-get install -y ffmpeg ;;
+          macOS) brew install ffmpeg ;;
+          Windows) choco install ffmpeg -y --no-progress ;;
+        esac
+        ffmpeg -version | head -1
+        ffprobe -version | head -1
+    - name: Build the C reference tools
+      shell: bash
+      run: |
+        ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
+        cc_bin=cc; command -v cc >/dev/null 2>&1 || cc_bin=gcc
+        out="$RUNNER_TEMP/tau-ref-tools"; mkdir -p "$out"
+        for t in tvc_ref/tvc_enc tvc_ref/tvc_dec tac_ref/tac tac_ref/tac_fx tnv3_ref/tnv3; do
+          "$cc_bin" -O3 -o "$out/$(basename "$t")$ext" "tools/$t.c" -lm
+        done
+        ls -l "$out"
+    - name: Export the test environment
+      shell: bash
+      run: |
+        ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
+        out="$RUNNER_TEMP/tau-ref-tools"
+        p() { if [ "$RUNNER_OS" = Windows ]; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
+        {
+          echo "TAU_TEST_FFMPEG=$(p "$(command -v ffmpeg)")"
+          echo "TAU_TEST_FFPROBE=$(p "$(command -v ffprobe)")"
+          echo "TAU_TEST_PYTHON=$(p "$(command -v python)")"
+          echo "TAU_TEST_TVC=$(p "$out/tvc_enc$ext")"
+          echo "TAU_TEST_TVC_ENC=$(p "$out/tvc_enc$ext")"
+          echo "TAU_TEST_TNV3=$(p "$out/tnv3$ext")"
+          echo "TAU_TNV3_TOOL=$(p "$out/tnv3$ext")"
+          echo "TAU_TVC_DECODER=$(p "$out/tvc_dec$ext")"
+          echo "TAU_TEST_TAC=$(p "$out/tac$ext")"
+          echo "TAU_TEST_C_SCRIPT=$(p "$PWD/tools/tnv3_ref/encode_film.py")"
+          echo "TAU_TEST_FONT=$(p "$PWD/tau-video/assets/fonts/Roboto-Regular.ttf")"
+        } >> "$GITHUB_ENV"
