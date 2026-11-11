@@ -1463,11 +1463,11 @@
       "sha256": "a011f248cfa5acfcae9edbdf9f422b6f705c751f1e09a13d6196cc2f674663b4"
     },
     "tau-encoder/package-lock.json": {
-      "sha256": "3dd70d33cda20ef97091543aca03a949c4c8a4198b68ab1139c340deb421c855",
+      "sha256": "e325b16334b80eea5af473c9feb03662f6b48e850dc5e6bafb5e0333c8a926ee",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/package.json": {
-      "sha256": "2469c2fff187aeec81e3cd4046a0d2673e45fc168497fc88866c339bb9b52d5a",
+      "sha256": "21dfce53223ddae8ef223c69bb3022d4ad85739b08b626650928fbb110835339",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
@@ -1481,11 +1481,11 @@
       "sha256": "63bc4eacba4040523de4d97cc9175a1222664ebd89ff69043a999efae90bb887"
     },
     "tau-encoder/src-tauri/Cargo.lock": {
-      "sha256": "f03e91d08d83ed21ac5d74b9753346966adc8d683d77ee57c77a977be9dc4e19",
+      "sha256": "a3dd22bae77c376076a770de8b3ad6dfc6441a42f638ca0d6198f24c582b6091",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/Cargo.toml": {
-      "sha256": "dfa03362b3d3821ceae8ad13a1471af58a0051a5cb2fa26ee0b1fd5156618bc1",
+      "sha256": "2640cf631f2ed21b3564969950a5c920d79feb31d7198c9bff2fc445718e87f0",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/build.rs": {
@@ -1514,7 +1514,7 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
-      "sha256": "e943aa3fb3dda3f101075de2ae21a51e1efa4c97d27f6077d322abca7ce4f1ed",
+      "sha256": "8c4460d4cb99386738f782831e82873b4de77759c70a6730a3e07018b56e0212",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/tsconfig.json": {
