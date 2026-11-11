@@ -1471,7 +1471,7 @@
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/App.svelte": {
-      "sha256": "1b6a39eeb6f4e2f8f4fd6a78ff5bd3a6b6d030a250e5f99dee710c1d6a310a1e",
+      "sha256": "e3725ed74b602211aadc152f8069d47cd2364ad4326e400455b68cc953a6da0f",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src/main.ts": {

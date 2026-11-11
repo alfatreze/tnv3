@@ -15,6 +15,7 @@
   // Encode log: one detailed JSON-lines file per encode, kept in the app's log folder (default on).
   let keepLog = true, logDir = '', logError = '';
   // Audio: quality floor for the TAC encoder ('off' uses the whole bit budget) and the downmix option for sources with more than two channels.
+  function saveWorkspace() { try { localStorage.setItem('tau-encoder-workspace-mib', String(workspaceMib)); } catch { /* Keep this session's choice. */ } }
   let audioFloor = 'off', downmixEnhance = true, loudnessTarget = '-18', audioTuned = false;
   function saveAudioOptions() { try { localStorage.setItem('tau-encoder-audio-options', JSON.stringify({ audioFloor, downmixEnhance, loudnessTarget, audioTuned })); } catch { /* Keep this session's choice. */ } }
   function saveKeepLog() { try { localStorage.setItem('tau-encoder-keep-log', String(keepLog)); } catch { /* Keep this session's choice. */ } }
@@ -142,6 +143,7 @@
     folder = localStorage.getItem('tau-encoder-output-folder') || '';
     alwaysContinue = localStorage.getItem('tau-encoder-always-continue-source-errors') === 'true';
     keepLog = localStorage.getItem('tau-encoder-keep-log') !== 'false';
+    { const w = Number(localStorage.getItem('tau-encoder-workspace-mib')); if (Number.isInteger(w) && w >= 1 && w <= 16384) workspaceMib = w; }
     try {
       const a = JSON.parse(localStorage.getItem('tau-encoder-audio-options') || '{}');
       if (typeof a.audioFloor === 'string') audioFloor = a.audioFloor;
@@ -240,11 +242,9 @@
     <div class="field"><label for="folder">Output folder <small>Choose a folder or card</small></label><div class="pick"><input id="folder" value={folder} readonly placeholder="Choose where to save" /><button type="button" onclick={chooseFolder} disabled={busy}>Browse</button></div></div>
     <div class="field"><label for="name">File name <small>Creates one .tnv3 file with audio inside</small></label><input class="name" id="name" type="text" bind:value={name} disabled={busy} placeholder="Video name" /></div>
     {#if rustAvailable}<div class="field"><label for="mode">Encoder</label><select id="mode" value={mode} onchange={changeMode} disabled={busy}><option value="c">C reference encoder</option><option value="rust">Rust encoder (experimental)</option></select></div>{/if}
-    {#if mode === 'c'}
-      <div class="field">{#if pythonWorkflow}<label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (reference)</option><option value="native">Rust + C (no Python, default)</option></select>{:else}<p class="field-title">C encoder workflow</p>{/if}
-        {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{:else}<p class="workflow-note">Rust handles orchestration; the same C video encoder still performs compression. Python is not required. This workflow tracks a projected temporary workspace budget; long films may need a higher value. Encoding stops when the projected workspace exceeds this budget, though actual disk use can vary. Video progress updates as segments finish. Custom tools must not launch other processes, because Stop cannot guarantee cleanup of their descendants.</p>
-          <label class="workspace-label" for="workspace-mib">Projected workspace budget <small>MiB</small></label><input class="workspace-input" id="workspace-mib" type="number" min="1" max="16384" step="1" bind:value={workspaceMib} disabled={busy} />
-        {/if}
+    {#if mode === 'c' && pythonWorkflow}
+      <div class="field"><label for="workflow">C encoder workflow</label><select id="workflow" bind:value={workflow} onchange={() => void refreshTools()} disabled={busy}><option value="python">Python + C (reference)</option><option value="native">Rust + C (no Python, default)</option></select>
+        {#if workflow === 'python'}<p class="workflow-note">Uses Python 3 to coordinate the segmented C video encoder. Requires Python in addition to the existing tools.</p>{/if}
       </div>
     {/if}
     <div class="field"><label for="suffix">Output suffix <small>Added to the file name</small></label><input class="name" id="suffix" bind:value={suffix} disabled={busy} /></div>
@@ -315,6 +315,9 @@
       <label><input type="checkbox" bind:checked={eofPass} disabled={busy || !roundDown} /> Pass the final frame with round-down</label>
       <p>May restore a final frame, but can add an extra frame.</p>
     </details>
+    <section class="recovery-settings" aria-label="Workspace"><h2>Workspace budget</h2>
+      <label class="workspace-label" for="workspace-mib">Projected temporary workspace <small>MiB</small></label><input class="workspace-input" id="workspace-mib" type="number" min="1" max="16384" step="1" bind:value={workspaceMib} onchange={saveWorkspace} disabled={busy} />
+      <p class="help">The encoder keeps a projected total of its temporary files and stops with a message when that total would exceed this budget; actual disk use can vary. Long films may need a higher value. Default 512.</p></section>
     <section class="recovery-settings" aria-label="Audio"><h2>Audio</h2>
       <label><input type="checkbox" bind:checked={downmixEnhance} onchange={saveAudioOptions} disabled={busy} /> Louder dialogue and normalised loudness for surround sources</label>
       <p class="help">Applies only to sources with more than two audio channels (5.1, 7.1): they are mixed to stereo with the centre channel (dialogue) 3 dB up, the surrounds 6 dB down and no bass channel, then brought to the loudness below. Stereo and mono sources are not touched.</p>
