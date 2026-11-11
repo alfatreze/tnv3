@@ -1510,7 +1510,7 @@
       "sha256": "51eac9863b1c6368ce2d96a3e464594dcfbff15b062c4ffc3944192040350b99"
     },
     "tau-encoder/src-tauri/src/main.rs": {
-      "sha256": "16b2f0862f2d06bbd7e036dd72e85b1f655c6a00e266fd3c8f3c34f8fe914186",
+      "sha256": "9d807b3cf4969bd4f7f6c7f950769cbd61700f6efe110deabb2eaa7c029412b0",
       "repinned": "2026-11-08 (file changed after the snapshot; hash re-recorded, not an upstream claim)"
     },
     "tau-encoder/src-tauri/tauri.conf.json": {
@@ -1596,7 +1596,7 @@
     },
     ".github/workflows/tau-encoder.yml": {
       "status": "new_release_file",
-      "sha256": "c69d22e0d5de6b1c2a5e0330ca752ad128e311cbc865c2373a561c5deac58407"
+      "sha256": "4135af11fd296e5d8268aa0efc8d6ade1aaf3d4c5649a054642724ee640f7e43"
     },
     "tau-video/src/c_encoder.rs": {
       "status": "new_release_file",

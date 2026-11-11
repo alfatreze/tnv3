@@ -4432,7 +4432,7 @@ mod tests {
         assert_eq!(v["settings"]["workflow"], "native");
         assert_eq!((v["settings"]["audio_track"].as_u64(), v["settings"]["subtitle_track"].as_u64()), (Some(2), Some(1)));
         assert_eq!(v["settings"]["level"], "automatic");
-        assert_eq!(v["output"]["video"], "/out/film_C.tnv3");
+        assert_eq!(v["output"]["video"], Path::new("/out").join("film_C.tnv3").display().to_string().as_str());
         assert_eq!((v["tools"]["tvc_encoder"].as_str(), v["tools"]["tac"].as_str()), (Some("/t/tvc_enc"), Some("/t/tac")));
         assert!(v["tools"]["ffmpeg_version"].is_null(), "a missing ffmpeg is recorded as null, not an error");
         assert!(v["machine"]["cpus"].as_u64().unwrap() >= 1 && !v["started_utc"].as_str().unwrap().is_empty());
@@ -4574,7 +4574,7 @@ mod tests {
             drop(f);
             let (wav, f) = temporary_file("wav").unwrap();
             drop(f);
-            assert!(Command::new(&tnv3).arg("demux").arg(&video.0).arg("/dev/null").arg(&tac_out.0).status().unwrap().success());
+            assert!(Command::new(&tnv3).arg("demux").arg(&video.0).arg(if cfg!(windows) { "NUL" } else { "/dev/null" }).arg(&tac_out.0).status().unwrap().success());
             assert!(Command::new(&tac).arg("dec").arg(&tac_out.0).arg(&wav.0).status().unwrap().success());
             let bytes = std::fs::read(&wav.0).unwrap();
             let samples: Vec<i16> = bytes[44..].chunks_exact(4).map(|c| i16::from_le_bytes([c[0], c[1]])).collect();
